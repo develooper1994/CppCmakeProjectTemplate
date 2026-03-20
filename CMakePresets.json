@@ -105,6 +105,16 @@
       "inherits": "win-base",
       "architecture": "win32",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "embedded-arm-none-eabi",
+      "displayName": "Embedded: ARM (Cortex-M4)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -119,7 +129,8 @@
     { "name": "msvc-release-static-x64", "configurePreset": "msvc-release-static-x64" },
     { "name": "msvc-release-dynamic-x64", "configurePreset": "msvc-release-dynamic-x64" },
     { "name": "msvc-debug-static-x86", "configurePreset": "msvc-debug-static-x86" },
-    { "name": "msvc-release-static-x86", "configurePreset": "msvc-release-static-x86" }
+    { "name": "msvc-release-static-x86", "configurePreset": "msvc-release-static-x86" },
+    { "name": "embedded-arm-none-eabi", "configurePreset": "embedded-arm-none-eabi" }
   ],
   "testPresets": [
     {

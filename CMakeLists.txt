@@ -63,6 +63,13 @@ include(BuildInfo)      # Custom module for Git metadata
 include(CodeCoverage)   # Custom module for coverage reporting
 include(Sanitizers)     # Custom module for ASan/UBSan/TSan
 include(StaticAnalyzers) # Custom module for Clang-Tidy/Cppcheck
+include(EmbeddedUtils)   # Custom module for Embedded tools
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
+    message(STATUS "Embedded System Detected: ${CMAKE_SYSTEM_PROCESSOR}")
+    set(ENABLE_QT OFF CACHE BOOL "Qt is disabled for embedded by default" FORCE)
+    set(ENABLE_ASAN OFF CACHE BOOL "ASan is disabled for embedded by default" FORCE)
+endif()
 
 if(ENABLE_COVERAGE)
     add_coverage_report_target()
