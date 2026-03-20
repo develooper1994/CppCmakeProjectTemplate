@@ -56,6 +56,14 @@ cd build/gcc-debug-static-x86_64 && ctest
 ./scripts/clean.sh
 ```
 
+## 🔒 Quality Guards (Pre-Commit Hooks)
+
+To ensure code quality automatically before every commit:
+```bash
+python3 scripts/setup_hooks.py
+```
+This adds Clang-Format, Clang-Tidy, and Secret Scanner checks to your git workflow.
+
 ---
 
 ## 🔧 Customization Points (Change These First!)
