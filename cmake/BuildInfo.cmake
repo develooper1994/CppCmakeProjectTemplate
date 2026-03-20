@@ -49,6 +49,14 @@ function(generate_build_info_header)
         set(PROJECT_ARCH "x86")
     endif()
 
+    if(BUILD_SHARED_LIBS)
+        set(LIB_TYPE_STR "Shared")
+    else()
+        set(LIB_TYPE_STR "Static")
+    endif()
+
+    string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S UTC" UTC)
+
     set(BUILD_TYPE ${CMAKE_BUILD_TYPE})
     if(NOT BUILD_TYPE)
         set(BUILD_TYPE "None")

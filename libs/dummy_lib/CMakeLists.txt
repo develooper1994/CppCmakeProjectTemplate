@@ -1,3 +1,18 @@
+# libs/dummy_lib/CMakeLists.txt
+
+# --- Stand-alone Build Support ---
+# Allows this library to be built independently (e.g. via FetchContent from another project)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    cmake_minimum_required(VERSION 3.25)
+    project(DummyLib VERSION 1.0.0 LANGUAGES CXX)
+    
+    # Try to load project configs if available
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
+    include(ProjectConfigs OPTIONAL)
+    include(ProjectOptions OPTIONAL)
+    include(Sanitizers OPTIONAL)
+endif()
+
 include(GenerateExportHeader)
 
 add_library(dummy_lib)
@@ -35,10 +50,14 @@ if(ENABLE_COVERAGE)
     enable_code_coverage(dummy_lib)
 endif()
 
-enable_sanitizers(dummy_lib)
+if(COMMAND enable_sanitizers)
+    enable_sanitizers(dummy_lib)
+endif()
 
 # Apply project-wide warnings
-set_project_warnings(dummy_lib)
+if(COMMAND set_project_warnings)
+    set_project_warnings(dummy_lib)
+endif()
 
 # Install rules
 install(TARGETS dummy_lib

@@ -1,5 +1,7 @@
 # Professional C++ CMake Project Template
 
+![CI](https://github.com/develooper1994/CppCmakeProjectTemplate/actions/workflows/ci.yml/badge.svg)
+
 A world-class, multi-target C++ project skeleton. Designed for high-performance applications with a focus on **Cross-Platform** compatibility, **Zero-Terminal** VS Code workflows, and **AI-Assisted** development.
 
 ---
