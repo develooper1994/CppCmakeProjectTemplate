@@ -13,5 +13,6 @@ constexpr bool git_dirty = @GIT_DIRTY@;
 constexpr std::string_view build_type = "@BUILD_TYPE@";
 constexpr std::string_view compiler_id = "@CMAKE_CXX_COMPILER_ID@";
 constexpr std::string_view compiler_version = "@CMAKE_CXX_COMPILER_VERSION@";
+constexpr std::string_view architecture = "@PROJECT_ARCH@";
 
 } // namespace build_info

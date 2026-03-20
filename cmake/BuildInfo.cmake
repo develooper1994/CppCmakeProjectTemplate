@@ -42,6 +42,13 @@ function(generate_build_info_header)
         endif()
     endif()
 
+    # Detect Architecture
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(PROJECT_ARCH "x64")
+    else()
+        set(PROJECT_ARCH "x86")
+    endif()
+
     set(BUILD_TYPE ${CMAKE_BUILD_TYPE})
     if(NOT BUILD_TYPE)
         set(BUILD_TYPE "None")
