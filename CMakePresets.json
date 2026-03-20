@@ -15,7 +15,6 @@
         "ENABLE_UNIT_TESTS": "ON"
       }
     },
-    /* Linux/Unix Base */
     {
       "name": "linux-base",
       "hidden": true,
@@ -23,7 +22,6 @@
       "generator": "Ninja",
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
     },
-    /* Windows Base */
     {
       "name": "win-base",
       "hidden": true,
@@ -31,8 +29,6 @@
       "generator": "Visual Studio 17 2022",
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
     },
-
-    /* --- GCC PRESETS --- */
     {
       "name": "gcc-debug-static-x86_64",
       "inherits": "linux-base",
@@ -56,8 +52,6 @@
         "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32" 
       }
     },
-
-    /* --- CLANG PRESETS --- */
     {
       "name": "clang-debug-static-x86_64",
       "inherits": "linux-base",
@@ -76,8 +70,6 @@
         "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32" 
       }
     },
-
-    /* --- MSVC PRESETS --- */
     {
       "name": "msvc-debug-static-x64",
       "inherits": "win-base",
