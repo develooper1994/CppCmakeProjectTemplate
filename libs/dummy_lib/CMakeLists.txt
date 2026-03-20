@@ -35,6 +35,8 @@ if(ENABLE_COVERAGE)
     enable_code_coverage(dummy_lib)
 endif()
 
+enable_sanitizers(dummy_lib)
+
 # Apply project-wide warnings
 set_project_warnings(dummy_lib)
 

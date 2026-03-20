@@ -9,6 +9,13 @@ option(ENABLE_UNIT_TESTS "Build unit tests" ON)
 option(ENABLE_DOCS "Build documentation" OFF)
 option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
 
+# --- Quality & Security Options ---
+option(ENABLE_ASAN "Enable Address Sanitizer" OFF)
+option(ENABLE_UBSAN "Enable Undefined Behavior Sanitizer" OFF)
+option(ENABLE_TSAN "Enable Thread Sanitizer" OFF)
+option(ENABLE_CLANG_TIDY "Enable Clang-Tidy static analysis" OFF)
+option(ENABLE_CPPCHECK "Enable Cppcheck static analysis" OFF)
+
 # --- Qt & GUI Options ---
 option(ENABLE_QT "Build Qt-based GUI applications" OFF)
 option(ENABLE_QML "Build QML support for Qt apps" OFF)

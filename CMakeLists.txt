@@ -61,10 +61,14 @@ include(FetchContent)
 include(ProjectOptions) # Custom module for warnings and compiler options
 include(BuildInfo)      # Custom module for Git metadata
 include(CodeCoverage)   # Custom module for coverage reporting
+include(Sanitizers)     # Custom module for ASan/UBSan/TSan
+include(StaticAnalyzers) # Custom module for Clang-Tidy/Cppcheck
 
 if(ENABLE_COVERAGE)
     add_coverage_report_target()
 endif()
+
+enable_static_analysis()
 
 # -----------------------------------------------------------------------------
 # Global Compile Definitions
