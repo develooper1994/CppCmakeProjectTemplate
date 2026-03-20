@@ -2,12 +2,14 @@
 
 [![CI](https://github.com/develooper1994/CppCmakeProjectTemplate/actions/workflows/ci.yml/badge.svg)](https://github.com/develooper1994/CppCmakeProjectTemplate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CMake: 3.25+](https://img.shields.io/badge/CMake-3.25+-informational.svg)](https://cmake.org)
 
 A world-class, multi-target C++ project skeleton. Designed for high-performance applications with a focus on **Cross-Platform** compatibility, **Zero-Terminal** VS Code workflows, and **AI-Assisted** development.
 
 ---
 
 ## 🚀 Key Features
+
 - **Cross-Platform**: Windows (MSVC), Linux (GCC/Clang), and macOS (AppleClang) support.
 - **Modern CMake (3.25+)**: Pure target-based design. No global flags.
 - **VS Code Optimized**: Full GUI integration (Build, Test, Debug, Deploy).
@@ -19,12 +21,14 @@ A world-class, multi-target C++ project skeleton. Designed for high-performance 
 ---
 
 ## 💻 Usage: The VS Code Way
+
 1. **Select Preset**: Click **"CMake: [No Preset]"** in status bar.
 2. **Build**: Press `F7` or click **Build**.
 3. **Debug**: Press `F5` to debug `main_app`.
 4. **Test**: Click **Test** in status bar to run GoogleTests.
 
 ## ⌨️ Usage: The Terminal Way
+
 ```bash
 # 1. Build (Auto-detects environment)
 python3 scripts/build.py
@@ -39,15 +43,19 @@ python3 scripts/clean.py
 ---
 
 ## 🔒 Quality Guards (Pre-Commit Hooks)
+
 Before you commit, ensure your code is perfect:
+
 ```bash
 python3 scripts/setup_hooks.py
 ```
+
 *Checks: Clang-Format, Clang-Tidy, and Secret Scanner.*
 
 ---
 
 ## 📁 Directory Structure
+
 - `apps/` : Executable entry points.
 - `libs/` : Modüler, bağımsız derlenebilir kütüphaneler.
 - `cmake/` : Build system modules ([Embedded Tools](cmake/EmbeddedUtils.cmake)).
@@ -58,4 +66,5 @@ python3 scripts/setup_hooks.py
 ---
 
 ## ⚖️ License
+
 Licensed under the [MIT License](LICENSE).
