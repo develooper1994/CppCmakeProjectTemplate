@@ -9,6 +9,8 @@ A professional, multi-target (solution-style) C++ project template built with Mo
 - **Dependency Isolation**: Isolated vendor code (FetchContent/SYSTEM).
 - **Automated Metadata**: Git-integrated build information (hash, branch, version).
 - **Unit Testing**: Pre-configured with GoogleTest.
+- **Code Coverage**: Integrated coverage reporting via `lcov/gcov`.
+- **Docker Ready**: Pre-configured development environment with `Dockerfile`.
 - **AI-Ready**: Built-in instructions for AI agents (GitHub Copilot, Cursor).
 
 ## Getting Started
@@ -17,6 +19,7 @@ A professional, multi-target (solution-style) C++ project template built with Mo
 - A C++17 compatible compiler (GCC, Clang, MSVC)
 - Ninja or Make (optional for Windows as MSBuild is supported)
 - Python 3 (for cross-platform scripts)
+- Docker (optional, for isolated environment)
 
 ### Quick Start
 ```bash
@@ -28,8 +31,16 @@ cd CppCmakeProjectTemplate
 python3 scripts/build.py
 
 # Or use CMake Presets directly
-cmake --preset gcc-debug   # Linux
-cmake --preset msvc-debug  # Windows
+cmake --preset gcc-debug-static-x86_64
+
+# Generate Code Coverage Report (Linux only)
+cmake --preset gcc-debug-static-x86_64 -DENABLE_COVERAGE=ON
+cmake --build --preset gcc-debug-static-x86_64 --target coverage_report
+# Output: build/gcc-debug-static-x86_64/coverage_report/index.html
+
+# Run within Docker
+docker build -t cpp-template .
+docker run -it --rm -v $(pwd):/workspace cpp-template
 ```
 
 ## Structure

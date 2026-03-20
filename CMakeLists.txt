@@ -29,6 +29,7 @@ option(ENABLE_UNITY_BUILD "Enable unity builds" OFF)
 option(ENABLE_WERROR "Treat warnings as errors" ON)
 option(ENABLE_UNIT_TESTS "Build unit tests" ON)
 option(ENABLE_DOCS "Build documentation" OFF)
+option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
 
 # -----------------------------------------------------------------------------
 # Module Paths
@@ -41,6 +42,11 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 include(FetchContent)
 include(ProjectOptions) # Custom module for warnings and compiler options
 include(BuildInfo)      # Custom module for Git metadata
+include(CodeCoverage)   # Custom module for coverage reporting
+
+if(ENABLE_COVERAGE)
+    add_coverage_report_target()
+endif()
 
 # -----------------------------------------------------------------------------
 # Global Compile Definitions

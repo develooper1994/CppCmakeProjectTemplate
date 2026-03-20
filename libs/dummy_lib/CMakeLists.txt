@@ -31,6 +31,10 @@ set_target_properties(dummy_lib PROPERTIES
     VISIBILITY_INLINES_HIDDEN 1
 )
 
+if(ENABLE_COVERAGE)
+    enable_code_coverage(dummy_lib)
+endif()
+
 # Apply project-wide warnings
 set_project_warnings(dummy_lib)
 
