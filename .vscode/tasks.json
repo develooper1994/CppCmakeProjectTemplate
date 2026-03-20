@@ -1,0 +1,68 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Project: Build (Auto-detect OS)",
+      "type": "shell",
+      "command": "python3",
+      "args": ["scripts/build.py"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Project: Clean",
+      "type": "shell",
+      "command": "./scripts/clean.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Run Tests (CTest)",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "--preset", "gcc-debug-static-x86_64", "--target", "test"],
+      "group": "test"
+    },
+    {
+      "label": "Project: Generate Coverage Report",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "--preset", "gcc-debug-static-x86_64", "--target", "coverage_report"],
+      "dependsOn": ["Project: Run Tests (CTest)"]
+    },
+    {
+      "label": "Project: Package (CPack)",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "--preset", "gcc-debug-static-x86_64", "--target", "package"]
+    },
+    {
+      "label": "Project: Remote Deploy",
+      "type": "shell",
+      "command": "python3",
+      "args": [
+        "scripts/deploy.py",
+        "--host",
+        "${input:remoteHost}",
+        "--path",
+        "${input:remotePath}"
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "remoteHost",
+      "type": "promptString",
+      "description": "Remote host (user@host)",
+      "default": "user@remote-ip"
+    },
+    {
+      "id": "remotePath",
+      "type": "promptString",
+      "description": "Remote target path",
+      "default": "/tmp/cpp_project"
+    }
+  ]
+}

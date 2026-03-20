@@ -8,5 +8,23 @@
     "source.fixAll": "explicit"
   },
   "files.trimTrailingWhitespace": true,
-  "files.insertFinalNewline": true
+  "files.insertFinalNewline": true,
+  "cmake.useCMakePresets": "always",
+  "cmake.buildDirectory": "${workspaceFolder}/build/${cmake.presetName}",
+  "cmake.generator": "Ninja",
+  "cmake.showOptionsIndicator": true,
+  "cmake.statusbar.advanced": {
+    "debug": {
+      "visibility": "visible"
+    },
+    "launch": {
+      "visibility": "visible"
+    },
+    "build": {
+      "visibility": "visible"
+    },
+    "test": {
+      "visibility": "visible"
+    }
+  }
 }
