@@ -1,0 +1,21 @@
+# Cursor/AI Agent Rules
+
+## Project Scope
+- This is a C++ / CMake project template.
+- Adhere to the structure in `GEMINI.md`.
+
+## Mandatory Constraints
+- **CMake**: Minimum version 3.25, target-based only.
+- **External**: NEVER modify `external/`. Use `add_subdirectory(... SYSTEM)`.
+- **Warnings**: Enable strict warnings for all internal targets.
+- **Tests**: Every library MUST have a unit test in `tests/unit/`.
+- **Docs**: Every target MUST have its own `docs/` and `README.md`.
+
+## Execution Protocol
+1.  **Analyze**: Determine the scope (libs, apps, tests, etc.).
+2.  **Impact**: Check if CMake or other targets are affected.
+3.  **Plan**: Select the minimal safe change.
+4.  **Implement**: Write complete, production-grade code.
+5.  **Integrate**: Update CMake and add docs/tests.
+6.  **Validate**: Run builds/tests to ensure zero regressions.
+7.  **Output**: Deliver the final, working result.
