@@ -3,6 +3,7 @@
 A professional, multi-target (solution-style) C++ project template built with Modern CMake (3.25+), strict compiler warnings, integrated unit testing, and automated documentation.
 
 ## Features
+- **Cross-Platform**: Full support for Windows (MSVC), Linux (GCC/Clang), and macOS (Clang).
 - **Modern CMake**: Target-based design with system-wide presets.
 - **Strict Warnings**: High-quality code via rigorous compiler checks.
 - **Dependency Isolation**: Isolated vendor code (FetchContent/SYSTEM).
@@ -14,7 +15,8 @@ A professional, multi-target (solution-style) C++ project template built with Mo
 ### Prerequisites
 - CMake 3.25+
 - A C++17 compatible compiler (GCC, Clang, MSVC)
-- Ninja or Make
+- Ninja or Make (optional for Windows as MSBuild is supported)
+- Python 3 (for cross-platform scripts)
 
 ### Quick Start
 ```bash
@@ -22,14 +24,12 @@ A professional, multi-target (solution-style) C++ project template built with Mo
 git clone <url>
 cd CppCmakeProjectTemplate
 
-# Build with default preset (gcc-debug)
-./scripts/build.sh
+# Build with cross-platform script (Auto-detects OS)
+python3 scripts/build.py
 
-# Run the application
-./build/gcc-debug/apps/main_app/main_app
-
-# Run tests
-cd build/gcc-debug && ctest
+# Or use CMake Presets directly
+cmake --preset gcc-debug   # Linux
+cmake --preset msvc-debug  # Windows
 ```
 
 ## Structure
