@@ -17,39 +17,35 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 endif()
 
 # -----------------------------------------------------------------------------
-# Project Configuration & Options
-# -----------------------------------------------------------------------------
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-option(BUILD_SHARED_LIBS "Build libraries as shared" OFF)
-option(ENABLE_UNITY_BUILD "Enable unity builds" OFF)
-option(ENABLE_WERROR "Treat warnings as errors" ON)
-option(ENABLE_UNIT_TESTS "Build unit tests" ON)
-option(ENABLE_DOCS "Build documentation" OFF)
-option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
-option(ENABLE_QT "Build Qt-based GUI applications" OFF)
-
-# -----------------------------------------------------------------------------
-# Module Paths
+# Project Configuration & Options (Centralized)
 # -----------------------------------------------------------------------------
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(ProjectConfigs)
 
 # -----------------------------------------------------------------------------
-# Qt Support (Optional)
+# Qt & QML Support (Optional)
 # -----------------------------------------------------------------------------
 if(ENABLE_QT)
+    set(QT_COMPONENTS Widgets)
+    if(ENABLE_QML)
+        list(APPEND QT_COMPONENTS Quick Qml)
+    endif()
+
     # Try to find Qt6, fallback to Qt5
-    find_package(Qt6 COMPONENTS Widgets QUIET)
+    find_package(Qt6 COMPONENTS ${QT_COMPONENTS} QUIET)
     if(Qt6_FOUND)
         message(STATUS "Found Qt6")
         set(QT_LIBRARIES Qt6::Widgets)
+        if(ENABLE_QML)
+            list(APPEND QT_LIBRARIES Qt6::Quick Qt6::Qml)
+        endif()
     else()
-        find_package(Qt5 COMPONENTS Widgets REQUIRED)
+        find_package(Qt5 COMPONENTS ${QT_COMPONENTS} REQUIRED)
         message(STATUS "Found Qt5")
         set(QT_LIBRARIES Qt5::Widgets)
+        if(ENABLE_QML)
+            list(APPEND QT_LIBRARIES Qt5::Quick Qt5::Qml)
+        endif()
     endif()
     
     # Required for Qt's meta-build system

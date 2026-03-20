@@ -9,6 +9,10 @@ target_link_libraries(gui_app
         ${QT_LIBRARIES}
 )
 
+if(ENABLE_QML)
+    target_compile_definitions(gui_app PRIVATE ENABLE_QML_SUPPORT)
+endif()
+
 # Apply project-wide warnings
 set_project_warnings(gui_app)
 
