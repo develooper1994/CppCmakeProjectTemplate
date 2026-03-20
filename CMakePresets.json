@@ -139,7 +139,8 @@
       "output": { "outputOnFailure": true },
       "execution": { "noTestsAction": "error", "stopOnFailure": false }
     },
-    { "name": "gcc-debug", "inherits": "base-test", "configurePreset": "gcc-debug-static-x86_64" },
-    { "name": "msvc-debug", "inherits": "base-test", "configurePreset": "msvc-debug-static-x64" }
+    { "name": "gcc-debug-static-x86_64", "inherits": "base-test", "configurePreset": "gcc-debug-static-x86_64" },
+    { "name": "clang-debug-static-x86_64", "inherits": "base-test", "configurePreset": "clang-debug-static-x86_64" },
+    { "name": "msvc-debug-static-x64", "inherits": "base-test", "configurePreset": "msvc-debug-static-x64" }
   ]
 }
