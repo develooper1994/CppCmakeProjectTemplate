@@ -27,6 +27,14 @@ You can manage external libraries in three ways:
 cmake --preset gcc-debug-static-x86_64 -DENABLE_COVERAGE=ON
 cmake --build --preset gcc-debug-static-x86_64 --target coverage_report
 
+# Packaging (Local Deploy)
+cmake --preset gcc-release-static-x86_64
+cmake --build --preset gcc-release-static-x86_64 --target package
+# Output: build/gcc-release-static-x86_64/CppCmakeProjectTemplate-0.1.0-Linux.tar.gz
+
+# Remote Deployment
+python3 scripts/deploy.py --host user@remote-ip --path /home/user/deploy
+
 # Remote Debugging
 1. Open VS Code.
 2. Select "Remote Debug (GDBServer)" from the debug menu.

@@ -84,3 +84,19 @@ endif()
 if(ENABLE_DOCS)
     add_subdirectory(docs)
 endif()
+
+# -----------------------------------------------------------------------------
+# Packaging (CPack)
+# -----------------------------------------------------------------------------
+set(CPACK_PACKAGE_VENDOR "develooper1994")
+set(CPACK_PACKAGE_CONTACT "https://github.com/develooper1994")
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+
+if(WIN32)
+    set(CPACK_GENERATOR "ZIP;NSIS")
+else()
+    set(CPACK_GENERATOR "TGZ;DEB")
+endif()
+
+include(CPack)
