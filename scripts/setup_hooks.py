@@ -9,17 +9,31 @@ HOOK_CONTENT = """#!/bin/bash
 echo "--> Running Pre-Commit Checks..."
 
 # 1. Clang-Format Check
-echo "    [1/3] Running Clang-Format..."
+echo "    [1/5] Running Clang-Format..."
 find . -name "*.cpp" -o -name "*.h" | xargs clang-format --dry-run --Werror
 
 # 2. Clang-Tidy Check (Basic)
-echo "    [2/3] Running Clang-Tidy..."
+echo "    [2/5] Running Clang-Tidy..."
 find . -name "*.cpp" | xargs clang-tidy -p build/clang-debug-static-x86_64 --quiet
 
-# 3. Secret Scanner (Basic Regex for common keys)
-echo "    [3/3] Scanning for Secrets..."
+# 3. CMake Format & Lint
+echo "    [3/5] Running CMake Format..."
+find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs cmake-format --check
+
+# 4. CMake Health Check
+echo "    [4/5] Running CMake Health Check..."
+mkdir -p build_check && cmake -S . -B build_check -G Ninja > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "ERROR: CMake configuration failed!"
+    rm -rf build_check
+    exit 1
+fi
+rm -rf build_check
+
+# 5. Secret Scanner
+echo "    [5/5] Scanning for Secrets..."
 if git diff --cached | grep -Ei "API_KEY|SECRET|PASSWORD|-----BEGIN" > /dev/null; then
-    echo "ERROR: Potential secret detected in your commit!"
+    echo "ERROR: Potential secret detected!"
     exit 1
 fi
 
