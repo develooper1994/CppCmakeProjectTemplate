@@ -1,9 +1,12 @@
 add_executable(main_app src/main.cpp)
 
+# Generate specific build info for the main app
+# Inherits project version by default
+target_generate_build_info(main_app NAMESPACE main_app_info)
+
 target_link_libraries(main_app 
     PRIVATE 
         dummy_lib 
-        project_build_info
 )
 
 # Apply project-wide warnings

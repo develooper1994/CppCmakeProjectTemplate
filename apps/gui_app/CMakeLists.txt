@@ -2,10 +2,11 @@
 
 add_executable(gui_app src/main.cpp)
 
+target_generate_build_info(gui_app NAMESPACE gui_app_info)
+
 target_link_libraries(gui_app 
     PRIVATE 
         dummy_lib 
-        project_build_info
         ${QT_LIBRARIES}
 )
 

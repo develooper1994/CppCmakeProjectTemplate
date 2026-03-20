@@ -17,6 +17,13 @@ include(GenerateExportHeader)
 
 add_library(dummy_lib)
 
+# Generate specific build info for this library
+# This proves libraries can have independent versioning
+target_generate_build_info(dummy_lib 
+    NAMESPACE dummy_lib_info 
+    PROJECT_VERSION "2.5.0"
+)
+
 target_sources(dummy_lib 
     PRIVATE 
         src/greet.cpp

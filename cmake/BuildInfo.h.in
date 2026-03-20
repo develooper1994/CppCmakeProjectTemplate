@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-namespace build_info {
+namespace @BUILD_INFO_NAMESPACE@ {
 
 constexpr std::string_view project_name = "@PROJECT_NAME@";
 constexpr std::string_view project_version = "@PROJECT_VERSION@";
@@ -16,6 +16,6 @@ constexpr std::string_view compiler_version = "@CMAKE_CXX_COMPILER_VERSION@";
 constexpr std::string_view architecture = "@PROJECT_ARCH@";
 constexpr std::string_view build_timestamp = "@BUILD_TIMESTAMP@";
 constexpr std::string_view cmake_version = "@CMAKE_VERSION@";
-constexpr std::string_view library_type = "@LIB_TYPE_STR@"; # Static or Shared
+constexpr std::string_view library_type = "@LIB_TYPE_STR@"; // Static or Shared
 
-} // namespace build_info
+} // namespace @BUILD_INFO_NAMESPACE@
