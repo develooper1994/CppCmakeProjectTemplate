@@ -24,3 +24,4 @@ Makefile
 # System artifacts
 .DS_Store
 Thumbs.db
+.vscode/extension/cpp-cmake-scaffolder-0.1.0.vsix
