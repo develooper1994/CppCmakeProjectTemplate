@@ -6,10 +6,40 @@ This project template is designed to support professional embedded development u
 
 The core of cross-compilation in CMake is the **Toolchain File**. You can find an example at `cmake/toolchains/arm-none-eabi.cmake`.
 
-### Steps to Integrate Your Compiler:
-1.  **Create/Modify Toolchain**: Open `cmake/toolchains/arm-none-eabi.cmake` and update the `CMAKE_C_COMPILER` and `CMAKE_CXX_COMPILER` paths to point to your SDK's binaries.
-2.  **Define Architecture Flags**: Update `CPU_FLAGS` (e.g., `-mcpu=cortex-m7`, `-mfloat-abi=hard`) to match your target hardware.
-3.  **Linker Script**: If your system requires a linker script (`.ld`), uncomment and update the `CMAKE_EXE_LINKER_FLAGS` line.
+### Scenario A: Using the Template's ARM Toolchain
+1.  **Modify**: Open `cmake/toolchains/arm-none-eabi.cmake`.
+2.  **Paths**: Update `CMAKE_C_COMPILER` to point to your `arm-none-eabi-gcc` if it's not in your PATH.
+3.  **Flags**: Update `CPU_FLAGS` (e.g., `-mcpu=cortex-m7`, `-mfpu=fpv5-d16`) for your specific chip.
+
+### Scenario B: Manufacturer Provided Toolchain (BSP/SDK)
+Board vendors (ST, NXP, Nordic, Yocto/PetaLinux) often provide their own toolchain environment.
+
+**Option 1: Using the Vendor's CMake File**
+If the SDK provides a `toolchain.cmake` file:
+1.  Open `CMakePresets.json`.
+2.  Create a new preset pointing to the vendor's file:
+    ```json
+    {
+      "name": "vendor-sdk",
+      "inherits": "base",
+      "toolchainFile": "/opt/vendor-sdk/sysroots/x86_64/cmake/OEToolchainConfig.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    }
+    ```
+
+**Option 2: Using a Custom GNU Compiler (Proprietary/Forked GCC)**
+If you have a special GCC fork (e.g., `tricore-gcc`, `riscv-unknown-elf-gcc`) provided as binaries:
+1.  Copy `cmake/toolchains/arm-none-eabi.cmake` to `cmake/toolchains/my-custom-board.cmake`.
+2.  Edit the compiler paths explicitly:
+    ```cmake
+    set(CMAKE_C_COMPILER "/opt/my-board-sdk/bin/custom-mcu-gcc")
+    set(CMAKE_CXX_COMPILER "/opt/my-board-sdk/bin/custom-mcu-g++")
+    ```
+3.  Set the Sysroot (if required by the SDK):
+    ```cmake
+    set(CMAKE_SYSROOT "/opt/my-board-sdk/sysroot")
+    set(CMAKE_FIND_ROOT_PATH "${CMAKE_SYSROOT}")
+    ```
 
 ## 2. Building via Presets (Recommended)
 
