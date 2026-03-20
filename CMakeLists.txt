@@ -30,11 +30,33 @@ option(ENABLE_WERROR "Treat warnings as errors" ON)
 option(ENABLE_UNIT_TESTS "Build unit tests" ON)
 option(ENABLE_DOCS "Build documentation" OFF)
 option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
+option(ENABLE_QT "Build Qt-based GUI applications" OFF)
 
 # -----------------------------------------------------------------------------
 # Module Paths
 # -----------------------------------------------------------------------------
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
+# -----------------------------------------------------------------------------
+# Qt Support (Optional)
+# -----------------------------------------------------------------------------
+if(ENABLE_QT)
+    # Try to find Qt6, fallback to Qt5
+    find_package(Qt6 COMPONENTS Widgets QUIET)
+    if(Qt6_FOUND)
+        message(STATUS "Found Qt6")
+        set(QT_LIBRARIES Qt6::Widgets)
+    else()
+        find_package(Qt5 COMPONENTS Widgets REQUIRED)
+        message(STATUS "Found Qt5")
+        set(QT_LIBRARIES Qt5::Widgets)
+    endif()
+    
+    # Required for Qt's meta-build system
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTOUIC ON)
+    set(CMAKE_AUTORCC ON)
+endif()
 
 # -----------------------------------------------------------------------------
 # Include Modules
