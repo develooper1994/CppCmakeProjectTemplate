@@ -2,80 +2,58 @@
 
 [![CI](https://github.com/develooper1994/CppCmakeProjectTemplate/actions/workflows/ci.yml/badge.svg)](https://github.com/develooper1994/CppCmakeProjectTemplate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![CMake: 3.25+](https://img.shields.io/badge/CMake-3.25+-informational.svg)](https://cmake.org)
 
-A production-ready, multi-target C++ boilerplate designed for high-performance applications. Whether you are building desktop apps or bare-metal embedded firmware, this template provides the infrastructure so you can focus on **logic**.
-
----
-
-## 🎯 Why This Template?
-
-| Feature | Description |
-| :--- | :--- |
-| **Modern CMake** | Target-based, clean, and modular architecture. |
-| **Cross-Platform** | Seamless support for Linux, Windows (MSVC), and macOS. |
-| **Embedded Ready** | Native support for ARM/GNU toolchains + automated `.bin`/`.hex`. |
-| **Quality First** | Built-in Sanitizers (ASan/TSan), Static Analysis, and Coverage reports. |
-| **DevOps Ready** | Automated GitHub CI, CPack for packaging, and VS Code GUI automation. |
+A world-class, multi-target C++ project skeleton. Designed for high-performance applications with a focus on **Cross-Platform** compatibility, **Zero-Terminal** VS Code workflows, and **AI-Assisted** development.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Key Features
+- **Cross-Platform**: Windows (MSVC), Linux (GCC/Clang), and macOS (AppleClang) support.
+- **Modern CMake (3.25+)**: Pure target-based design. No global flags.
+- **VS Code Optimized**: Full GUI integration (Build, Test, Debug, Deploy).
+- **Dependency Management**: Vcpkg, Conan, and FetchContent integration.
+- **Quality Guard**: GoogleTest, Sanitizers (ASan/TSan), Static Analysis, Coverage reports.
+- **Embedded Ready**: ARM/GNU Toolchain support with auto-generated `.bin` & `.hex`.
+- **Packaging**: CPack-ready (.deb, .zip, .tar.gz).
 
-### Prerequisites
-- CMake 3.25+
-- Ninja Build
-- A C++ Compiler (GCC, Clang, or MSVC)
+---
 
-### Initialization (The "One-Time" Setup)
-```bash
-# 1. Clone the repo
-git clone https://github.com/develooper1994/CppCmakeProjectTemplate.git
-cd CppCmakeProjectTemplate
+## 💻 Usage: The VS Code Way
+1. **Select Preset**: Click **"CMake: [No Preset]"** in status bar.
+2. **Build**: Press `F7` or click **Build**.
+3. **Debug**: Press `F5` to debug `main_app`.
+4. **Test**: Click **Test** in status bar to run GoogleTests.
 
-# 2. Rename the project to your app name
-python3 scripts/init_project.py --name YourAppName
-
-# 3. Enable Quality Hooks (Clang-Format, Lint, Secret Scan)
-python3 scripts/setup_hooks.py
-```
-
-### The Terminal Build Flow
+## ⌨️ Usage: The Terminal Way
 ```bash
 # 1. Build (Auto-detects environment)
 python3 scripts/build.py
 
-# 2. Run
-./build/gcc-debug-static-x86_64/apps/main_app/main_app
+# 2. Run Application
+./build/<preset-name>/apps/main_app/main_app
+
+# 3. Clean Build
+python3 scripts/clean.py
 ```
 
 ---
 
-## 🛠 Advanced Features
-
-### Embedded & Custom Toolchains
-Need to target custom hardware? Check the [Embedded Guide](docs/EMBEDDED.md) to integrate proprietary board SDKs or GNU toolchains in minutes.
-
-### Static & Dynamic Linking
-Switch easily between static and dynamic builds via:
+## 🔒 Quality Guards (Pre-Commit Hooks)
+Before you commit, ensure your code is perfect:
 ```bash
-cmake --preset gcc-debug-dynamic-x86_64
+python3 scripts/setup_hooks.py
 ```
-
-### Sanitizers & Analysis
-Catch memory leaks and logic errors before they reach production:
-```bash
-cmake -DENABLE_ASAN=ON -DENABLE_CLANG_TIDY=ON .
-```
+*Checks: Clang-Format, Clang-Tidy, and Secret Scanner.*
 
 ---
 
-## 🏛 Directory Structure
-- `apps/` : Application entry points.
+## 📁 Directory Structure
+- `apps/` : Executable entry points.
 - `libs/` : Modüler, bağımsız derlenebilir kütüphaneler.
-- `cmake/` : Proje yapı modülleri (Sanitizers, Coverage, Export).
-- `scripts/` : Otomasyon (Build, Deploy, Init).
-- `docs/` : Detaylı teknik rehberler.
+- `cmake/` : Build system modules ([Embedded Tools](cmake/EmbeddedUtils.cmake)).
+- `scripts/` : Otomasyon ([Project Init](scripts/init_project.py)).
+- `docs/` : Detaylı teknik rehberler ([Embedded Guide](docs/EMBEDDED.md)).
+- `.github/`: CI/CD workflows and AI Agent instructions.
 
 ---
 
