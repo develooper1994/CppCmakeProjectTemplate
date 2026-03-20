@@ -13,6 +13,7 @@ A world-class, multi-target C++ project skeleton. Designed for high-performance 
 -   **🧪 Quality Guard**: Pre-configured **GoogleTest**, **Strict Warnings-as-Errors**, and **LCOV/GCOV** Coverage reports.
 -   **🐳 Docker Ready**: Instant development environment via the included `Dockerfile`.
 -   **🚀 Deploy Ready**: Automated packaging via **CPack** (.deb, .zip, .tar.gz) and **Remote SSH Deployment** scripts.
+-   **🔌 Embedded Ready**: Professional support for **ARM/GNU Toolchains** with auto-generated `.bin` and `.hex` files.
 -   **🤖 AI-Native**: Structured for GitHub Copilot, Cursor, and Gemini CLI with embedded instruction sets.
 
 ---
@@ -73,8 +74,9 @@ To make this project your own, search and update the following:
 -   `libs/`: Reusable internal C++ libraries.
 -   `external/`: Isolated 3rd party code (Never modify files here).
 -   `tests/`: Unit and Integration tests using GoogleTest.
--   `cmake/`: Build system modules (Warnings, Coverage, Versioning).
--   `scripts/`: Cross-platform automation (Build, Clean, Deploy).
+-   `cmake/`: Build system modules (Warnings, Coverage, Versioning, [Embedded Tools](cmake/EmbeddedUtils.cmake)).
+-   `scripts/`: Cross-platform automation (Build, Clean, Deploy, [Project Init](scripts/init_project.py)).
+-   `docs/`: Additional documentation (including [Embedded Guide](docs/EMBEDDED.md)).
 -   `.github/`: CI/CD workflows and AI Agent instructions.
 
 ---
