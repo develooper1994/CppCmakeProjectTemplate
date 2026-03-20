@@ -9,10 +9,8 @@ The project emphasizes **modern CMake practices**, **external dependency isolati
 The current directory acts as a **Meta-Project** containing the "brain" or the "instructional layer" for the actual C++ project.
 
 ### Core Instructional Files
-- **`MASTER_PROMPT.md`**: The primary architectural blueprint and persona definition (Turkish). It defines the "Senior C++ Architect" role and the mandatory repository structure.
+- **`MASTER_GENERATOR_PROMPT.md`**: The primary architectural blueprint and persona definition (English). It defines the "Senior C++ Architect" role and the mandatory repository structure. Use this to regenerate the project from scratch.
 - **`AGENTS.md`**: The mandatory **Execution Contract** for AI agents. It defines the step-by-step workflow: *Analyze → Impact → Plan → Implement → Integrate → Validate → Output*.
-- **`prompt.md`**: A concise English summary of the project structure, core rules (isolation, warnings, build system), and AI behavioral mandates.
-- **`prompt_deneme.md`**: An exhaustive, expert-level prompt (Turkish) detailing every technical requirement from CMake presets to versioning and documentation standards.
 
 ## Mandatory Project Architecture (Target State)
 When implementing code, agents MUST adhere to this structure:
