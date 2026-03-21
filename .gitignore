@@ -24,4 +24,14 @@ Makefile
 # System artifacts
 .DS_Store
 Thumbs.db
-.vscode/extension/cpp-cmake-scaffolder-0.1.0.vsix
+*.Zone.Identifier
+
+# Extension build çıktıları (generate edilir, commit edilmez)
+*.vsix
+scripts/extension/templates/
+scripts/extension/LICENSE
+scripts/extension/node_modules/
+scripts/extension/package-lock.json
+
+# Geçici log dizini
+build_logs/
