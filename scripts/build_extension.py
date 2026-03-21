@@ -51,13 +51,15 @@ EXCLUDE: set[str] = {
     "build", "build_logs", "__pycache__", ".cache", "coverage_report",
     # Extension'ın kendisi (döngüsel)
     "scripts/extension",
+
     # Dev-only scriptler
     "scripts/sync_to_extension.py",
-    "scripts/run_build_check.py",
+    #"scripts/run_build_check.py",
     "scripts/run_build_check.sh",
-    "scripts/add_new_lib.py",
-    "scripts/remove_lib.py",
+    #"scripts/add_new_lib.py",
+    #"scripts/remove_lib.py",
     "scripts/build_extension.py",
+
     # Geliştirici notları
     "İstekler-Eksikler-Sorunlar.md",
 }
