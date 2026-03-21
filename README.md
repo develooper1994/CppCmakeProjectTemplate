@@ -6,7 +6,60 @@
 [![C++ Standard](https://img.shields.io/badge/C++-17-blue.svg)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20|%20Windows%20|%20macOS-lightgrey)](https://github.com/develooper1994/CppCmakeProjectTemplate)
 
-A world-class, multi-target C++ project skeleton. Designed for high-performance applications with a focus on **Cross-Platform** compatibility, **Zero-Terminal** VS Code workflows, and **AI-Assisted** development.
+A world-class, multi-target C++ project skeleton.
+
+---
+
+## 📦 Dependencies
+
+### Mandatory
+
+| Dependency | Min Version | Purpose |
+|---|---|---|
+| CMake | 3.25+ | Build system |
+| Ninja | any | Default generator |
+| GCC **or** Clang **or** MSVC | GCC 10+ / Clang 12+ / VS 2022 | C++ compiler |
+| Python | 3.8+ | All automation scripts |
+| Git | any | Version info via `git describe` |
+
+```bash
+# Ubuntu/Debian — install all mandatory deps
+python3 scripts/install_deps.py --install
+
+# Check only (no install)
+python3 scripts/install_deps.py
+```
+
+### Optional
+
+| Dependency | apt package | Purpose |
+|---|---|---|
+| Clang / clang-tidy | `clang clang-tidy` | Alternative compiler + static analysis |
+| cppcheck | `cppcheck` | Additional static analysis |
+| lcov | `lcov` | Coverage HTML reports |
+| Doxygen | `doxygen` | API documentation |
+| Valgrind | `valgrind` | Memory analysis *(planned)* |
+| Qt 5/6 | `qt6-base-dev` | GUI app (`ENABLE_QT=ON`) |
+| Boost | `libboost-all-dev` | Boost libraries (`ENABLE_BOOST=ON`) |
+| gcc-multilib | `gcc-multilib g++-multilib` | x86 cross-compile on x86_64 |
+| arm-none-eabi-gcc | `gcc-arm-none-eabi` | Embedded ARM preset |
+| Node.js + npm | `nodejs npm` | VS Code extension build |
+| rsync | `rsync` | Remote deploy |
+
+```bash
+# Check all optional deps too
+python3 scripts/install_deps.py --all
+```
+
+### Test Frameworks (auto-downloaded via FetchContent)
+
+| Flag | Framework | Default |
+|---|---|---|
+| `ENABLE_GTEST=ON` | GoogleTest 1.15 | ✅ |
+| `ENABLE_CATCH2=ON` | Catch2 v3.5 | |
+| `ENABLE_BOOST_TEST=ON` | Boost.Test | requires `ENABLE_BOOST=ON` |
+| `ENABLE_QT=ON` | QTest | auto-enabled with Qt |
+| `ENABLE_UNIT_TESTS=OFF` | *(none)* | disables test subsystem entirely |
 
 ---
 

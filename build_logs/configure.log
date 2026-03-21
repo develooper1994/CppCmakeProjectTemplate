@@ -8,8 +8,8 @@ Preset CMake variables:
   ENABLE_UNIT_TESTS="ON"
 
 -- BuildInfo generated for target: dummy_lib (Namespace: dummy_lib_info, Version: 2.5.0)
--- BuildInfo generated for target: main_app (Namespace: main_app_info, Version: 0.1.0)
+-- BuildInfo generated for target: main_app (Namespace: main_app_info, Version: 1.0.0)
 -- Test framework: GoogleTest
--- Configuring done (0.6s)
+-- Configuring done (0.4s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/developer/Projects/github/CppCmakeProjectTemplate/build/gcc-debug-static-x86_64

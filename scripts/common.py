@@ -73,10 +73,28 @@ def list_presets(root: Path = PROJECT_ROOT) -> list[str]:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def get_project_version(root: Path = PROJECT_ROOT) -> str:
-    """Read VERSION from root CMakeLists.txt."""
-    cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
-    m = re.search(r'project\s*\([^)]*VERSION\s+([\d.]+)', cmake, re.IGNORECASE)
-    return m.group(1) if m else "0.0.0"
+    """Version resolution order:
+    1. CMakeLists.txt project(... VERSION X.Y.Z ...)
+    2. Git tag (git describe --tags --abbrev=0)
+    3. Fallback '0.0.0'
+    """
+    cmake_path = root / "CMakeLists.txt"
+    if cmake_path.exists():
+        # Strip comments before parsing so commented-out VERSION lines are ignored
+        clean = re.sub(r'#.*', '', cmake_path.read_text(encoding="utf-8"))
+        m = re.search(r'project\s*\([^)]*VERSION\s+([\d.]+)', clean, re.IGNORECASE | re.DOTALL)
+        if m:
+            return m.group(1)
+    # Git fallback
+    try:
+        tag = subprocess.check_output(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            cwd=root, stderr=subprocess.DEVNULL,
+        ).decode().strip()
+        return re.sub(r'^v', '', tag)
+    except Exception:
+        pass
+    return "0.0.0"
 
 
 def get_project_name(root: Path = PROJECT_ROOT) -> str:

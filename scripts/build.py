@@ -239,68 +239,29 @@ def _sync_templates() -> int:
     return count
 
 
-def get_git_version() -> str:
-    """Git tag üzerinden versiyonu döndürür (Örn: v1.0.0 -> 1.0.0)."""
-    try:
-        tag = subprocess.check_output(
-            ["git", "describe", "--tags", "--abbrev=0"],
-            stderr=subprocess.DEVNULL
-        ).decode("utf-8").strip()
-        # Başındaki 'v' harfini temizle (varsa)
-        return re.sub(r'^v', '', tag)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
 def _sync_version() -> None:
-    version = None
-    cmake_path = PROJECT_ROOT / "CMakeLists.txt"
+    """Sync version from CMakeLists.txt (or git tag fallback) → extension package.json."""
+    sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+    try:
+        from common import get_project_version
+        version = get_project_version(PROJECT_ROOT)
+    except ImportError:
+        # fallback inline if common.py not available
+        clean = re.sub(r'#.*', '', (PROJECT_ROOT / "CMakeLists.txt").read_text())
+        m = re.search(r'project\s*\([^)]*VERSION\s+([\d.]+)', clean, re.IGNORECASE | re.DOTALL)
+        version = m.group(1) if m else "0.0.0"
 
-    # 1. ADIM: CMakeLists.txt Analizi
-    if cmake_path.exists():
-        content = cmake_path.read_text(encoding="utf-8")
-
-        # Tüm yorum satırlarını temizle ( # ile başlayan ve satır sonuna kadar giden her şey)
-        # Bu sayede hem tam satır yorumlar hem de satır sonu yorumları gider.
-        clean_content = re.sub(r'#.*', '', content)
-
-        # Temizlenmiş içerikte 'project(...VERSION 1.2.3 ...)' ara
-        # re.DOTALL ekledik; böylece VERSION alt satırda olsa bile yakalar.
-        m = re.search(r'project\s*\([^)]*VERSION\s+([\d.]+)', clean_content, re.IGNORECASE | re.DOTALL)
-
-        if m:
-            version = m.group(1)
-            print(f"  🔍 Active version found in CMake: {version}")
-
-    # 2. ADIM: Fallback - Git Tag
-    if not version:
-        try:
-            # Sadece en son etiketi al
-            tag = subprocess.check_output(
-                ["git", "describe", "--tags", "--abbrev=0"],
-                stderr=subprocess.DEVNULL
-            ).decode("utf-8").strip()
-            version = re.sub(r'^v', '', tag)
-            print(f"  🔍 Version found in Git Tag: {version}")
-        except:
-            print("  ❌ Error: No valid version found in CMake (active) or Git Tags.")
-            return
-
-    # 3. ADIM: package.json Güncelleme
     pkg_path = EXT_DIR / "package.json"
     if not pkg_path.exists():
-        print("  ❌ package.json not found!")
-        return
+        print("  ❌ package.json not found!"); return
 
     pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
-
     if pkg.get("version") != version:
         pkg["version"] = version
-        # Dosyayı düzenli bir şekilde kaydet
-        output = json.dumps(pkg, indent=2, ensure_ascii=False) + "\n"
-        pkg_path.write_text(output, encoding="utf-8")
-        print(f"  ✅ Version updated to: {version}")
+        pkg_path.write_text(json.dumps(pkg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"  ✅ Version synced: {version}")
     else:
-        print(f"  ⏭  Version is already {version}, skipping update.")
+        print(f"  ⏭  Version up-to-date: {version}")
 def _sync_license() -> None:
     src = PROJECT_ROOT / "LICENSE"
     if src.exists():
