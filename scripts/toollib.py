@@ -212,12 +212,26 @@ def iter_text_files(root: Path) -> Iterable[Path]:
 # Templates
 # ──────────────────────────────────────────────────────────────────────────────
 
-def lib_cmakelists(name: str, version: str, namespace: str, deps: list[str]) -> str:
+def lib_cmakelists(name: str, version: str, namespace: str, deps: list[str], cxx_standard: str = "") -> str:
     upper = name.upper()
     deps_block = ""
     if deps:
         dep_lines = "\n".join(f"        {d}" for d in deps)
         deps_block = f"\ntarget_link_libraries({name}\n    PUBLIC\n{dep_lines}\n)\n"
+    # Optional per-library C++ standard override
+    if cxx_standard:
+        cxx_block = (
+            f"# Per-library C++ standard override\n"
+            f"set({name.upper()}_CXX_STANDARD \"\" CACHE STRING "
+            f"\"C++ standard for {name} only (empty = inherit solution default)\")\n"
+            f"if({name.upper()}_CXX_STANDARD AND NOT {name.upper()}_CXX_STANDARD STREQUAL \"\")\n"
+            f"    set_target_properties({name} PROPERTIES\n"
+            f"        CXX_STANDARD          ${{{name.upper()}_CXX_STANDARD}}\n"
+            f"        CXX_STANDARD_REQUIRED ON\n"
+            f"        CXX_EXTENSIONS        OFF)\nendif()\n"
+        )
+    else:
+        cxx_block = ""
 
     return f"""\
 # libs/{name}/CMakeLists.txt
@@ -257,7 +271,7 @@ target_include_directories({name} PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-set_target_properties({name} PROPERTIES
+{cxx_block}set_target_properties({name} PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN 1
 ){deps_block}
@@ -585,6 +599,7 @@ def get_lib_deps(name: str, root: Path = PROJECT_ROOT) -> list[str]:
 def create_lib_skeleton(
     name: str, version: str, namespace: str,
     deps: list[str], link_app: bool, dry_run: bool,
+    cxx_standard: str = "",
 ) -> None:
     validate_name(name)
     p = LibPaths(PROJECT_ROOT, name)
@@ -612,7 +627,7 @@ def create_lib_skeleton(
     (p.lib_dir / "include" / name).mkdir(parents=True)
     (p.lib_dir / "docs").mkdir(parents=True)
     write_text(p.lib_dir / "docs" / ".gitkeep", "")
-    write_text(p.lib_dir / "CMakeLists.txt",        lib_cmakelists(name, version, namespace, deps))
+    write_text(p.lib_dir / "CMakeLists.txt",        lib_cmakelists(name, version, namespace, deps, cxx_standard))
     write_text(p.lib_dir / "include" / name / f"{name}.h", lib_header(name, namespace))
     write_text(p.lib_dir / "src" / f"{name}.cpp",   lib_source(name, namespace))
     write_text(p.lib_dir / "README.md",              lib_readme(name, deps))
@@ -972,7 +987,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name")
     p.add_argument("--version",   default="1.0.0")
     p.add_argument("--namespace", default=None)
-    p.add_argument("--deps",      default="", help="Comma-separated deps, e.g. core,math")
+    p.add_argument("--deps",         default="", help="Comma-separated deps, e.g. core,math")
+    p.add_argument("--cxx-standard", default="", dest="cxx_standard",
+                   help="Per-lib C++ standard override (14|17|20|23), empty = inherit")
     p.add_argument("--link-app",  action="store_true")
     p.add_argument("--dry-run",   action="store_true")
     p.set_defaults(func=cmd_add)

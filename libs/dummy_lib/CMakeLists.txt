@@ -15,6 +15,12 @@ endif()
 
 include(GenerateExportHeader)
 
+# Per-library C++ standard override.
+# Default: inherits CMAKE_CXX_STANDARD (solution-wide).
+# Override: -DDUMMY_LIB_CXX_STANDARD=20
+set(DUMMY_LIB_CXX_STANDARD "" CACHE STRING
+    "C++ standard for dummy_lib only (empty = inherit solution default)")
+
 add_library(dummy_lib)
 
 # Generate specific build info for this library
@@ -48,10 +54,21 @@ target_include_directories(dummy_lib
 )
 
 # Professional visibility settings (Hidden by default)
-set_target_properties(dummy_lib PROPERTIES
-    CXX_VISIBILITY_PRESET hidden
-    VISIBILITY_INLINES_HIDDEN 1
-)
+# CXX_STANDARD can be overridden per-library via DUMMY_LIB_CXX_STANDARD cache var.
+if(DUMMY_LIB_CXX_STANDARD AND NOT DUMMY_LIB_CXX_STANDARD STREQUAL "")
+    set_target_properties(dummy_lib PROPERTIES
+        CXX_STANDARD          ${DUMMY_LIB_CXX_STANDARD}
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS        OFF
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN 1
+    )
+else()
+    set_target_properties(dummy_lib PROPERTIES
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN 1
+    )
+endif()
 
 if(ENABLE_COVERAGE)
     enable_code_coverage(dummy_lib)

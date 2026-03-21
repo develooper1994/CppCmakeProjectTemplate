@@ -1,5 +1,5 @@
-[1/14] Building CXX object apps/main_app/CMakeFiles/main_app.dir/src/main.cpp.o
-[2/14] Building CXX object libs/dummy_lib/CMakeFiles/dummy_lib.dir/src/greet.cpp.o
+[1/14] Building CXX object libs/dummy_lib/CMakeFiles/dummy_lib.dir/src/greet.cpp.o
+[2/14] Building CXX object apps/main_app/CMakeFiles/main_app.dir/src/main.cpp.o
 [3/14] Linking CXX static library libs/dummy_lib/libdummy_lib.a
 [4/14] Linking CXX executable apps/main_app/main_app
 [5/14] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o

@@ -7,31 +7,36 @@ Preset CMake variables:
   CMAKE_EXPORT_COMPILE_COMMANDS="ON"
   ENABLE_UNIT_TESTS="ON"
 
--- The CXX compiler identification is GNU 13.3.0
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Check for working CXX compiler: /usr/bin/g++ - skipped
--- Detecting CXX compile features
--- Detecting CXX compile features - done
 -- FeatureFlags generated → /home/developer/Projects/github/CppCmakeProjectTemplate/build/gcc-debug-static-x86_64/generated/project/FeatureFlags.h
+-- 
+-- ┌-------------------------------------------------------------------------------┐
+-- │  Build Configuration Summary
+-- ├-------------------------------------------------------------------------------┤
+-- │  Project         CppCmakeProjectTemplate v1.0.0
+-- │  CMake           3.28.3                          (-Dmin 3.25)
+-- │  Build type      Debug
+-- │  Libraries       Static                          (-DBUILD_SHARED_LIBS)
+-- │  C++ standard    C++17                           (-DCMAKE_CXX_STANDARD)
+-- │  Compiler        GNU 13.3.0
+-- ├-------------------------------------------------------------------------------┤
+-- │  Unit tests      ON                              (-DENABLE_UNIT_TESTS)
+-- │  Test framework  GoogleTest                      (-DENABLE_GTEST)
+-- ├-------------------------------------------------------------------------------┤
+-- │  ASan            OFF                             (-DENABLE_ASAN)
+-- │  UBSan           OFF                             (-DENABLE_UBSAN)
+-- │  TSan            OFF                             (-DENABLE_TSAN)
+-- │  clang-tidy      OFF                             (-DENABLE_CLANG_TIDY)
+-- │  cppcheck        OFF                             (-DENABLE_CPPCHECK)
+-- │  Coverage        OFF                             (-DENABLE_COVERAGE)
+-- ├-------------------------------------------------------------------------------┤
+-- │  Qt              OFF                             (-DENABLE_QT)
+-- │  Boost           OFF                             (-DENABLE_BOOST)
+-- │  Docs            OFF                             (-DENABLE_DOCS)
+-- └-------------------------------------------------------------------------------┘
+-- 
 -- BuildInfo generated for target: dummy_lib (Namespace: dummy_lib_info, Version: 2.5.0)
--- Performing Test COMPILER_HAS_HIDDEN_VISIBILITY
--- Performing Test COMPILER_HAS_HIDDEN_VISIBILITY - Success
--- Performing Test COMPILER_HAS_HIDDEN_INLINE_VISIBILITY
--- Performing Test COMPILER_HAS_HIDDEN_INLINE_VISIBILITY - Success
--- Performing Test COMPILER_HAS_DEPRECATED_ATTR
--- Performing Test COMPILER_HAS_DEPRECATED_ATTR - Success
 -- BuildInfo generated for target: main_app (Namespace: main_app_info, Version: 1.0.0)
--- The C compiler identification is GNU 13.3.0
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Check for working C compiler: /usr/bin/gcc - skipped
--- Detecting C compile features
--- Detecting C compile features - done
--- Performing Test CMAKE_HAVE_LIBC_PTHREAD
--- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
--- Found Threads: TRUE  
 -- Test framework: GoogleTest
--- Configuring done (11.0s)
+-- Configuring done (0.3s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/developer/Projects/github/CppCmakeProjectTemplate/build/gcc-debug-static-x86_64

@@ -35,7 +35,10 @@ set(BOOST_COMPONENTS "" CACHE STRING
     "Semicolon-separated Boost components to find (e.g. filesystem;system)")
 
 # --- Compiler Defaults ---
-set(CMAKE_CXX_STANDARD          17  CACHE STRING "C++ Standard")
+# Solution-wide C++ standard. Per-target override: set_target_properties(<t> PROPERTIES CXX_STANDARD 20)
+# Or pass -DCMAKE_CXX_STANDARD=20 on the command line / in a preset.
+set(CMAKE_CXX_STANDARD          17  CACHE STRING "C++ standard for the whole solution (14|17|20|23)")
+set_property(CACHE CMAKE_CXX_STANDARD PROPERTY STRINGS 14 17 20 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS        OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
