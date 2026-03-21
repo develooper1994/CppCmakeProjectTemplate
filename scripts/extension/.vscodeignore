@@ -1,0 +1,13 @@
+# .vscodeignore — sadece gereksiz dosyaları dışla, templates/ dahil edilir
+
+# Büyük/fazla icon dosyaları
+icons/icon 256x256.png
+icons/icon 512x512.png
+icons/icon 1024x1024.png
+icons/*.Zone.Identifier
+icons/*Zone.Identifier*
+
+# Geliştirme artıkları
+*.map
+.gitignore
+package-lock.json

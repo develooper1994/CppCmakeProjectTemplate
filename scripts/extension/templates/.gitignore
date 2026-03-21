@@ -1,0 +1,27 @@
+# Prerequisites
+# Build folders
+build/
+bin/
+out/
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+Makefile
+
+# VS Code artifacts
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# System artifacts
+.DS_Store
+Thumbs.db
+.vscode/extension/cpp-cmake-scaffolder-0.1.0.vsix
