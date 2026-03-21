@@ -12,22 +12,28 @@
       }
     },
     {
-      "name": "linux-base",
+      "name": "unix-base",
       "hidden": true,
       "inherits": "base",
       "generator": "Ninja",
-      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+      "condition": {
+        "type": "anyOf",
+        "conditions": [
+          { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+          { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+        ]
+      }
     },
     {
       "name": "linux-gcc-base",
       "hidden": true,
-      "inherits": "linux-base",
+      "inherits": "unix-base",
       "cacheVariables": { "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++" }
     },
     {
-      "name": "linux-clang-base",
+      "name": "clang-base",
       "hidden": true,
-      "inherits": "linux-base",
+      "inherits": "unix-base",
       "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++" }
     },
     {
@@ -96,37 +102,37 @@
     },
     {
       "name": "clang-debug-static-x86_64",
-      "inherits": "linux-clang-base",
+      "inherits": "clang-base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF" }
     },
     {
       "name": "clang-debug-dynamic-x86_64",
-      "inherits": "linux-clang-base",
+      "inherits": "clang-base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "ON" }
     },
     {
       "name": "clang-release-static-x86_64",
-      "inherits": "linux-clang-base",
+      "inherits": "clang-base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "OFF" }
     },
     {
       "name": "clang-release-dynamic-x86_64",
-      "inherits": "linux-clang-base",
+      "inherits": "clang-base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "ON" }
     },
     {
       "name": "clang-relwithdebinfo-static-x86_64",
-      "inherits": "linux-clang-base",
+      "inherits": "clang-base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BUILD_SHARED_LIBS": "OFF" }
     },
     {
       "name": "clang-relwithdebinfo-dynamic-x86_64",
-      "inherits": "linux-clang-base",
+      "inherits": "clang-base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BUILD_SHARED_LIBS": "ON" }
     },
     {
       "name": "clang-debug-static-x86",
-      "inherits": "linux-clang-base",
+      "inherits": "clang-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF",
         "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32",
