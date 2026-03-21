@@ -72,7 +72,7 @@ def main() -> None:
     if not args.no_sync:
         print("\n[4/4] Extension bundle yenileniyor...")
         bundle_script = PROJECT_ROOT / "scripts" / "build_extension.py"
-        run([sys.executable, str(bundle_script), "--bundle-only"], LOG_DIR / "bundle.log")
+        run([sys.executable, str(bundle_script)], LOG_DIR / "bundle.log")
         print("✅ Bundle OK")
 
     print("\n" + "=" * 48)

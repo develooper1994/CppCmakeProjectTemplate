@@ -13,9 +13,18 @@
       "problemMatcher": ["$gcc"]
     },
     {
+      "label": "Project: Build + Test + Bundle",
+      "type": "shell",
+      "command": "python3",
+      "args": ["scripts/run_build_check.py"],
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
       "label": "Project: Clean",
       "type": "shell",
-      "command": "./scripts/clean.sh",
+      "command": "python3",
+      "args": ["scripts/clean.py"],
       "problemMatcher": []
     },
     {

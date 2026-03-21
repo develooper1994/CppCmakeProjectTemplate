@@ -1,7 +1,11 @@
 {
   "name": "cppcmakeprojecttemplate",
   "version-string": "0.1.0",
+  "builtin-baseline": "c8696863d371ab7f46e213d8f5ca923c4aef2a7",
   "dependencies": [
-    "gtest"
+    {
+      "name": "gtest",
+      "version>=": "1.14.0"
+    }
   ]
 }

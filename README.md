@@ -56,6 +56,31 @@ python3 scripts/setup_hooks.py
 
 ---
 
+## 🔄 Rename Project (Git Clone Sonrası)
+
+VSCode extension yerine terminal kullanıyorsanız:
+
+```bash
+python3 scripts/init_project.py --name MyProject
+```
+
+Tüm dosyalardaki `CppCmakeProjectTemplate` referanslarını `MyProject` ile değiştirir.
+LICENSE dosyası manuel güncellenmeli.
+
+---
+
+## 🧩 Kütüphane Ekle / Kaldır
+
+```bash
+# Yeni lib ekle
+python3 scripts/add_new_lib.py --name my_lib --link-app
+
+# Lib kaldır (dosyalar dahil)
+python3 scripts/remove_lib.py --name my_lib --delete
+```
+
+---
+
 ## 📁 Directory Structure
 
 - `apps/` : Executable entry points.
