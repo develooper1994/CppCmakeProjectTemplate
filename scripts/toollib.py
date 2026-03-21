@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-libtool.py — Unified C++ library management tool.
+toollib.py — Unified C++ library management tool.
 
 Commands:
     add    <name> [--version V] [--namespace NS] [--deps a,b] [--link-app] [--dry-run]
@@ -962,7 +962,7 @@ def cmd_deps(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="libtool.py",
+        prog="toollib.py",
         description="Unified C++ library management tool",
     )
     sub = parser.add_subparsers(dest="command", required=True)

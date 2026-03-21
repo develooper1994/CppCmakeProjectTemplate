@@ -77,33 +77,45 @@ LICENSE dosyası manuel güncellenmeli.
 
 ## 🧩 Library Management (libtool)
 
-All library operations go through `scripts/libtool.py`.
-In VS Code: `Ctrl+Shift+P` → **CppTemplate: Library Manager (libtool)**.
+All library operations go through `scripts/toollib.py`.
+In VS Code: `Ctrl+Shift+P` → **CppTemplate: Library Manager (toollib)**.
+
+Project-wide orchestration: `Ctrl+Shift+P` → **CppTemplate: Project Orchestrator (toolsolution)**.
 
 ```bash
 # Add a library
-python3 scripts/libtool.py add my_lib
-python3 scripts/libtool.py add renderer --deps core,math --link-app
+python3 scripts/toollib.py add my_lib
+python3 scripts/toollib.py add renderer --deps core,math --link-app
 
 # Remove (--delete also removes files)
-python3 scripts/libtool.py remove my_lib --delete
+python3 scripts/toollib.py remove my_lib --delete
 
 # Rename (updates all source/CMake references)
-python3 scripts/libtool.py rename old_name new_name
+python3 scripts/toollib.py rename old_name new_name
 
 # Move (supports subdirectory layouts)
-python3 scripts/libtool.py move renderer graphics/renderer
+python3 scripts/toollib.py move renderer graphics/renderer
 
 # Edit dependencies of an existing library
-python3 scripts/libtool.py deps renderer --add math --remove old_dep
+python3 scripts/toollib.py deps renderer --add math --remove old_dep
 
 # Inspect
-python3 scripts/libtool.py list
-python3 scripts/libtool.py tree
-python3 scripts/libtool.py doctor
+python3 scripts/toollib.py list
+python3 scripts/toollib.py tree
+python3 scripts/toollib.py doctor
 ```
 
 Append `--dry-run` to any command to preview changes without applying them.
+
+### Project Orchestrator
+
+```bash
+python3 scripts/toolsolution.py target list
+python3 scripts/toolsolution.py target build main_app --preset gcc-debug-static-x86_64
+python3 scripts/toolsolution.py preset add --compiler gcc --type debug --link static --arch x86_64
+python3 scripts/toolsolution.py toolchain add --name stm32f4 --template arm-none-eabi --cpu cortex-m4 --fpu fpv4-sp-d16 --gen-preset
+python3 scripts/toolsolution.py doctor
+```
 
 ---
 

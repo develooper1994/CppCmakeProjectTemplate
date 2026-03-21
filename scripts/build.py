@@ -62,7 +62,9 @@ EXT_EXCLUDE: set[str] = {
     "build", "build_logs", "__pycache__", ".cache", "coverage_report",
     "scripts/extension",           # circular
     "scripts/build.py",            # dev-only
-    "scripts/libtool.py",          # dev-only
+    "scripts/toollib.py",          # dev-only
+    "scripts/toolsolution.py",      # dev-only
+    "scripts/common.py",            # dev-only
     "scripts/setup_hooks.py",      # dev-only
     "İstekler-Eksikler-Sorunlar.md",
 }

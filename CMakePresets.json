@@ -1,10 +1,6 @@
 {
   "version": 4,
-  "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 25,
-    "patch": 0
-  },
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
   "configurePresets": [
     {
       "name": "base",
@@ -23,6 +19,18 @@
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
     },
     {
+      "name": "linux-gcc-base",
+      "hidden": true,
+      "inherits": "linux-base",
+      "cacheVariables": { "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++" }
+    },
+    {
+      "name": "linux-clang-base",
+      "hidden": true,
+      "inherits": "linux-base",
+      "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++" }
+    },
+    {
       "name": "win-base",
       "hidden": true,
       "inherits": "base",
@@ -31,43 +39,98 @@
     },
     {
       "name": "gcc-debug-static-x86_64",
-      "inherits": "linux-base",
-      "cacheVariables": { "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++", "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF" }
+      "inherits": "linux-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF" }
     },
     {
       "name": "gcc-debug-dynamic-x86_64",
-      "inherits": "linux-base",
-      "cacheVariables": { "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++", "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "ON" }
+      "inherits": "linux-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "ON" }
     },
     {
       "name": "gcc-release-static-x86_64",
-      "inherits": "linux-base",
-      "cacheVariables": { "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++", "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "OFF" }
+      "inherits": "linux-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "gcc-release-dynamic-x86_64",
+      "inherits": "linux-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "ON" }
+    },
+    {
+      "name": "gcc-relwithdebinfo-static-x86_64",
+      "inherits": "linux-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "gcc-relwithdebinfo-dynamic-x86_64",
+      "inherits": "linux-gcc-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BUILD_SHARED_LIBS": "ON" }
     },
     {
       "name": "gcc-debug-static-x86",
-      "inherits": "linux-base",
+      "inherits": "linux-gcc-base",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++", "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF",
-        "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32", "CMAKE_EXE_LINKER_FLAGS": "-m32"
+        "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF",
+        "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32",
+        "CMAKE_EXE_LINKER_FLAGS": "-m32", "CMAKE_SHARED_LINKER_FLAGS": "-m32"
+      }
+    },
+    {
+      "name": "gcc-debug-dynamic-x86",
+      "inherits": "linux-gcc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "ON",
+        "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32",
+        "CMAKE_EXE_LINKER_FLAGS": "-m32", "CMAKE_SHARED_LINKER_FLAGS": "-m32"
+      }
+    },
+    {
+      "name": "gcc-release-static-x86",
+      "inherits": "linux-gcc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "OFF",
+        "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32",
+        "CMAKE_EXE_LINKER_FLAGS": "-m32", "CMAKE_SHARED_LINKER_FLAGS": "-m32"
       }
     },
     {
       "name": "clang-debug-static-x86_64",
-      "inherits": "linux-base",
-      "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++", "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF" }
+      "inherits": "linux-clang-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "clang-debug-dynamic-x86_64",
+      "inherits": "linux-clang-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "ON" }
     },
     {
       "name": "clang-release-static-x86_64",
-      "inherits": "linux-base",
-      "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++", "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "OFF" }
+      "inherits": "linux-clang-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "clang-release-dynamic-x86_64",
+      "inherits": "linux-clang-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "ON" }
+    },
+    {
+      "name": "clang-relwithdebinfo-static-x86_64",
+      "inherits": "linux-clang-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "clang-relwithdebinfo-dynamic-x86_64",
+      "inherits": "linux-clang-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BUILD_SHARED_LIBS": "ON" }
     },
     {
       "name": "clang-debug-static-x86",
-      "inherits": "linux-base",
+      "inherits": "linux-clang-base",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++", "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF",
-        "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32", "CMAKE_EXE_LINKER_FLAGS": "-m32"
+        "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF",
+        "CMAKE_CXX_FLAGS": "-m32", "CMAKE_C_FLAGS": "-m32",
+        "CMAKE_EXE_LINKER_FLAGS": "-m32", "CMAKE_SHARED_LINKER_FLAGS": "-m32"
       }
     },
     {
@@ -95,10 +158,28 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "ON" }
     },
     {
+      "name": "msvc-relwithdebinfo-static-x64",
+      "inherits": "win-base",
+      "architecture": "x64",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "msvc-relwithdebinfo-dynamic-x64",
+      "inherits": "win-base",
+      "architecture": "x64",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "BUILD_SHARED_LIBS": "ON" }
+    },
+    {
       "name": "msvc-debug-static-x86",
       "inherits": "win-base",
       "architecture": "win32",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "msvc-debug-dynamic-x86",
+      "inherits": "win-base",
+      "architecture": "win32",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "BUILD_SHARED_LIBS": "ON" }
     },
     {
       "name": "msvc-release-static-x86",
@@ -107,8 +188,14 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "OFF" }
     },
     {
+      "name": "msvc-release-dynamic-x86",
+      "inherits": "win-base",
+      "architecture": "win32",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BUILD_SHARED_LIBS": "ON" }
+    },
+    {
       "name": "embedded-arm-none-eabi",
-      "displayName": "Embedded: ARM (Cortex-M4)",
+      "displayName": "Embedded: ARM Cortex-M4",
       "inherits": "base",
       "generator": "Ninja",
       "toolchainFile": "${sourceDir}/cmake/toolchains/arm-none-eabi.cmake",
@@ -119,20 +206,33 @@
     }
   ],
   "buildPresets": [
-    { "name": "gcc-debug-static-x86_64", "configurePreset": "gcc-debug-static-x86_64" },
-    { "name": "gcc-debug-dynamic-x86_64", "configurePreset": "gcc-debug-dynamic-x86_64" },
-    { "name": "gcc-release-static-x86_64", "configurePreset": "gcc-release-static-x86_64" },
-    { "name": "gcc-debug-static-x86", "configurePreset": "gcc-debug-static-x86" },
-    { "name": "clang-debug-static-x86_64", "configurePreset": "clang-debug-static-x86_64" },
-    { "name": "clang-release-static-x86_64", "configurePreset": "clang-release-static-x86_64" },
-    { "name": "clang-debug-static-x86", "configurePreset": "clang-debug-static-x86" },
-    { "name": "msvc-debug-static-x64", "configurePreset": "msvc-debug-static-x64" },
-    { "name": "msvc-debug-dynamic-x64", "configurePreset": "msvc-debug-dynamic-x64" },
-    { "name": "msvc-release-static-x64", "configurePreset": "msvc-release-static-x64" },
-    { "name": "msvc-release-dynamic-x64", "configurePreset": "msvc-release-dynamic-x64" },
-    { "name": "msvc-debug-static-x86", "configurePreset": "msvc-debug-static-x86" },
-    { "name": "msvc-release-static-x86", "configurePreset": "msvc-release-static-x86" },
-    { "name": "embedded-arm-none-eabi", "configurePreset": "embedded-arm-none-eabi" }
+    { "name": "gcc-debug-static-x86_64",           "configurePreset": "gcc-debug-static-x86_64" },
+    { "name": "gcc-debug-dynamic-x86_64",           "configurePreset": "gcc-debug-dynamic-x86_64" },
+    { "name": "gcc-release-static-x86_64",          "configurePreset": "gcc-release-static-x86_64" },
+    { "name": "gcc-release-dynamic-x86_64",         "configurePreset": "gcc-release-dynamic-x86_64" },
+    { "name": "gcc-relwithdebinfo-static-x86_64",   "configurePreset": "gcc-relwithdebinfo-static-x86_64" },
+    { "name": "gcc-relwithdebinfo-dynamic-x86_64",  "configurePreset": "gcc-relwithdebinfo-dynamic-x86_64" },
+    { "name": "gcc-debug-static-x86",               "configurePreset": "gcc-debug-static-x86" },
+    { "name": "gcc-debug-dynamic-x86",              "configurePreset": "gcc-debug-dynamic-x86" },
+    { "name": "gcc-release-static-x86",             "configurePreset": "gcc-release-static-x86" },
+    { "name": "clang-debug-static-x86_64",          "configurePreset": "clang-debug-static-x86_64" },
+    { "name": "clang-debug-dynamic-x86_64",         "configurePreset": "clang-debug-dynamic-x86_64" },
+    { "name": "clang-release-static-x86_64",        "configurePreset": "clang-release-static-x86_64" },
+    { "name": "clang-release-dynamic-x86_64",       "configurePreset": "clang-release-dynamic-x86_64" },
+    { "name": "clang-relwithdebinfo-static-x86_64",  "configurePreset": "clang-relwithdebinfo-static-x86_64" },
+    { "name": "clang-relwithdebinfo-dynamic-x86_64", "configurePreset": "clang-relwithdebinfo-dynamic-x86_64" },
+    { "name": "clang-debug-static-x86",             "configurePreset": "clang-debug-static-x86" },
+    { "name": "msvc-debug-static-x64",              "configurePreset": "msvc-debug-static-x64" },
+    { "name": "msvc-debug-dynamic-x64",             "configurePreset": "msvc-debug-dynamic-x64" },
+    { "name": "msvc-release-static-x64",            "configurePreset": "msvc-release-static-x64" },
+    { "name": "msvc-release-dynamic-x64",           "configurePreset": "msvc-release-dynamic-x64" },
+    { "name": "msvc-relwithdebinfo-static-x64",     "configurePreset": "msvc-relwithdebinfo-static-x64" },
+    { "name": "msvc-relwithdebinfo-dynamic-x64",    "configurePreset": "msvc-relwithdebinfo-dynamic-x64" },
+    { "name": "msvc-debug-static-x86",              "configurePreset": "msvc-debug-static-x86" },
+    { "name": "msvc-debug-dynamic-x86",             "configurePreset": "msvc-debug-dynamic-x86" },
+    { "name": "msvc-release-static-x86",            "configurePreset": "msvc-release-static-x86" },
+    { "name": "msvc-release-dynamic-x86",           "configurePreset": "msvc-release-dynamic-x86" },
+    { "name": "embedded-arm-none-eabi",             "configurePreset": "embedded-arm-none-eabi" }
   ],
   "testPresets": [
     {
@@ -141,8 +241,8 @@
       "output": { "outputOnFailure": true },
       "execution": { "noTestsAction": "error", "stopOnFailure": false }
     },
-    { "name": "gcc-debug-static-x86_64", "inherits": "base-test", "configurePreset": "gcc-debug-static-x86_64" },
+    { "name": "gcc-debug-static-x86_64",   "inherits": "base-test", "configurePreset": "gcc-debug-static-x86_64" },
     { "name": "clang-debug-static-x86_64", "inherits": "base-test", "configurePreset": "clang-debug-static-x86_64" },
-    { "name": "msvc-debug-static-x64", "inherits": "base-test", "configurePreset": "msvc-debug-static-x64", "configuration": "Debug" }
+    { "name": "msvc-debug-static-x64",     "inherits": "base-test", "configurePreset": "msvc-debug-static-x64", "configuration": "Debug" }
   ]
 }

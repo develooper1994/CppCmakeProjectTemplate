@@ -26,9 +26,10 @@
 
 5. INTEGRATE
 If target added:
-- use `python3 scripts/libtool.py add <n>` for new libraries
+- use `python3 scripts/toollib.py add <n>` for new libraries
 - or manually: update CMake, link deps, apply warnings, add docs + README + tests
-- libtool commands: add / remove / rename / move / deps / list / tree / doctor
+- toollib commands: add / remove / rename / move / deps / list / tree / doctor
+- toolsolution commands: target / preset / toolchain / config / doctor
 
 6. VALIDATE
 - build integrity

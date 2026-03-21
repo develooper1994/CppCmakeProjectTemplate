@@ -207,6 +207,78 @@ async function libtoolUI() {
     runLibtool(root, `${op} ${argStr}`.trim());
 }
 
+// ─── toolsolution UI ───────────────────────────────────────────────────────────
+
+async function toolsolutionUI() {
+    const root = getWorkspaceRoot();
+    if (!root) { vscode.window.showErrorMessage('No workspace folder open.'); return; }
+
+    const OP_ITEMS = [
+        { label: '$(list-unordered) target list',   description: 'List all libs and apps',          op: 'target list' },
+        { label: '$(play)          target build',   description: 'Build a single target',           op: 'target build' },
+        { label: '$(add)           preset add',     description: 'Add a new CMake preset',          op: 'preset add' },
+        { label: '$(trash)         preset remove',  description: 'Remove a preset',                 op: 'preset remove' },
+        { label: '$(list-ordered)  preset list',    description: 'List all presets',                op: 'preset list' },
+        { label: '$(tools)         toolchain add',  description: 'Add toolchain from template',     op: 'toolchain add' },
+        { label: '$(list-ordered)  toolchain list', description: 'List toolchains',                 op: 'toolchain list' },
+        { label: '$(gear)          config get',     description: 'Show project config',             op: 'config get' },
+        { label: '$(gear)          config set',     description: 'Set a base preset variable',      op: 'config set' },
+        { label: '$(check)         doctor',         description: 'Full project health check',       op: 'doctor' },
+    ];
+
+    const picked = await vscode.window.showQuickPick(OP_ITEMS, {
+        placeHolder: 'toolsolution: select operation', matchOnDescription: true,
+    });
+    if (!picked) return;
+
+    const script = path.join(root, 'scripts', 'toolsolution.py');
+    if (!fs.existsSync(script)) {
+        vscode.window.showErrorMessage('toolsolution.py not found.');
+        return;
+    }
+
+    let argStr = picked.op;
+
+    if (picked.op === 'target build') {
+        const name = await vscode.window.showInputBox({ prompt: 'Target name (e.g. main_app, dummy_lib)' });
+        if (!name) return;
+        argStr = `target build ${name}`;
+    } else if (picked.op === 'preset add') {
+        const compiler = await vscode.window.showQuickPick(['gcc','clang','msvc'], { placeHolder: 'Compiler' });
+        const type     = await vscode.window.showQuickPick(['debug','release','relwithdebinfo'], { placeHolder: 'Type' });
+        const link     = await vscode.window.showQuickPick(['static','dynamic'], { placeHolder: 'Linking' });
+        const arch     = await vscode.window.showQuickPick(['x86_64','x86'], { placeHolder: 'Arch' });
+        if (!compiler || !type || !link || !arch) return;
+        argStr = `preset add --compiler ${compiler} --type ${type} --link ${link} --arch ${arch}`;
+    } else if (picked.op === 'preset remove') {
+        const name = await vscode.window.showInputBox({ prompt: 'Preset name to remove' });
+        if (!name) return;
+        argStr = `preset remove ${name}`;
+    } else if (picked.op === 'toolchain add') {
+        const name     = await vscode.window.showInputBox({ prompt: 'Toolchain name (no extension)' });
+        const template = await vscode.window.showQuickPick(['custom-gnu','arm-none-eabi'], { placeHolder: 'Template' });
+        const prefix   = await vscode.window.showInputBox({ prompt: 'Compiler prefix (e.g. /opt/sdk/bin/arm-eabi-)', value: '' });
+        const cpu      = await vscode.window.showInputBox({ prompt: 'CPU (e.g. cortex-m4)', value: '' });
+        const fpu      = await vscode.window.showInputBox({ prompt: 'FPU (e.g. fpv4-sp-d16, blank to skip)', value: '' });
+        const genPreset = await vscode.window.showQuickPick(['yes','no'], { placeHolder: 'Generate preset?' });
+        if (!name || !template) return;
+        argStr = `toolchain add --name ${name} --template ${template}`;
+        if (prefix) argStr += ` --prefix ${prefix}`;
+        if (cpu)    argStr += ` --cpu ${cpu}`;
+        if (fpu)    argStr += ` --fpu ${fpu}`;
+        if (genPreset === 'yes') argStr += ' --gen-preset';
+    } else if (picked.op === 'config set') {
+        const key = await vscode.window.showInputBox({ prompt: 'Cache variable name (e.g. ENABLE_ASAN)' });
+        const val = await vscode.window.showInputBox({ prompt: 'Value (e.g. ON)' });
+        if (!key || !val) return;
+        argStr = `config set ${key} ${val}`;
+    }
+
+    const terminal = vscode.window.createTerminal({ name: 'toolsolution', cwd: root });
+    terminal.show();
+    terminal.sendText(`python3 "${script}" ${argStr}`);
+}
+
 // ─── activate ─────────────────────────────────────────────────────────────────
 
 function activate(context) {
@@ -243,13 +315,19 @@ function activate(context) {
         }
     );
 
-    // 2. libtool — library management
-    const libtoolCmd = vscode.commands.registerCommand(
-        'cpp-cmake-scaffolder.libtool',
+    // 2. toollib — library management
+    const toollibCmd = vscode.commands.registerCommand(
+        'cpp-cmake-scaffolder.toollib',
         libtoolUI
     );
 
-    context.subscriptions.push(initCmd, libtoolCmd);
+    // 3. toolsolution — project orchestrator
+    const toolsolutionCmd = vscode.commands.registerCommand(
+        'cpp-cmake-scaffolder.toolsolution',
+        toolsolutionUI
+    );
+
+    context.subscriptions.push(initCmd, toollibCmd, toolsolutionCmd);
 }
 
 exports.activate = activate;
