@@ -58,12 +58,21 @@ endif()
 # Include Modules
 # -----------------------------------------------------------------------------
 include(FetchContent)
-include(ProjectOptions) # Custom module for warnings and compiler options
-include(BuildInfo)      # Custom module for Git metadata
-include(CodeCoverage)   # Custom module for coverage reporting
-include(Sanitizers)     # Custom module for ASan/UBSan/TSan
+include(ProjectOptions)  # Custom module for warnings and compiler options
+include(BuildInfo)       # Custom module for Git metadata
+include(CodeCoverage)    # Custom module for coverage reporting
+include(Sanitizers)      # Custom module for ASan/UBSan/TSan
 include(StaticAnalyzers) # Custom module for Clang-Tidy/Cppcheck
 include(EmbeddedUtils)   # Custom module for Embedded tools
+include(FeatureFlags)    # Generates FeatureFlags.h for C++ compile-time feature detection
+generate_feature_flags()
+
+# INTERFACE library — attach once, all targets inherit FeatureFlags.h
+add_library(project_feature_flags INTERFACE)
+target_include_directories(project_feature_flags INTERFACE
+    $<BUILD_INTERFACE:${FEATURE_FLAGS_INCLUDE_DIR}>
+    $<INSTALL_INTERFACE:include>
+)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     message(STATUS "Embedded System Detected: ${CMAKE_SYSTEM_PROCESSOR}")

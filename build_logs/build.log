@@ -1,2 +1,14 @@
-[1/2] Building CXX object apps/main_app/CMakeFiles/main_app.dir/src/main.cpp.o
-[2/2] Linking CXX executable apps/main_app/main_app
+[1/14] Building CXX object apps/main_app/CMakeFiles/main_app.dir/src/main.cpp.o
+[2/14] Building CXX object libs/dummy_lib/CMakeFiles/dummy_lib.dir/src/greet.cpp.o
+[3/14] Linking CXX static library libs/dummy_lib/libdummy_lib.a
+[4/14] Linking CXX executable apps/main_app/main_app
+[5/14] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o
+[6/14] Building CXX object tests/unit/dummy_lib/CMakeFiles/dummy_lib_tests.dir/greet_test.cpp.o
+[7/14] Building CXX object _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o
+[8/14] Building CXX object _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o
+[9/14] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
+[10/14] Linking CXX static library lib/libgtest.a
+[11/14] Linking CXX static library lib/libgtest_main.a
+[12/14] Linking CXX static library lib/libgmock.a
+[13/14] Linking CXX static library lib/libgmock_main.a
+[14/14] Linking CXX executable tests/unit/dummy_lib/dummy_lib_tests

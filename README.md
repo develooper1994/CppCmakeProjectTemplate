@@ -10,6 +10,103 @@ A world-class, multi-target C++ project skeleton.
 
 ---
 
+## ⚙️ Build Settings
+
+All options passed as `-D<OPTION>=ON/OFF` to CMake or via presets.
+
+### Core Build
+
+| Option | Default | Description |
+|---|---|---|
+| `BUILD_SHARED_LIBS` | `OFF` | Shared (`.so`/`.dll`) vs Static (`.a`/`.lib`) |
+| `CMAKE_BUILD_TYPE` | preset | `Debug` / `Release` / `RelWithDebInfo` |
+| `CMAKE_CXX_STANDARD` | `17` | C++ standard |
+| `ENABLE_WERROR` | `OFF` | Treat warnings as errors (ON in CI) |
+| `ENABLE_UNITY_BUILD` | `OFF` | Unity builds for faster compilation |
+| `ENABLE_DOCS` | `OFF` | Build Doxygen documentation |
+
+### Tests
+
+| Option | Default | Description |
+|---|---|---|
+| `ENABLE_UNIT_TESTS` | `ON` | Enable test build (OFF removes all test deps) |
+| `ENABLE_GTEST` | `ON` | GoogleTest framework |
+| `ENABLE_CATCH2` | `OFF` | Catch2 v3 framework |
+| `ENABLE_BOOST_TEST` | `OFF` | Boost.Test (requires `ENABLE_BOOST=ON`) |
+| QTest | auto | Enabled automatically when `ENABLE_QT=ON` |
+
+### Sanitizers
+
+| Option | Default | Description |
+|---|---|---|
+| `ENABLE_ASAN` | `OFF` | AddressSanitizer |
+| `ENABLE_UBSAN` | `OFF` | UndefinedBehaviorSanitizer |
+| `ENABLE_TSAN` | `OFF` | ThreadSanitizer (cannot combine with ASan/UBSan) |
+
+### Static Analysis & Coverage
+
+| Option | Default | Description |
+|---|---|---|
+| `ENABLE_CLANG_TIDY` | `OFF` | clang-tidy (requires clang-tidy installed) |
+| `ENABLE_CPPCHECK` | `OFF` | cppcheck |
+| `ENABLE_COVERAGE` | `OFF` | LCOV/GCOV coverage report |
+
+### Optional Frameworks
+
+| Option | Default | Description |
+|---|---|---|
+| `ENABLE_QT` | `OFF` | Qt Widgets (Qt5 or Qt6 auto-detected) |
+| `ENABLE_QML` | `OFF` | Qt QML support (requires `ENABLE_QT=ON`) |
+| `ENABLE_BOOST` | `OFF` | Boost library suite |
+| `BOOST_COMPONENTS` | `""` | Semicolon-separated components e.g. `filesystem;system` |
+
+### MSVC-specific
+
+| Behavior | Static build | Shared build |
+|---|---|---|
+| Runtime library | `/MT` (MultiThreaded) | `/MD` (MultiThreadedDLL) |
+| Debug suffix | `/MTd` | `/MDd` |
+| `gtest_force_shared_crt` | `OFF` | `ON` |
+
+> **Note:** MSVC runtime is set automatically from `BUILD_SHARED_LIBS`. Mixing runtimes causes LNK2038 linker errors.
+
+### C++ Compile-time Feature Detection
+
+Every option above maps to a preprocessor define in the auto-generated `FeatureFlags.h`:
+
+```cpp
+#include "FeatureFlags.h"
+
+// Check a single feature
+#if FEATURE_BOOST
+    // Boost is available
+#endif
+
+// Dump all features at runtime
+for (const auto& f : project_features::features)
+    std::cout << f.name << ": " << f.enabled << "\n";
+```
+
+| C++ macro | CMake option |
+|---|---|
+| `PROJECT_SHARED_LIBS` | `BUILD_SHARED_LIBS` |
+| `FEATURE_UNIT_TESTS` | `ENABLE_UNIT_TESTS` |
+| `FEATURE_GTEST` | `ENABLE_GTEST` |
+| `FEATURE_CATCH2` | `ENABLE_CATCH2` |
+| `FEATURE_BOOST_TEST` | `ENABLE_BOOST_TEST` |
+| `FEATURE_ASAN` | `ENABLE_ASAN` |
+| `FEATURE_UBSAN` | `ENABLE_UBSAN` |
+| `FEATURE_TSAN` | `ENABLE_TSAN` |
+| `FEATURE_CLANG_TIDY` | `ENABLE_CLANG_TIDY` |
+| `FEATURE_CPPCHECK` | `ENABLE_CPPCHECK` |
+| `FEATURE_COVERAGE` | `ENABLE_COVERAGE` |
+| `FEATURE_QT` | `ENABLE_QT` |
+| `FEATURE_QML` | `ENABLE_QML` |
+| `FEATURE_BOOST` | `ENABLE_BOOST` |
+| `FEATURE_DOCS` | `ENABLE_DOCS` |
+
+---
+
 ## 📦 Dependencies
 
 ### Mandatory
