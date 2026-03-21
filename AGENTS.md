@@ -26,11 +26,9 @@
 
 5. INTEGRATE
 If target added:
-- update CMake
-- link dependencies
-- apply warnings
-- add docs + README
-- add tests if needed
+- use `python3 scripts/libtool.py add <n>` for new libraries
+- or manually: update CMake, link deps, apply warnings, add docs + README + tests
+- libtool commands: add / remove / rename / move / deps / list / tree / doctor
 
 6. VALIDATE
 - build integrity

@@ -24,6 +24,10 @@
       {
         "command": "cpp-cmake-scaffolder.init",
         "title": "CppTemplate: Create New Project"
+      },
+      {
+        "command": "cpp-cmake-scaffolder.libtool",
+        "title": "CppTemplate: Library Manager (libtool)"
       }
     ]
   }

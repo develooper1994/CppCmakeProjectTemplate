@@ -69,15 +69,35 @@ LICENSE dosyası manuel güncellenmeli.
 
 ---
 
-## 🧩 Kütüphane Ekle / Kaldır
+## 🧩 Library Management (libtool)
+
+All library operations go through `scripts/libtool.py`.
+In VS Code: `Ctrl+Shift+P` → **CppTemplate: Library Manager (libtool)**.
 
 ```bash
-# Yeni lib ekle
-python3 scripts/add_new_lib.py --name my_lib --link-app
+# Add a library
+python3 scripts/libtool.py add my_lib
+python3 scripts/libtool.py add renderer --deps core,math --link-app
 
-# Lib kaldır (dosyalar dahil)
-python3 scripts/remove_lib.py --name my_lib --delete
+# Remove (--delete also removes files)
+python3 scripts/libtool.py remove my_lib --delete
+
+# Rename (updates all source/CMake references)
+python3 scripts/libtool.py rename old_name new_name
+
+# Move (supports subdirectory layouts)
+python3 scripts/libtool.py move renderer graphics/renderer
+
+# Edit dependencies of an existing library
+python3 scripts/libtool.py deps renderer --add math --remove old_dep
+
+# Inspect
+python3 scripts/libtool.py list
+python3 scripts/libtool.py tree
+python3 scripts/libtool.py doctor
 ```
+
+Append `--dry-run` to any command to preview changes without applying them.
 
 ---
 
