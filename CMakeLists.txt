@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.25)
 # Project Information
 # -----------------------------------------------------------------------------
 project(CppCmakeProjectTemplate
-    VERSION 0.1.0
+    VERSION 1.0.0
     DESCRIPTION "Professional Modern C++ / CMake Project Template"
     LANGUAGES CXX
 )
@@ -47,7 +47,7 @@ if(ENABLE_QT)
             list(APPEND QT_LIBRARIES Qt5::Quick Qt5::Qml)
         endif()
     endif()
-    
+
     # Required for Qt's meta-build system
     set(CMAKE_AUTOMOC ON)
     set(CMAKE_AUTOUIC ON)
@@ -90,7 +90,7 @@ if(DOXYGEN_FOUND)
         VERBATIM
     )
 endif()
-# Avoid using global defines; prefer target-based. 
+# Avoid using global defines; prefer target-based.
 # However, we can set some project-wide defaults here if needed.
 
 # -----------------------------------------------------------------------------

@@ -10,6 +10,11 @@ A world-class, multi-target C++ project skeleton. Designed for high-performance 
 
 ---
 
+## VS Code Extension: C++ CMake Scaffolder
+
+Generate new C++ projects
+Link: [C++ CMake Scaffolder](https://marketplace.visualstudio.com/items?itemName=develooper1994.cpp-cmake-scaffolder)
+
 ## 🚀 Key Features
 
 - **Cross-Platform**: Windows (MSVC), Linux (GCC/Clang), and macOS (AppleClang) support.
