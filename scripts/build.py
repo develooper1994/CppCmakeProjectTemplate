@@ -269,36 +269,43 @@ def _sync_license() -> None:
         print("  ✅ LICENSE copied")
 
 
-def _do_extension(install: bool, log: Path | None = None) -> None:
+def _do_extension(install: bool, publish: bool = False, log: Path | None = None) -> None:
     _sync_version()
     _sync_license()
 
     count = _sync_templates()
     print(f"  ✅ {count} files → templates/")
 
-    # Remove old .vsix
-    for f in PROJECT_ROOT.glob("*.vsix"):
+    # Remove old .vsix from extension dir
+    for f in EXT_DIR.glob("*.vsix"):
         f.unlink()
         print(f"  🗑  Removed: {f.name}")
 
     run(["npm", "install"], cwd=EXT_DIR, log=None)
-    run(["npx", "vsce", "package", "--out", str(PROJECT_ROOT)], cwd=EXT_DIR, log=log)
+    # Output .vsix into scripts/extension/ (not project root)
+    run(["npx", "vsce", "package", "--out", str(EXT_DIR)], cwd=EXT_DIR, log=log)
 
-    vsix_files = sorted(PROJECT_ROOT.glob("*.vsix"), key=lambda f: f.stat().st_mtime, reverse=True)
+    vsix_files = sorted(EXT_DIR.glob("*.vsix"), key=lambda f: f.stat().st_mtime, reverse=True)
     if not vsix_files:
         print("❌ .vsix not produced.", file=sys.stderr)
         sys.exit(1)
-    print(f"  ✅ Package: {vsix_files[0].name}")
+    vsix = vsix_files[0]
+    print(f"  ✅ Package: scripts/extension/{vsix.name}")
 
     if install:
-        run(["code", "--install-extension", str(vsix_files[0])], cwd=PROJECT_ROOT)
+        run(["code", "--install-extension", str(vsix)], cwd=PROJECT_ROOT)
         print("  ✅ Installed. Restart VS Code.")
+
+    if publish:
+        print("\n  Publishing to VS Code Marketplace...")
+        run(["npx", "vsce", "publish"], cwd=EXT_DIR)
+        print("  ✅ Published.")
 
 
 def cmd_extension(args: argparse.Namespace) -> None:
     header("Extension Build")
     print()
-    _do_extension(install=args.install)
+    _do_extension(install=args.install, publish=getattr(args, "publish", False))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -338,6 +345,7 @@ def build_parser() -> argparse.ArgumentParser:
     # extension
     p = sub.add_parser("extension", help="Build .vsix extension package")
     p.add_argument("--install", action="store_true", help="Install into VS Code after build")
+    p.add_argument("--publish", action="store_true", help="Publish to VS Code Marketplace after build")
     p.set_defaults(func=cmd_extension)
 
     return parser

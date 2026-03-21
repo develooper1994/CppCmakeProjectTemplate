@@ -109,6 +109,13 @@ function(target_generate_build_info target)
         $<INSTALL_INTERFACE:include>
     )
 
+    # Also expose BuildInfoHelper.h (same include dir as BuildInfo.h)
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/cmake/BuildInfoHelper.h"
+        "${GENERATED_DIR}/BuildInfoHelper.h"
+        COPYONLY
+    )
+
     message(STATUS "BuildInfo generated for target: ${target} (Namespace: ${BUILD_INFO_NAMESPACE}, Version: ${PROJECT_VERSION})")
 
 endfunction()
