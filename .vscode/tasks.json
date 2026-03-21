@@ -2,21 +2,18 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Project: Build (Auto-detect OS)",
+      "label": "Project: Build",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/build.py"],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
+      "args": ["scripts/build.py", "build"],
+      "group": { "kind": "build", "isDefault": true },
       "problemMatcher": ["$gcc"]
     },
     {
-      "label": "Project: Build + Test + Bundle",
+      "label": "Project: Build + Test + Extension",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/run_build_check.py"],
+      "args": ["scripts/build.py", "check"],
       "group": "build",
       "problemMatcher": ["$gcc"]
     },
@@ -24,7 +21,21 @@
       "label": "Project: Clean",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/clean.py"],
+      "args": ["scripts/build.py", "clean"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Clean All",
+      "type": "shell",
+      "command": "python3",
+      "args": ["scripts/build.py", "clean", "--all"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Build Extension (.vsix)",
+      "type": "shell",
+      "command": "python3",
+      "args": ["scripts/build.py", "extension"],
       "problemMatcher": []
     },
     {
@@ -52,11 +63,9 @@
       "type": "shell",
       "command": "python3",
       "args": [
-        "scripts/deploy.py",
-        "--host",
-        "${input:remoteHost}",
-        "--path",
-        "${input:remotePath}"
+        "scripts/build.py", "deploy",
+        "--host", "${input:remoteHost}",
+        "--path", "${input:remotePath}"
       ]
     }
   ],

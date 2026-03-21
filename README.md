@@ -32,14 +32,20 @@ A world-class, multi-target C++ project skeleton. Designed for high-performance 
 ## ⌨️ Usage: The Terminal Way
 
 ```bash
-# 1. Build (Auto-detects environment)
-python3 scripts/build.py
+# Build (auto-detects preset)
+python3 scripts/build.py build
 
-# 2. Run Application
-./build/<preset-name>/apps/main_app/main_app
+# Build + Test + Extension sync
+python3 scripts/build.py check
 
-# 3. Clean Build
-python3 scripts/clean.py
+# Clean
+python3 scripts/build.py clean
+
+# Build extension (.vsix)
+python3 scripts/build.py extension
+
+# Remote deploy
+python3 scripts/build.py deploy --host user@192.168.1.10
 ```
 
 ---
