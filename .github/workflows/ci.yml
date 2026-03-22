@@ -7,107 +7,123 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build-linux:
+  # ── Linux / GCC ─────────────────────────────────────────────────────────────
+  build-linux-gcc:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [gcc-debug-static-x86_64, gcc-release-static-x86_64]
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build g++-13
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++-13
 
-    - name: Cache GTest
-      uses: actions/cache@v4
-      with:
-        path: build/gcc-debug-static-x86_64/_deps
-        key: gtest-${{ runner.os }}-gcc-${{ hashFiles('tests/CMakeLists.txt') }}
-        restore-keys: gtest-${{ runner.os }}-gcc-
+      - name: Cache _deps
+        uses: actions/cache@v4
+        with:
+          path: build/${{ matrix.preset }}/_deps
+          key: deps-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('tests/CMakeLists.txt') }}
+          restore-keys: deps-${{ runner.os }}-${{ matrix.preset }}-
 
-    - name: Configure and Build (Static)
-      run: |
-        cmake --preset gcc-debug-static-x86_64
-        cmake --build --preset gcc-debug-static-x86_64
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
 
-    - name: Run Tests
-      run: |
-        ctest --preset gcc-debug-static-x86_64
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
 
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+  # ── Linux / Clang ────────────────────────────────────────────────────────────
   build-linux-clang:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [clang-debug-static-x86_64, clang-release-static-x86_64]
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build clang
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang
 
-    - name: Cache GTest
-      uses: actions/cache@v4
-      with:
-        path: build/clang-debug-static-x86_64/_deps
-        key: gtest-${{ runner.os }}-clang-${{ hashFiles('tests/CMakeLists.txt') }}
-        restore-keys: gtest-${{ runner.os }}-clang-
+      - name: Cache _deps
+        uses: actions/cache@v4
+        with:
+          path: build/${{ matrix.preset }}/_deps
+          key: deps-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('tests/CMakeLists.txt') }}
+          restore-keys: deps-${{ runner.os }}-${{ matrix.preset }}-
 
-    - name: Configure and Build (Clang Static)
-      run: |
-        cmake --preset clang-debug-static-x86_64
-        cmake --build --preset clang-debug-static-x86_64
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
 
-    - name: Run Tests
-      run: |
-        ctest --preset clang-debug-static-x86_64
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
 
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+  # ── Windows / MSVC ───────────────────────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [msvc-debug-static-x64, msvc-release-static-x64]
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Cache GTest
-      uses: actions/cache@v4
-      with:
-        path: build/msvc-debug-static-x64/_deps
-        key: gtest-${{ runner.os }}-msvc-${{ hashFiles('tests/CMakeLists.txt') }}
-        restore-keys: gtest-${{ runner.os }}-msvc-
+      - name: Cache _deps
+        uses: actions/cache@v4
+        with:
+          path: build/${{ matrix.preset }}/_deps
+          key: deps-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('tests/CMakeLists.txt') }}
+          restore-keys: deps-${{ runner.os }}-${{ matrix.preset }}-
 
-    - name: Configure and Build (Static)
-      run: |
-        cmake --preset msvc-debug-static-x64
-        cmake --build --preset msvc-debug-static-x64
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
 
-    - name: Run Tests
-      run: |
-        ctest --preset msvc-debug-static-x64
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
 
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+  # ── macOS / AppleClang ───────────────────────────────────────────────────────
   build-macos:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install dependencies
-      run: brew install ninja cmake
+      - name: Install dependencies
+        run: brew install ninja cmake
 
-    - name: Cache GTest
-      uses: actions/cache@v4
-      with:
-        path: build/clang-debug-static-x86_64/_deps
-        key: gtest-${{ runner.os }}-${{ hashFiles('tests/CMakeLists.txt') }}
-        restore-keys: gtest-${{ runner.os }}-
+      - name: Cache _deps
+        uses: actions/cache@v4
+        with:
+          path: build/clang-debug-static-x86_64/_deps
+          key: deps-${{ runner.os }}-clang-debug-${{ hashFiles('tests/CMakeLists.txt') }}
+          restore-keys: deps-${{ runner.os }}-clang-debug-
 
-    - name: Configure and Build (AppleClang Static)
-      run: |
-        cmake --preset clang-debug-static-x86_64
-        cmake --build --preset clang-debug-static-x86_64
+      - name: Configure
+        run: cmake --preset clang-debug-static-x86_64
 
-    - name: Run Tests
-      run: |
-        ctest --preset clang-debug-static-x86_64
+      - name: Build
+        run: cmake --build --preset clang-debug-static-x86_64
+
+      - name: Test
+        run: ctest --preset clang-debug-static-x86_64 --output-on-failure

@@ -2,41 +2,31 @@
 
 ---
 
-## P5 — toollib: Pattern-based scaffolding şablonları
+## Kalan Planlar
+
+### P7 — GUI (Merkezi Yönetim Arayüzü)
 
 **Durum:** Pending
 
-```bash
-toollib.py add my_lib --template singleton
-toollib.py add my_lib --template pimpl
-toollib.py add my_lib --template observer
-toollib.py add my_lib --template factory
-```
-
-Her şablon, başlangıç implementasyonu + test + README üretir.
-
----
-
-## P6 — toolsolution: CI simülasyonu (`toolsolution ci`)
-
-**Durum:** Pending  
-Tüm platform presetlerini sırayla çalıştırır, sonucu raporlar.
-
-```bash
-toolsolution.py ci                     # mevcut platformdaki tüm presetler
-toolsolution.py ci --preset-filter gcc # sadece gcc presetleri
-toolsolution.py ci --fail-fast         # ilk hatada dur
-```
-
----
-
-## P7 — GUI (Merkezi Yönetim Arayüzü)
-
-**Durum:** In Progress (VS Code Extension Basic)
-**Neden en sonda:** CLI araçlar stabil olunca GUI sadece wrapper olur.
-
-**Seçenekler:**
-- **VS Code WebView** — extension içinde panel (en uygun)
+**Seçenekler (öncelik sırasıyla):**
+- **VS Code WebView** — extension içinde panel, toollib/toolsolution komutlarını form UI ile çalıştırır
 - **TUI (Textual/Rich)** — terminal tabanlı Python, hızlı başlangıç
 
-**Kural:** Tüm işlemler arka planda CLI araçları çalıştırır, GUI sadece wrapper.
+**Kural:** Tüm işlemler CLI araçlarına delegasyon yapar. GUI sadece wrapper.
+
+---
+
+## Tamamlanan Planlar (arşiv)
+
+- P1 ✅ Header-only + Interface scaffolding (`toollib add --header-only/--interface`)
+- P2 ✅ CMake export kuralları (`toollib export` — find_package desteği)
+- P3 ✅ URL dep desteği (`toollib deps --add-url` — FetchContent/vcpkg/conan)
+- P4 ✅ Multi-repo yönetimi (`toolsolution repo add-submodule/add-fetch/sync/versions/list`)
+- P5 ✅ Pattern-based scaffolding (`toollib add --template singleton/pimpl/observer/factory`)
+- P6 ✅ CI simülasyonu (`toolsolution ci --preset-filter gcc --fail-fast`)
+- toolsolution --lib delegasyonu ✅ (`toolsolution --lib <toollib args>`)
+- x86 toolchain ✅ (`linux-x86.cmake` — çift -m32 düzeltildi, gcc-multilib kontrolü eklendi)
+- CI yml ✅ (matrix strategy, tüm presetler, output-on-failure)
+- .clang-tidy ✅ (project-aware naming conventions, gereksiz noisy checks devre dışı)
+- .vscode/c_cpp_properties.json ✅ (3 platform config, compile_commands.json bağlantısı)
+- AGENTS.md / GEMINI.md / .cursor/rules ✅ (tüm AI araçları için güncel proje özeti)

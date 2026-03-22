@@ -271,14 +271,26 @@ target_include_directories({name} PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-{cxx_block}set_target_properties({name} PROPERTIES
+{cxx_block}
+
+set_target_properties({name} PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN 1
-){deps_block}
-if(ENABLE_COVERAGE)          enable_code_coverage({name})     endif()
-if(COMMAND enable_sanitizers)    enable_sanitizers({name})    endif()
-if(COMMAND set_project_warnings) set_project_warnings({name}) endif()
+)
 
+if(ENABLE_COVERAGE)
+    enable_code_coverage({name})
+endif()
+
+if(COMMAND enable_sanitizers)
+    enable_sanitizers({name})
+endif()
+
+if(COMMAND set_project_warnings)
+    set_project_warnings({name})
+endif()
+
+{deps_block}
 install(TARGETS {name} EXPORT {name}_Targets FILE_SET HEADERS)
 """
 
@@ -406,6 +418,276 @@ TODO: Bu kütüphanenin ne yaptığını açıkla.
 
 auto info = {name}::get_info();
 ```
+"""
+
+
+# ── Pattern Templates ──────────────────────────────────────────────────────
+
+def lib_header_singleton(name: str, namespace: str) -> str:
+    upper = name.upper()
+    return f"""\
+#pragma once
+#include "{name}/{name}_export.h"
+
+namespace {namespace} {{
+
+class {upper}_EXPORT {name} {{
+public:
+    static {name}& instance();
+
+    {name}(const {name}&) = delete;
+    {name}& operator=(const {name}&) = delete;
+
+    void do_something();
+
+private:
+    {name}() = default;
+}};
+
+}} // namespace {namespace}
+"""
+
+
+def lib_source_singleton(name: str, namespace: str) -> str:
+    return f"""\
+#include "{name}/{name}.h"
+#include <iostream>
+
+namespace {namespace} {{
+
+{name}& {name}::instance() {{
+    static {name} instance;
+    return instance;
+}}
+
+void {name}::do_something() {{
+    std::cout << "Singleton {name} is doing something." << std::endl;
+}}
+
+}} // namespace {namespace}
+"""
+
+
+def test_source_singleton(name: str, namespace: str) -> str:
+    return f"""\
+#include <gtest/gtest.h>
+#include "{name}/{name}.h"
+
+TEST({name}_Test, IsSameInstance)
+{{
+    auto& i1 = {namespace}::{name}::instance();
+    auto& i2 = {namespace}::{name}::instance();
+    EXPECT_EQ(&i1, &i2);
+}}
+"""
+
+
+def lib_header_pimpl(name: str, namespace: str) -> str:
+    upper = name.upper()
+    return f"""\
+#pragma once
+#include <memory>
+#include "{name}/{name}_export.h"
+
+namespace {namespace} {{
+
+class {upper}_EXPORT {name} {{
+public:
+    {name}();
+    ~{name}();
+
+    {name}({name}&&) noexcept;
+    {name}& operator=({name}&&) noexcept;
+
+    void do_work();
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> pimpl;
+}};
+
+}} // namespace {namespace}
+"""
+
+
+def lib_source_pimpl(name: str, namespace: str) -> str:
+    return f"""\
+#include "{name}/{name}.h"
+#include <iostream>
+
+namespace {namespace} {{
+
+class {name}::Impl {{
+public:
+    void do_work() {{
+        std::cout << "Pimpl {name} working." << std::endl;
+    }}
+}};
+
+{name}::{name}() : pimpl(std::make_unique<Impl>()) {{}}
+{name}::~{name}() = default;
+{name}::{name}({name}&&) noexcept = default;
+{name}& {name}::operator=({name}&&) noexcept = default;
+
+void {name}::do_work() {{
+    pimpl->do_work();
+}}
+
+}} // namespace {namespace}
+"""
+
+
+def test_source_pimpl(name: str, namespace: str) -> str:
+    return f"""\
+#include <gtest/gtest.h>
+#include "{name}/{name}.h"
+
+TEST({name}_Test, CanInstantiate)
+{{
+    {namespace}::{name} obj;
+    EXPECT_NO_THROW(obj.do_work());
+}}
+"""
+
+
+def lib_header_observer(name: str, namespace: str) -> str:
+    upper = name.upper()
+    return f"""\
+#pragma once
+#include <vector>
+#include "{name}/{name}_export.h"
+
+namespace {namespace} {{
+
+class {upper}_EXPORT IObserver {{
+public:
+    virtual ~IObserver() = default;
+    virtual void on_notify() = 0;
+}};
+
+class {upper}_EXPORT {name} {{
+public:
+    void attach(IObserver* observer);
+    void detach(IObserver* observer);
+    void notify();
+
+private:
+    std::vector<IObserver*> observers;
+}};
+
+}} // namespace {namespace}
+"""
+
+
+def lib_source_observer(name: str, namespace: str) -> str:
+    return f"""\
+#include "{name}/{name}.h"
+#include <algorithm>
+
+namespace {namespace} {{
+
+void {name}::attach(IObserver* observer) {{
+    observers.push_back(observer);
+}}
+
+void {name}::detach(IObserver* observer) {{
+    observers.erase(std::remove(observers.begin(), observers.end(), observer), observers.end());
+}}
+
+void {name}::notify() {{
+    for (auto* observer : observers) {{
+        if (observer) observer->on_notify();
+    }}
+}}
+
+}} // namespace {namespace}
+"""
+
+
+def test_source_observer(name: str, namespace: str) -> str:
+    return f"""\
+#include <gtest/gtest.h>
+#include "{name}/{name}.h"
+
+class MockObserver : public {namespace}::IObserver {{
+public:
+    bool notified = false;
+    void on_notify() override {{ notified = true; }}
+}};
+
+TEST({name}_Test, NotifyObservers)
+{{
+    {namespace}::{name} subject;
+    MockObserver observer;
+    subject.attach(&observer);
+    subject.notify();
+    EXPECT_TRUE(observer.notified);
+}}
+"""
+
+
+def lib_header_factory(name: str, namespace: str) -> str:
+    upper = name.upper()
+    return f"""\
+#pragma once
+#include <memory>
+#include <string>
+#include "{name}/{name}_export.h"
+
+namespace {namespace} {{
+
+class {upper}_EXPORT Product {{
+public:
+    virtual ~Product() = default;
+    virtual std::string operation() const = 0;
+}};
+
+class {upper}_EXPORT {name} {{
+public:
+    static std::unique_ptr<Product> create_product(const std::string& type);
+}};
+
+}} // namespace {namespace}
+"""
+
+
+def lib_source_factory(name: str, namespace: str) -> str:
+    return f"""\
+#include "{name}/{name}.h"
+
+namespace {namespace} {{
+
+class ConcreteProductA : public Product {{
+public:
+    std::string operation() const override {{ return "ProductA"; }}
+}};
+
+class ConcreteProductB : public Product {{
+public:
+    std::string operation() const override {{ return "ProductB"; }}
+}};
+
+std::unique_ptr<Product> {name}::create_product(const std::string& type) {{
+    if (type == "A") return std::make_unique<ConcreteProductA>();
+    if (type == "B") return std::make_unique<ConcreteProductB>();
+    return nullptr;
+}}
+
+}} // namespace {namespace}
+"""
+
+
+def test_source_factory(name: str, namespace: str) -> str:
+    return f"""\
+#include <gtest/gtest.h>
+#include "{name}/{name}.h"
+
+TEST({name}_Test, CreateProductA)
+{{
+    auto p = {namespace}::{name}::create_product("A");
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(p->operation(), "ProductA");
+}}
 """
 
 
@@ -692,10 +974,14 @@ def create_lib_skeleton(
     deps: list[str], link_app: bool, dry_run: bool,
     cxx_standard: str = "",
     lib_type: str = "normal",   # "normal" | "header-only" | "interface"
+    template: str = "",         # "singleton" | "pimpl" | "observer" | "factory"
 ) -> None:
     validate_name(name)
     if lib_type not in ("normal", "header-only", "interface"):
         fail(f"Unknown lib_type '{lib_type}'. Use: normal, header-only, interface")
+
+    if template and lib_type != "normal":
+        fail(f"Templates only support lib_type='normal'. Got '{lib_type}'.")
 
     p = LibPaths(PROJECT_ROOT, name)
     is_header_only = lib_type == "header-only"
@@ -712,6 +998,9 @@ def create_lib_skeleton(
             fail(f"Dependency '{dep}' not found in libs/. Create it first.")
 
     type_tag = f" [{lib_type}]" if lib_type != "normal" else ""
+    if template:
+        type_tag += f" [template: {template}]"
+
     if dry_run:
         print(f"[dry-run] create libs/{name}/{type_tag}")
         if not is_interface:
@@ -722,6 +1011,30 @@ def create_lib_skeleton(
         if deps:     print(f"[dry-run] deps: {', '.join(deps)}")
         if link_app: print(f"[dry-run] link → apps/main_app/CMakeLists.txt")
         return
+
+    # ── Prepare content ──────────────────────────────────────────────────────
+    if template == "singleton":
+        h_content = lib_header_singleton(name, namespace)
+        cpp_content = lib_source_singleton(name, namespace)
+        test_content = test_source_singleton(name, namespace)
+    elif template == "pimpl":
+        h_content = lib_header_pimpl(name, namespace)
+        cpp_content = lib_source_pimpl(name, namespace)
+        test_content = test_source_pimpl(name, namespace)
+    elif template == "observer":
+        h_content = lib_header_observer(name, namespace)
+        cpp_content = lib_source_observer(name, namespace)
+        test_content = test_source_observer(name, namespace)
+    elif template == "factory":
+        h_content = lib_header_factory(name, namespace)
+        cpp_content = lib_source_factory(name, namespace)
+        test_content = test_source_factory(name, namespace)
+    elif template:
+        fail(f"Unknown template '{template}'.")
+    else:
+        h_content = lib_header(name, namespace)
+        cpp_content = lib_source(name, namespace)
+        test_content = test_source(name, namespace, header_only=is_header_only)
 
     # ── Directory structure ──────────────────────────────────────────────────
     if is_interface:
@@ -747,10 +1060,8 @@ def create_lib_skeleton(
     else:
         write_text(p.lib_dir / "CMakeLists.txt",
                    lib_cmakelists(name, version, namespace, deps, cxx_standard))
-        write_text(p.lib_dir / "include" / name / f"{name}.h",
-                   lib_header(name, namespace))
-        write_text(p.lib_dir / "src" / f"{name}.cpp",
-                   lib_source(name, namespace))
+        write_text(p.lib_dir / "include" / name / f"{name}.h", h_content)
+        write_text(p.lib_dir / "src" / f"{name}.cpp", cpp_content)
 
     write_text(p.lib_dir / "README.md", lib_readme(name, deps))
 
@@ -760,8 +1071,7 @@ def create_lib_skeleton(
         p.test_dir.mkdir(parents=True)
         write_text(p.test_dir / "CMakeLists.txt",
                    test_cmakelists(name, header_only=is_header_only))
-        write_text(p.test_dir / f"{name}_test.cpp",
-                   test_source(name, namespace, header_only=is_header_only))
+        write_text(p.test_dir / f"{name}_test.cpp", test_content)
         append_subdirectory(p.unit_cmake, name)
 
     print(f"  ✅ libs/{name}/{type_tag}")
@@ -1084,6 +1394,7 @@ def cmd_add(args: argparse.Namespace) -> None:
         dry_run      = args.dry_run,
         cxx_standard = getattr(args, "cxx_standard", "") or "",
         lib_type     = lib_type,
+        template     = getattr(args, "template", "") or "",
     )
 
 
@@ -1482,6 +1793,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--deps",         default="", help="Comma-separated deps, e.g. core,math")
     p.add_argument("--cxx-standard", default="", dest="cxx_standard",
                    help="Per-lib C++ standard override (14|17|20|23), empty = inherit")
+    p.add_argument("--template",     default="", choices=["singleton", "pimpl", "observer", "factory"],
+                   help="Design pattern template (normal libs only)")
     p.add_argument("--link-app",    action="store_true")
     p.add_argument("--dry-run",     action="store_true")
     type_grp = p.add_mutually_exclusive_group()

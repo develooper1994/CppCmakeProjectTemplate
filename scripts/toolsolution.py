@@ -682,6 +682,17 @@ def build_parser() -> argparse.ArgumentParser:
         description="Full project orchestrator — targets, presets, toolchains, config",
     )
     sub = parser.add_subparsers(dest="group", required=True)
+    # Lib delegation
+    p = sub.add_parser("lib", help="Delegate to toollib.py")
+    p.add_argument("args", nargs=argparse.REMAINDER)
+    p.set_defaults(func=cmd_lib_delegate)
+    
+    # CI pipeline
+    p = sub.add_parser("ci", help="Run CI")
+    p.add_argument("--preset-filter", default=None)
+    p.add_argument("--fail-fast", action="store_true")
+    p.set_defaults(func=cmd_ci)
+
 
     # ── target ──────────────────────────────────────────────────────────────
     tgt = sub.add_parser("target", help="Manage build targets")
@@ -789,9 +800,41 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    # Special case: toolsolution --lib <toollib args...>
+    # Routes everything after --lib directly to toollib.py
+    if "--lib" in sys.argv:
+        idx = sys.argv.index("--lib")
+        lib_args = sys.argv[idx + 1:]
+        toollib = Path(__file__).resolve().parent / "toollib.py"
+        if not toollib.exists():
+            fail("toollib.py not found")
+        result = subprocess.run([sys.executable, str(toollib)] + lib_args)
+        sys.exit(result.returncode)
+
     args = build_parser().parse_args()
     args.func(args)
 
+
+def cmd_lib_delegate(args: argparse.Namespace) -> None:
+    cmd = [sys.executable, str(Path(__file__).resolve().parent / "toollib.py")] + args.args
+    subprocess.run(cmd)
+
+def cmd_ci(args: argparse.Namespace) -> None:
+    all_presets = list_presets()
+    target = [p for p in all_presets if not args.preset_filter or args.preset_filter in p]
+    if not target: fail("No matching presets.")
+    header("CI Pipeline", f"Presets: {len(target)}")
+    for p in target:
+        print(f"\n[CI] Running: {p}")
+        run(["cmake", "--preset", p])
+        run(["cmake", "--build", "--preset", p])
+        ctest_bin = PROJECT_ROOT / "build" / p
+        res = subprocess.run(["ctest", "--test-dir", str(ctest_bin), "--output-on-failure"])
+        if res.returncode != 0:
+            if args.fail_fast: fail(f"CI failed on {p}")
+            print(f"  ❌ {p} FAILED")
+        else:
+            print(f"  ✅ {p} PASSED")
 
 if __name__ == "__main__":
     main()

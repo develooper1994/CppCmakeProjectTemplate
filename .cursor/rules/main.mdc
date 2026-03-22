@@ -1,21 +1,69 @@
-# Cursor/AI Agent Rules
+---
+description: C++ CMake Project Template — AI Agent Rules
+globs: ["**/*"]
+alwaysApply: true
+---
 
-## Project Scope
-- This is a C++ / CMake project template.
-- Adhere to the structure in `GEMINI.md`.
+# C++ CMake Project Template — Cursor AI Rules
 
-## Mandatory Constraints
-- **CMake**: Minimum version 3.25, target-based only.
-- **External**: NEVER modify `external/`. Use `add_subdirectory(... SYSTEM)`.
-- **Warnings**: Enable strict warnings for all internal targets.
-- **Tests**: Every library MUST have a unit test in `tests/unit/`.
-- **Docs**: Every target MUST have its own `docs/` and `README.md`.
+## CRITICAL: Read Before Acting
 
-## Execution Protocol
-1.  **Analyze**: Determine the scope (libs, apps, tests, etc.).
-2.  **Impact**: Check if CMake or other targets are affected.
-3.  **Plan**: Select the minimal safe change.
-4.  **Implement**: Write complete, production-grade code.
-5.  **Integrate**: Update CMake and add docs/tests.
-6.  **Validate**: Run builds/tests to ensure zero regressions.
-7.  **Output**: Deliver the final, working result.
+This repository has **full automation tooling**. Before writing any code or CMake:
+1. Check if `scripts/toollib.py` or `scripts/toolsolution.py` can do it
+2. Run `python3 scripts/toollib.py --help` to see available commands
+3. Use existing tools — do NOT re-implement library scaffolding, preset management, etc.
+
+## Validation (run after EVERY change)
+
+```bash
+python3 scripts/build.py check --no-sync
+```
+
+## Library Management
+
+```bash
+python3 scripts/toollib.py add <name>               # normal lib
+python3 scripts/toollib.py add <name> --header-only # header-only
+python3 scripts/toollib.py add <name> --interface   # interface target
+python3 scripts/toollib.py deps <name> --add <dep>  # local dep
+python3 scripts/toollib.py deps <name> --add-url https://github.com/org/repo@tag  # external
+python3 scripts/toollib.py export <name>            # find_package() support
+python3 scripts/toollib.py info <name>              # show details
+python3 scripts/toollib.py doctor                   # health check
+```
+
+## Project Management
+
+```bash
+python3 scripts/toolsolution.py target list
+python3 scripts/toolsolution.py preset add --compiler gcc --type debug --link static --arch x86_64
+python3 scripts/toolsolution.py toolchain add --name stm32 --template arm-none-eabi --cpu cortex-m4 --gen-preset
+python3 scripts/toolsolution.py upgrade-std --std 20
+python3 scripts/toolsolution.py doctor
+```
+
+## Structure Rules
+
+- Every library in `libs/` must have: `CMakeLists.txt`, `README.md`, `include/<n>/`, `docs/`
+- Normal libs also need: `src/<n>.cpp`, `tests/unit/<n>/`
+- All targets use target-scoped CMake — no global flags
+- Never touch `external/` directly (managed by toollib/toolsolution)
+- Never remove presets from `CMakePresets.json`
+
+## C++ Build Info
+
+```cpp
+#include "ProjectInfo.h"
+BUILD_INFO_PRINT_ALL(std::cout, my_namespace);
+#if FEATURE_BOOST
+    // Boost available
+#endif
+```
+
+## Forbidden
+
+- Re-implementing library scaffolding (use toollib.py)
+- Global CMake flags
+- Editing external/
+- Breaking existing tests
+- Partial/placeholder code
