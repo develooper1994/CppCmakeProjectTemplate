@@ -1,7 +1,7 @@
 const vscode = require('vscode');
-const fs     = require('fs');
-const path   = require('path');
-const cp     = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const cp = require('child_process');
 
 // ─── Rename helpers ───────────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ const BINARY_EXTS = new Set([
 
 const OLD_NAME = 'CppCmakeProjectTemplate';
 
-function isBinary(filePath)  { return BINARY_EXTS.has(path.extname(filePath).toLowerCase()); }
+function isBinary(filePath) { return BINARY_EXTS.has(path.extname(filePath).toLowerCase()); }
 function isLicense(filePath) { return LICENSE_NAMES.has(path.basename(filePath).toLowerCase()); }
 
 function copyDir(src, dst, projectName) {
@@ -42,31 +42,31 @@ function copyDir(src, dst, projectName) {
     }
 }
 
-// ─── libtool runner ───────────────────────────────────────────────────────────
+// ─── toollib runner ───────────────────────────────────────────────────────────
 
 function getWorkspaceRoot() {
     return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null;
 }
 
-function runLibtool(workspaceRoot, args) {
-    const script = path.join(workspaceRoot, 'scripts', 'libtool.py');
+function runToollib(workspaceRoot, args) {
+    const script = path.join(workspaceRoot, 'scripts', 'toollib.py');
     if (!fs.existsSync(script)) {
         vscode.window.showErrorMessage(
-            'libtool.py not found. Is this a CppCmakeProjectTemplate project?'
+            'toollib.py not found. Is this a CppCmakeProjectTemplate project?'
         );
         return;
     }
     const terminal = vscode.window.createTerminal({
-        name: 'libtool',
+        name: 'toollib',
         cwd: workspaceRoot,
     });
     terminal.show();
     terminal.sendText(`python3 "${script}" ${args}`);
 }
 
-// ─── libtool UI ───────────────────────────────────────────────────────────────
+// ─── toollib UI ───────────────────────────────────────────────────────────────
 
-async function libtoolUI() {
+async function toollibUI() {
     const root = getWorkspaceRoot();
     if (!root) {
         vscode.window.showErrorMessage('No workspace folder open.');
@@ -74,18 +74,18 @@ async function libtoolUI() {
     }
 
     const OP_ITEMS = [
-        { label: '$(add)    add',    description: 'Create a new library skeleton',         op: 'add'    },
-        { label: '$(trash)  remove', description: 'Detach or delete a library',            op: 'remove' },
-        { label: '$(edit)   rename', description: 'Rename a library (all references)',     op: 'rename' },
-        { label: '$(arrow-right) move', description: 'Move library to new location/subdir', op: 'move'  },
-        { label: '$(link)   deps',   description: 'Add or remove library dependencies',    op: 'deps'   },
-        { label: '$(list-unordered) list', description: 'List all libraries',              op: 'list'   },
-        { label: '$(type-hierarchy) tree', description: 'Show ASCII dependency tree',      op: 'tree'   },
-        { label: '$(check)  doctor', description: 'Check project consistency',             op: 'doctor' },
+        { label: '$(add)    add', description: 'Create a new library skeleton', op: 'add' },
+        { label: '$(trash)  remove', description: 'Detach or delete a library', op: 'remove' },
+        { label: '$(edit)   rename', description: 'Rename a library (all references)', op: 'rename' },
+        { label: '$(arrow-right) move', description: 'Move library to new location/subdir', op: 'move' },
+        { label: '$(link)   deps', description: 'Add or remove library dependencies', op: 'deps' },
+        { label: '$(list-unordered) list', description: 'List all libraries', op: 'list' },
+        { label: '$(type-hierarchy) tree', description: 'Show ASCII dependency tree', op: 'tree' },
+        { label: '$(check)  doctor', description: 'Check project consistency', op: 'doctor' },
     ];
 
     const picked = await vscode.window.showQuickPick(OP_ITEMS, {
-        placeHolder: 'libtool: select operation',
+        placeHolder: 'toollib: select operation',
         matchOnDescription: true,
     });
     if (!picked) return;
@@ -116,8 +116,8 @@ async function libtoolUI() {
 
             argStr = name;
             if (version && version !== '1.0.0') argStr += ` --version ${version}`;
-            if (depsRaw && depsRaw.trim())       argStr += ` --deps ${depsRaw.trim()}`;
-            if (linkPick === 'yes')               argStr += ' --link-app';
+            if (depsRaw && depsRaw.trim()) argStr += ` --deps ${depsRaw.trim()}`;
+            if (linkPick === 'yes') argStr += ' --link-app';
             break;
         }
 
@@ -183,7 +183,7 @@ async function libtoolUI() {
             });
             if (!addRaw && !removeRaw) return;
             argStr = name;
-            if (addRaw    && addRaw.trim())    argStr += ` --add ${addRaw.trim()}`;
+            if (addRaw && addRaw.trim()) argStr += ` --add ${addRaw.trim()}`;
             if (removeRaw && removeRaw.trim()) argStr += ` --remove ${removeRaw.trim()}`;
             break;
         }
@@ -204,7 +204,7 @@ async function libtoolUI() {
     if (!dryRun) return;
     if (dryRun === 'dry-run') argStr += ' --dry-run';
 
-    runLibtool(root, `${op} ${argStr}`.trim());
+    runToollib(root, `${op} ${argStr}`.trim());
 }
 
 // ─── toolsolution UI ───────────────────────────────────────────────────────────
@@ -214,16 +214,16 @@ async function toolsolutionUI() {
     if (!root) { vscode.window.showErrorMessage('No workspace folder open.'); return; }
 
     const OP_ITEMS = [
-        { label: '$(list-unordered) target list',   description: 'List all libs and apps',          op: 'target list' },
-        { label: '$(play)          target build',   description: 'Build a single target',           op: 'target build' },
-        { label: '$(add)           preset add',     description: 'Add a new CMake preset',          op: 'preset add' },
-        { label: '$(trash)         preset remove',  description: 'Remove a preset',                 op: 'preset remove' },
-        { label: '$(list-ordered)  preset list',    description: 'List all presets',                op: 'preset list' },
-        { label: '$(tools)         toolchain add',  description: 'Add toolchain from template',     op: 'toolchain add' },
-        { label: '$(list-ordered)  toolchain list', description: 'List toolchains',                 op: 'toolchain list' },
-        { label: '$(gear)          config get',     description: 'Show project config',             op: 'config get' },
-        { label: '$(gear)          config set',     description: 'Set a base preset variable',      op: 'config set' },
-        { label: '$(check)         doctor',         description: 'Full project health check',       op: 'doctor' },
+        { label: '$(list-unordered) target list', description: 'List all libs and apps', op: 'target list' },
+        { label: '$(play)          target build', description: 'Build a single target', op: 'target build' },
+        { label: '$(add)           preset add', description: 'Add a new CMake preset', op: 'preset add' },
+        { label: '$(trash)         preset remove', description: 'Remove a preset', op: 'preset remove' },
+        { label: '$(list-ordered)  preset list', description: 'List all presets', op: 'preset list' },
+        { label: '$(tools)         toolchain add', description: 'Add toolchain from template', op: 'toolchain add' },
+        { label: '$(list-ordered)  toolchain list', description: 'List toolchains', op: 'toolchain list' },
+        { label: '$(gear)          config get', description: 'Show project config', op: 'config get' },
+        { label: '$(gear)          config set', description: 'Set a base preset variable', op: 'config set' },
+        { label: '$(check)         doctor', description: 'Full project health check', op: 'doctor' },
     ];
 
     const picked = await vscode.window.showQuickPick(OP_ITEMS, {
@@ -244,10 +244,10 @@ async function toolsolutionUI() {
         if (!name) return;
         argStr = `target build ${name}`;
     } else if (picked.op === 'preset add') {
-        const compiler = await vscode.window.showQuickPick(['gcc','clang','msvc'], { placeHolder: 'Compiler' });
-        const type     = await vscode.window.showQuickPick(['debug','release','relwithdebinfo'], { placeHolder: 'Type' });
-        const link     = await vscode.window.showQuickPick(['static','dynamic'], { placeHolder: 'Linking' });
-        const arch     = await vscode.window.showQuickPick(['x86_64','x86'], { placeHolder: 'Arch' });
+        const compiler = await vscode.window.showQuickPick(['gcc', 'clang', 'msvc'], { placeHolder: 'Compiler' });
+        const type = await vscode.window.showQuickPick(['debug', 'release', 'relwithdebinfo'], { placeHolder: 'Type' });
+        const link = await vscode.window.showQuickPick(['static', 'dynamic'], { placeHolder: 'Linking' });
+        const arch = await vscode.window.showQuickPick(['x86_64', 'x86'], { placeHolder: 'Arch' });
         if (!compiler || !type || !link || !arch) return;
         argStr = `preset add --compiler ${compiler} --type ${type} --link ${link} --arch ${arch}`;
     } else if (picked.op === 'preset remove') {
@@ -255,17 +255,17 @@ async function toolsolutionUI() {
         if (!name) return;
         argStr = `preset remove ${name}`;
     } else if (picked.op === 'toolchain add') {
-        const name     = await vscode.window.showInputBox({ prompt: 'Toolchain name (no extension)' });
-        const template = await vscode.window.showQuickPick(['custom-gnu','arm-none-eabi'], { placeHolder: 'Template' });
-        const prefix   = await vscode.window.showInputBox({ prompt: 'Compiler prefix (e.g. /opt/sdk/bin/arm-eabi-)', value: '' });
-        const cpu      = await vscode.window.showInputBox({ prompt: 'CPU (e.g. cortex-m4)', value: '' });
-        const fpu      = await vscode.window.showInputBox({ prompt: 'FPU (e.g. fpv4-sp-d16, blank to skip)', value: '' });
-        const genPreset = await vscode.window.showQuickPick(['yes','no'], { placeHolder: 'Generate preset?' });
+        const name = await vscode.window.showInputBox({ prompt: 'Toolchain name (no extension)' });
+        const template = await vscode.window.showQuickPick(['custom-gnu', 'arm-none-eabi'], { placeHolder: 'Template' });
+        const prefix = await vscode.window.showInputBox({ prompt: 'Compiler prefix (e.g. /opt/sdk/bin/arm-eabi-)', value: '' });
+        const cpu = await vscode.window.showInputBox({ prompt: 'CPU (e.g. cortex-m4)', value: '' });
+        const fpu = await vscode.window.showInputBox({ prompt: 'FPU (e.g. fpv4-sp-d16, blank to skip)', value: '' });
+        const genPreset = await vscode.window.showQuickPick(['yes', 'no'], { placeHolder: 'Generate preset?' });
         if (!name || !template) return;
         argStr = `toolchain add --name ${name} --template ${template}`;
         if (prefix) argStr += ` --prefix ${prefix}`;
-        if (cpu)    argStr += ` --cpu ${cpu}`;
-        if (fpu)    argStr += ` --fpu ${fpu}`;
+        if (cpu) argStr += ` --cpu ${cpu}`;
+        if (fpu) argStr += ` --fpu ${fpu}`;
         if (genPreset === 'yes') argStr += ' --gen-preset';
     } else if (picked.op === 'config set') {
         const key = await vscode.window.showInputBox({ prompt: 'Cache variable name (e.g. ENABLE_ASAN)' });
@@ -318,7 +318,7 @@ function activate(context) {
     // 2. toollib — library management
     const toollibCmd = vscode.commands.registerCommand(
         'cpp-cmake-scaffolder.toollib',
-        libtoolUI
+        toollibUI
     );
 
     // 3. toolsolution — project orchestrator

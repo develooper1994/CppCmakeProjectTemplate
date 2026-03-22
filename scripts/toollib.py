@@ -13,14 +13,14 @@ Commands:
     doctor
 
 Examples:
-    libtool.py add core
-    libtool.py add renderer --deps core,math --link-app
-    libtool.py move renderer graphics/renderer
-    libtool.py deps renderer --add math --remove old_dep
-    libtool.py rename my_lib better_lib
-    libtool.py remove old_lib --delete
-    libtool.py tree
-    libtool.py doctor
+    toollib.py add core
+    toollib.py add renderer --deps core,math --link-app
+    toollib.py move renderer graphics/renderer
+    toollib.py deps renderer --add math --remove old_dep
+    toollib.py rename my_lib better_lib
+    toollib.py remove old_lib --delete
+    toollib.py tree
+    toollib.py doctor
 """
 
 from __future__ import annotations
