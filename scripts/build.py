@@ -63,9 +63,10 @@ EXT_EXCLUDE: set[str] = {
     "extension",                   # prevent recursive copy
     "scripts/build.py",            # dev-only
     "scripts/toollib.py",          # dev-only
-    "scripts/toolsolution.py",      # dev-only
-    "scripts/common.py",            # dev-only
+    "scripts/toolsolution.py",     # dev-only
+    "scripts/common.py",           # dev-only
     "scripts/setup_hooks.py",      # dev-only
+    "scripts/tui.py",              # dev-only (requires textual)
     "İstekler-Eksikler-Sorunlar.md",
 }
 

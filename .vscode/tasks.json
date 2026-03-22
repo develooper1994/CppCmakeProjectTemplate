@@ -67,6 +67,20 @@
         "--host", "${input:remoteHost}",
         "--path", "${input:remotePath}"
       ]
+    },
+    {
+      "label": "Project: Launch TUI",
+      "type": "shell",
+      "command": "python3",
+      "args": ["scripts/tui.py"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Doctor (check health)",
+      "type": "shell",
+      "command": "python3",
+      "args": ["scripts/toolsolution.py", "doctor"],
+      "problemMatcher": []
     }
   ],
   "inputs": [
