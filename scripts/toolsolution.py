@@ -426,6 +426,71 @@ def cmd_doctor(_: argparse.Namespace) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# test / upgrade-std
+# ──────────────────────────────────────────────────────────────────────────────
+
+def cmd_test_run(args: argparse.Namespace) -> None:
+    """Run tests for all libraries or a single target."""
+    preset = args.preset or default_preset()
+    build_dir = PROJECT_ROOT / "build" / preset
+
+    if not build_dir.exists():
+        print(f"  Configuring '{preset}'...")
+        run(["cmake", "--preset", preset])
+
+    if args.target:
+        # Build and run a single test binary
+        test_bin = build_dir / "tests" / "unit" / args.target / f"{args.target}_tests"
+        run(["cmake", "--build", str(build_dir), "--target", f"{args.target}_tests"])
+        if test_bin.exists():
+            run([str(test_bin)])
+        else:
+            fail(f"Test binary not found: {test_bin}")
+    else:
+        run(["cmake", "--build", str(build_dir)])
+        run(["ctest", "--preset", preset, "--output-on-failure"])
+
+
+def cmd_upgrade_std(args: argparse.Namespace) -> None:
+    """Update C++ standard solution-wide or for a specific library."""
+    std = args.std
+
+    if args.target:
+        # Per-library: update <LIB>_CXX_STANDARD cache var in its CMakeLists.txt
+        lib_cmake = PROJECT_ROOT / "libs" / args.target / "CMakeLists.txt"
+        if not lib_cmake.exists():
+            fail(f"libs/{args.target}/CMakeLists.txt not found")
+        content = lib_cmake.read_text(encoding="utf-8")
+        varname = f"{args.target.upper()}_CXX_STANDARD"
+        import re as _re
+        new_content = _re.sub(
+            rf'({re.escape(varname)}\s+")([^"]*)(")',
+            rf'\g<1>{std}\3',
+            content,
+        )
+        if new_content == content:
+            print(f"  ⚠  {varname} pattern not found — add --cxx-standard when creating the lib")
+        elif not args.dry_run:
+            lib_cmake.write_text(new_content, encoding="utf-8")
+            print(f"  ✅ {args.target}: CXX_STANDARD → C++{std}")
+        else:
+            print(f"[dry-run] {args.target}: CXX_STANDARD → C++{std}")
+    else:
+        # Solution-wide: update CMAKE_CXX_STANDARD in base preset
+        data = load_presets()
+        base = next((p for p in data["configurePresets"] if p["name"] == "base"), None)
+        if not base:
+            fail("'base' preset not found")
+        if args.dry_run:
+            print(f"[dry-run] base preset: CMAKE_CXX_STANDARD → {std}")
+            return
+        base.setdefault("cacheVariables", {})["CMAKE_CXX_STANDARD"] = std
+        save_presets(data)
+        print(f"  ✅ Solution-wide: CMAKE_CXX_STANDARD → {std}")
+        print(f"  ⚠  Re-run cmake configure to apply.")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # CLI
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -496,6 +561,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("key")
     p.add_argument("value")
     p.set_defaults(func=cmd_config_set)
+
+    # ── test ─────────────────────────────────────────────────────────────────
+    p = sub.add_parser("test", help="Run tests (all or single target)")
+    p.add_argument("target", nargs="?", default=None, help="Library name (omit = all)")
+    p.add_argument("--preset", default=None)
+    p.set_defaults(func=cmd_test_run)
+
+    # ── upgrade-std ──────────────────────────────────────────────────────────
+    p = sub.add_parser("upgrade-std", help="Set C++ standard solution-wide or per-lib")
+    p.add_argument("--std",    required=True, choices=["14", "17", "20", "23"])
+    p.add_argument("--target", default=None,  help="Specific lib (omit = solution-wide)")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_upgrade_std)
 
     # ── doctor ───────────────────────────────────────────────────────────────
     sub.add_parser("doctor", help="Full project health check").set_defaults(func=cmd_doctor)

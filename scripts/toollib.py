@@ -942,13 +942,90 @@ def cmd_doctor(_: argparse.Namespace) -> None:
 
 def cmd_add(args: argparse.Namespace) -> None:
     create_lib_skeleton(
-        name      = args.name,
-        version   = args.version,
-        namespace = args.namespace or args.name,
-        deps      = parse_deps_arg(args.deps),
-        link_app  = args.link_app,
-        dry_run   = args.dry_run,
+        name         = args.name,
+        version      = args.version,
+        namespace    = args.namespace or args.name,
+        deps         = parse_deps_arg(args.deps),
+        link_app     = args.link_app,
+        dry_run      = args.dry_run,
+        cxx_standard = getattr(args, "cxx_standard", "") or "",
     )
+
+
+def cmd_info(args: argparse.Namespace) -> None:
+    """Show detailed information about a library."""
+    name = args.name
+    validate_name(name)
+    p = paths_for(name)
+    if not p.lib_dir.exists():
+        fail(f"libs/{name} not found")
+
+    deps   = get_lib_deps(name)
+    readme = p.lib_dir / "README.md"
+    cmake  = p.lib_dir / "CMakeLists.txt"
+
+    # Read CXX standard override from CMakeLists if present
+    cxx_override = "(inherit solution)"
+    if cmake.exists():
+        import re as _re
+        m = _re.search(rf"{name.upper()}_CXX_STANDARD\s+\"([^\"]+)\"", read_text(cmake))
+        if m:
+            cxx_override = m.group(1) or "(inherit solution)"
+
+    print(f"\n  Library: {name}")
+    print(f"  Path   : libs/{p.cmake_subdir_arg}")
+    print(f"  Tests  : {'yes' if p.test_dir.exists() else 'no'}")
+    print(f"  README : {'yes' if readme.exists() else 'missing'}")
+    print(f"  C++ std: {cxx_override}")
+    if deps:
+        print(f"  Deps   : {', '.join(deps)}")
+    else:
+        print(f"  Deps   : (none)")
+
+    # Show who depends on this lib
+    all_libs = list_libraries()
+    rdeps = [n for n in all_libs if name in get_lib_deps(n)]
+    if rdeps:
+        print(f"  Used by: {', '.join(rdeps)}")
+    print()
+
+
+def cmd_test(args: argparse.Namespace) -> None:
+    """Build and run tests for a specific library."""
+    import subprocess as _sp
+    import platform as _pl
+    name   = args.name
+    validate_name(name)
+    p      = paths_for(name)
+    preset = args.preset or {
+        "Linux":   "gcc-debug-static-x86_64",
+        "Windows": "msvc-debug-static-x64",
+        "Darwin":  "clang-debug-static-x86_64",
+    }.get(_pl.system(), "gcc-debug-static-x86_64")
+
+    if not p.test_dir.exists():
+        fail(f"No test directory: tests/unit/{name}")
+
+    build_dir = PROJECT_ROOT / "build" / preset
+    test_target = f"{name}_tests"
+
+    if not build_dir.exists():
+        print(f"  Configuring preset '{preset}'...")
+        r = _sp.run(["cmake", "--preset", preset], cwd=PROJECT_ROOT)
+        if r.returncode != 0:
+            fail("Configure failed")
+
+    print(f"  Building {test_target}...")
+    r = _sp.run(["cmake", "--build", str(build_dir), "--target", test_target], cwd=PROJECT_ROOT)
+    if r.returncode != 0:
+        fail(f"Build of {test_target} failed")
+
+    test_bin = build_dir / "tests" / "unit" / name / test_target
+    if not test_bin.exists():
+        fail(f"Test binary not found: {test_bin}")
+
+    print(f"  Running {test_target}...\n")
+    _sp.run([str(test_bin)], cwd=PROJECT_ROOT)
 
 
 def cmd_remove(args: argparse.Namespace) -> None:
@@ -1023,6 +1100,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--remove", default="", help="Comma-separated deps to remove")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_deps)
+
+    # info
+    p = sub.add_parser("info", help="Show detailed info about a library")
+    p.add_argument("name")
+    p.set_defaults(func=cmd_info)
+
+    # test
+    p = sub.add_parser("test", help="Build and run tests for a single library")
+    p.add_argument("name")
+    p.add_argument("--preset", default=None)
+    p.set_defaults(func=cmd_test)
 
     # list
     sub.add_parser("list",   help="List all libraries").set_defaults(func=cmd_list)

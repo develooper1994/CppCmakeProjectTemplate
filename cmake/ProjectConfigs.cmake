@@ -18,6 +18,22 @@ option(ENABLE_CPPCHECK      "Enable Cppcheck static analysis"    OFF)
 # NOTE: Valgrind support is planned (ENABLE_VALGRIND). Currently not implemented.
 # When enabled it would wrap ctest runs with valgrind --leak-check=full.
 
+# Master list of all boolean options — drives FeatureFlags.cmake dynamic generation.
+# Add new options here; FeatureFlags.h will update automatically on next cmake run.
+set(PROJECT_ALL_OPTIONS
+    # Tests
+    UNIT_TESTS GTEST CATCH2 BOOST_TEST
+    # Sanitizers
+    ASAN UBSAN TSAN
+    # Analysis / coverage
+    CLANG_TIDY CPPCHECK COVERAGE
+    # Frameworks
+    QT QML BOOST
+    # Misc
+    DOCS
+    CACHE STRING "All ENABLE_* toggle options (drives FeatureFlags.h generation)" FORCE
+)
+
 # --- Test Framework Options ---
 # Only one framework should be ON at a time per build.
 option(ENABLE_GTEST         "Use GoogleTest as test framework"   ON)

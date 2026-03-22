@@ -13,7 +13,6 @@ Preset CMake variables:
 -- Check for working CXX compiler: /usr/bin/g++ - skipped
 -- Detecting CXX compile features
 -- Detecting CXX compile features - done
--- FeatureFlags generated → /home/developer/Projects/github/CppCmakeProjectTemplate/build/gcc-debug-static-x86_64/generated/project/FeatureFlags.h
 -- 
 -- ┌-------------------------------------------------------------------------------┐
 -- │  Build Configuration Summary
@@ -40,6 +39,7 @@ Preset CMake variables:
 -- │  Docs            OFF                             (-DENABLE_DOCS)
 -- └-------------------------------------------------------------------------------┘
 -- 
+-- FeatureFlags.h generated → /home/developer/Projects/github/CppCmakeProjectTemplate/build/gcc-debug-static-x86_64/generated/project/FeatureFlags.h
 -- BuildInfo generated for target: dummy_lib (Namespace: dummy_lib_info, Version: 2.5.0)
 -- Performing Test COMPILER_HAS_HIDDEN_VISIBILITY
 -- Performing Test COMPILER_HAS_HIDDEN_VISIBILITY - Success
@@ -58,6 +58,6 @@ Preset CMake variables:
 -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
 -- Found Threads: TRUE  
 -- Test framework: GoogleTest
--- Configuring done (11.2s)
--- Generating done (0.0s)
+-- Configuring done (16.3s)
+-- Generating done (0.1s)
 -- Build files have been written to: /home/developer/Projects/github/CppCmakeProjectTemplate/build/gcc-debug-static-x86_64

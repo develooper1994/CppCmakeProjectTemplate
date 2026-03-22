@@ -1,116 +1,101 @@
 # cmake/FeatureFlags.cmake
-# Generates include/FeatureFlags.h — a project-wide header that exposes
-# every CMake build option as a C++ preprocessor macro.
+# Dynamically generates FeatureFlags.h from PROJECT_ALL_OPTIONS list
+# (defined in ProjectConfigs.cmake). Adding a new option to that list
+# automatically extends the generated header — no template file needed.
 #
 # Call once from root CMakeLists.txt (after ProjectConfigs):
 #   include(FeatureFlags)
 #   generate_feature_flags()
 #
-# Then make it available to a target:
-#   target_include_directories(<target> PUBLIC
-#       $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated/project>)
+# Attach to a target:
+#   target_add_feature_flags(<target>)
+#   # or link project_feature_flags INTERFACE target directly
 
 function(generate_feature_flags)
     set(GENERATED_DIR "${CMAKE_BINARY_DIR}/generated/project")
     file(MAKE_DIRECTORY "${GENERATED_DIR}")
 
-    # Map CMake booleans → variables the .h.in template reads
+    # ── Resolve values ─────────────────────────────────────────────────────────
     if(BUILD_SHARED_LIBS)
-        set(PROJECT_SHARED_LIBS 1)
-        set(PROJECT_FEATURE_LIBRARY_TYPE "Shared")
+        set(_shared 1)
+        set(_lib_type "Shared")
     else()
-        set(PROJECT_SHARED_LIBS 0)
-        set(PROJECT_FEATURE_LIBRARY_TYPE "Static")
+        set(_shared 0)
+        set(_lib_type "Static")
     endif()
 
-    # Each option maps to FEATURE_<NAME> (1 or 0)
-    foreach(_opt
-        UNIT_TESTS GTEST CATCH2 BOOST_TEST
-        ASAN UBSAN TSAN
-        CLANG_TIDY CPPCHECK COVERAGE
-        QT QML BOOST DOCS
-    )
+    # ── Build #define block ────────────────────────────────────────────────────
+    set(_defines "// BUILD_SHARED_LIBS\n#define PROJECT_SHARED_LIBS ${_shared}\n#define PROJECT_LIBRARY_TYPE \"${_lib_type}\"\n\n")
+
+    foreach(_opt IN LISTS PROJECT_ALL_OPTIONS)
         if(ENABLE_${_opt})
-            set(FEATURE_${_opt} 1)
+            set(_val 1)
         else()
-            set(FEATURE_${_opt} 0)
+            set(_val 0)
         endif()
+        string(APPEND _defines "// ENABLE_${_opt}\n#define FEATURE_${_opt} ${_val}\n")
     endforeach()
 
-    # QTest follows Qt
     if(ENABLE_QT)
-        set(FEATURE_QTEST 1)
+        string(APPEND _defines "// ENABLE_QT → QTest\n#define FEATURE_QTEST 1\n")
     else()
-        set(FEATURE_QTEST 0)
+        string(APPEND _defines "// ENABLE_QT → QTest\n#define FEATURE_QTEST 0\n")
     endif()
 
-    configure_file(
-        "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/FeatureFlags.h.in"
-        "${GENERATED_DIR}/FeatureFlags.h"
-    )
+    # ── Build features[] entries ───────────────────────────────────────────────
+    set(_array_entries "    Feature{\"shared_libs\", bool(PROJECT_SHARED_LIBS)},\n")
+    foreach(_opt IN LISTS PROJECT_ALL_OPTIONS)
+        string(TOLOWER "${_opt}" _opt_lower)
+        string(APPEND _array_entries "    Feature{\"${_opt_lower}\", bool(FEATURE_${_opt})},\n")
+    endforeach()
+    string(APPEND _array_entries "    Feature{\"qtest\", bool(FEATURE_QTEST)},\n")
 
-    # Export the include path as a global variable so root CMakeLists.txt
-    # can forward it to all targets via an INTERFACE library.
-    set(FEATURE_FLAGS_INCLUDE_DIR "${GENERATED_DIR}" PARENT_SCOPE)
-
-    message(STATUS "FeatureFlags generated → ${GENERATED_DIR}/FeatureFlags.h")
-
-    # ── Build configuration summary table ────────────────────────────────────
-    # Collect column data
-    set(_rows)
-    macro(_row _label _val _note)
-        list(APPEND _rows "${_label}|${_val}|${_note}")
-    endmacro()
-
-    if(BUILD_SHARED_LIBS)
-        set(_link_type "Shared")
-    else()
-        set(_link_type "Static")
-    endif()
+    # ── Build configuration summary table ──────────────────────────────────────
+    set(_rows "")
 
     set(_btype "${CMAKE_BUILD_TYPE}")
     if(NOT _btype)
         set(_btype "(multi-config)")
     endif()
 
-    set(_cxx "C++${CMAKE_CXX_STANDARD}")
+    list(APPEND _rows "Project|${PROJECT_NAME} v${PROJECT_VERSION}|")
+    list(APPEND _rows "CMake|${CMAKE_VERSION}|min 3.25")
+    list(APPEND _rows "Build type|${_btype}|")
+    list(APPEND _rows "Libraries|${_lib_type}|BUILD_SHARED_LIBS")
+    list(APPEND _rows "C++ standard|C++${CMAKE_CXX_STANDARD}|CMAKE_CXX_STANDARD")
+    list(APPEND _rows "Compiler|${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}|")
+    list(APPEND _rows "---|---|---")
+    list(APPEND _rows "Unit tests|${ENABLE_UNIT_TESTS}|ENABLE_UNIT_TESTS")
 
-    _row("Project"          "${PROJECT_NAME} v${PROJECT_VERSION}"  "")
-    _row("CMake"            "${CMAKE_VERSION}"                      "min 3.25")
-    _row("Build type"       "${_btype}"                             "")
-    _row("Libraries"        "${_link_type}"                         "BUILD_SHARED_LIBS")
-    _row("C++ standard"     "${_cxx}"                               "CMAKE_CXX_STANDARD")
-    _row("Compiler"         "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}" "")
-    _row("---"              "---"                                   "---")
-    _row("Unit tests"       "${ENABLE_UNIT_TESTS}"                  "ENABLE_UNIT_TESTS")
     if(ENABLE_UNIT_TESTS)
         if(ENABLE_GTEST)
-            _row("Test framework"  "GoogleTest"                     "ENABLE_GTEST")
+            list(APPEND _rows "Test framework|GoogleTest|ENABLE_GTEST")
         elseif(ENABLE_CATCH2)
-            _row("Test framework"  "Catch2"                         "ENABLE_CATCH2")
+            list(APPEND _rows "Test framework|Catch2|ENABLE_CATCH2")
         elseif(ENABLE_BOOST_TEST)
-            _row("Test framework"  "Boost.Test"                     "ENABLE_BOOST_TEST")
+            list(APPEND _rows "Test framework|Boost.Test|ENABLE_BOOST_TEST")
         elseif(ENABLE_QT)
-            _row("Test framework"  "QTest"                          "ENABLE_QT")
+            list(APPEND _rows "Test framework|QTest|ENABLE_QT")
         else()
-            _row("Test framework"  "(none)"                         "")
+            list(APPEND _rows "Test framework|(none)|")
         endif()
     endif()
-    _row("---"              "---"                                   "---")
-    _row("ASan"             "${ENABLE_ASAN}"                        "ENABLE_ASAN")
-    _row("UBSan"            "${ENABLE_UBSAN}"                       "ENABLE_UBSAN")
-    _row("TSan"             "${ENABLE_TSAN}"                        "ENABLE_TSAN")
-    _row("clang-tidy"       "${ENABLE_CLANG_TIDY}"                  "ENABLE_CLANG_TIDY")
-    _row("cppcheck"         "${ENABLE_CPPCHECK}"                    "ENABLE_CPPCHECK")
-    _row("Coverage"         "${ENABLE_COVERAGE}"                    "ENABLE_COVERAGE")
-    _row("---"              "---"                                   "---")
-    _row("Qt"               "${ENABLE_QT}"                          "ENABLE_QT")
-    _row("Boost"            "${ENABLE_BOOST}"                       "ENABLE_BOOST")
-    _row("Docs"             "${ENABLE_DOCS}"                        "ENABLE_DOCS")
+
+    list(APPEND _rows "---|---|---")
+    list(APPEND _rows "ASan|${ENABLE_ASAN}|ENABLE_ASAN")
+    list(APPEND _rows "UBSan|${ENABLE_UBSAN}|ENABLE_UBSAN")
+    list(APPEND _rows "TSan|${ENABLE_TSAN}|ENABLE_TSAN")
+    list(APPEND _rows "clang-tidy|${ENABLE_CLANG_TIDY}|ENABLE_CLANG_TIDY")
+    list(APPEND _rows "cppcheck|${ENABLE_CPPCHECK}|ENABLE_CPPCHECK")
+    list(APPEND _rows "Coverage|${ENABLE_COVERAGE}|ENABLE_COVERAGE")
+    list(APPEND _rows "---|---|---")
+    list(APPEND _rows "Qt|${ENABLE_QT}|ENABLE_QT")
+    list(APPEND _rows "Boost|${ENABLE_BOOST}|ENABLE_BOOST")
+    list(APPEND _rows "Docs|${ENABLE_DOCS}|ENABLE_DOCS")
 
     # Compute column widths
-    set(_w1 8)   # label min
-    set(_w2 5)   # value min
+    set(_w1 8)
+    set(_w2 5)
     foreach(_r IN LISTS _rows)
         string(REPLACE "|" ";" _parts "${_r}")
         list(GET _parts 0 _l)
@@ -125,7 +110,6 @@ function(generate_feature_flags)
         endif()
     endforeach()
 
-    # Print table
     math(EXPR _total "${_w1} + ${_w2} + 35")
     string(REPEAT "-" ${_total} _line)
     message(STATUS "")
@@ -144,7 +128,6 @@ function(generate_feature_flags)
             continue()
         endif()
 
-        # Pad label and value
         string(LENGTH "${_l}" _ll)
         string(LENGTH "${_v}" _vl)
         math(EXPR _lpad "${_w1} - ${_ll}")
@@ -161,10 +144,42 @@ function(generate_feature_flags)
 
     message(STATUS "└${_line}┘")
     message(STATUS "")
+
+    # ── Write FeatureFlags.h directly ──────────────────────────────────────────
+    # Note: file(CONFIGURE) processes @VAR@ substitutions but NOT CMake variables
+    # directly in CONTENT. We build the full string first, then write it.
+    set(_header
+"// FeatureFlags.h — AUTO-GENERATED by cmake/FeatureFlags.cmake
+// DO NOT EDIT — regenerated on every CMake configure run.
+// Source of truth: PROJECT_ALL_OPTIONS in cmake/ProjectConfigs.cmake
+#pragma once
+
+${_defines}
+// ── Runtime inspection ─────────────────────────────────────────────────────
+#include <string_view>
+#include <array>
+
+namespace project_features {
+
+struct Feature {
+    std::string_view name;
+    bool             enabled;
+};
+
+inline constexpr std::array features = {
+${_array_entries}};
+
+} // namespace project_features
+")
+
+    file(WRITE "${GENERATED_DIR}/FeatureFlags.h" "${_header}")
+
+    set(FEATURE_FLAGS_INCLUDE_DIR "${GENERATED_DIR}" PARENT_SCOPE)
+    message(STATUS "FeatureFlags.h generated → ${GENERATED_DIR}/FeatureFlags.h")
 endfunction()
 
 
-# Helper: attach FeatureFlags.h to an existing target
+# Attach FeatureFlags.h include path to a target.
 function(target_add_feature_flags target)
     target_include_directories(${target} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated/project>

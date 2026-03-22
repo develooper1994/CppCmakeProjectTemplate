@@ -109,10 +109,15 @@ function(target_generate_build_info target)
         $<INSTALL_INTERFACE:include>
     )
 
-    # Also expose BuildInfoHelper.h (same include dir as BuildInfo.h)
+    # Also expose BuildInfoHelper.h and ProjectInfo.h (same include dir as BuildInfo.h)
     configure_file(
         "${PROJECT_SOURCE_DIR}/cmake/BuildInfoHelper.h"
         "${GENERATED_DIR}/BuildInfoHelper.h"
+        COPYONLY
+    )
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/cmake/ProjectInfo.h"
+        "${GENERATED_DIR}/ProjectInfo.h"
         COPYONLY
     )
 
