@@ -54,18 +54,18 @@ EXT_INCLUDE: list[str] = [
     "Dockerfile", ".dockerignore", ".gitignore", ".geminiignore", ".clang-format",
     "LICENSE", "README.md", "AGENTS.md", "GEMINI.md", "MASTER_GENERATOR_PROMPT.md",
     "cmake", "apps", "libs", "tests", "scripts", "docs", "external",
-    ".github", ".cursor",
+    ".github", ".cursor", ".vscode",
 ]
 
 # Paths excluded from extension template (relative to project root, forward-slash)
 EXT_EXCLUDE: set[str] = {
     "build", "build_logs", "__pycache__", ".cache", "coverage_report",
     "scripts/extension",           # circular
-    "scripts/build.py",            # dev-only
-    "scripts/toollib.py",          # dev-only
-    "scripts/toolsolution.py",      # dev-only
-    "scripts/common.py",            # dev-only
-    "scripts/setup_hooks.py",      # dev-only
+    #"scripts/build.py",            # dev-only
+    #"scripts/toollib.py",          # dev-only
+    #"scripts/toolsolution.py",      # dev-only
+    #"scripts/common.py",            # dev-only
+    #"scripts/setup_hooks.py",      # dev-only
     "İstekler-Eksikler-Sorunlar.md",
 }
 
@@ -208,7 +208,15 @@ def cmd_deploy(args: argparse.Namespace) -> None:
 
 def _is_excluded(rel: str) -> bool:
     rel = rel.replace("\\", "/")
-    return any(rel == ex or rel.startswith(ex + "/") for ex in EXT_EXCLUDE)
+    parts = rel.split("/")
+    for ex in EXT_EXCLUDE:
+        # Root-relative match (exact or directory prefix)
+        if rel == ex or rel.startswith(ex + "/"):
+            return True
+        # Base name match for common junk (e.g. __pycache__, .DS_Store)
+        if "/" not in ex and ex in parts:
+            return True
+    return False
 
 
 def _sync_templates() -> int:

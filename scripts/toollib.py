@@ -31,7 +31,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, NoReturn
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Project root detection
