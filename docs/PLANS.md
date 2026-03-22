@@ -1,68 +1,102 @@
-# Project Plans (Pending)
+# Project Plans (Priority Order)
 
 ---
 
-## P3: Multi-Repo / Modular Project
+## P1 — toollib: Header-only & Interface scaffolding ← NEXT
+
+**Durum:** Pending  
+**Neden önce:** En kısa iş. Harici URL desteği (P2) header-only lib'leri de çekecek,
+önce scaffold tarafının tam olması gerekiyor.
+
+- `toollib.py add <n> --header-only` — sadece `include/`, kaynak dosya yok
+- `toollib.py add <n> --interface`   — CMake INTERFACE target (sadece prop/dep geçişi)
+
+---
+
+## P2 — toollib: CMake export kuralları (`toollib export`)
+
+**Durum:** Pending  
+**Neden erken:** Multi-repo çalışması için `find_package` desteği şart.
+Şu an `install()` var ama `<LibName>Config.cmake` üretilmiyor.
+
+- `toollib.py export <n>` — `cmake/LibraryConfig.cmake.in` şablonunu kullanarak
+  install + export kurallarını lib CMakeLists.txt'e ekler
+- `find_package(my_lib REQUIRED)` ile dışarıdan kullanılabilir hale getirir
+
+---
+
+## P3 — toollib: URL dep desteği (`toollib deps --add-url`)
+
+**Durum:** Pending  
+**Neden P2 sonrası:** Export kuralları tam olmadan harici liblerle entegrasyon yarım kalır.
+
+```bash
+# FetchContent ile harici dep
+toollib.py deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1 --via fetchcontent
+
+# vcpkg ile
+toollib.py deps my_lib --add-url fmt --via vcpkg
+
+# Conan ile
+toollib.py deps my_lib --add-url fmt/10.2.1 --via conan
+```
+
+- `external/fetch_deps.cmake` oluşturur/günceller
+- Root `CMakeLists.txt`'e `include(external/fetch_deps.cmake)` ekler
+- `libs/my_lib/CMakeLists.txt`'e `target_link_libraries` ekler
+- `vcpkg.json` veya `conanfile.py`'yi günceller (--via seçeneğine göre)
+
+---
+
+## P4 — toolsolution: Multi-repo yönetimi (`toolsolution repo`)
+
+**Durum:** Pending  
+**Neden P3 sonrası:** FetchContent altyapısı kurulduktan sonra submodule desteği eklemek mantıklı.
+
+```bash
+toolsolution.py repo add-fetch     --name fmt --url https://github.com/fmtlib/fmt --tag 10.2.1
+toolsolution.py repo add-submodule --url https://github.com/org/core-lib --dest libs/core
+toolsolution.py repo sync          # tüm submodülleri güncelle
+toolsolution.py repo versions      # her component'ın versiyonunu göster
+```
+
+---
+
+## P5 — toollib: Pattern-based scaffolding şablonları
 
 **Durum:** Pending
-**Önerilen mimari:** Hibrit (yerel lib + git submodule + FetchContent + vcpkg/conan)
 
-```
-orchestrator-repo/
-├── libs/
-│   ├── dummy_lib/       ← yerel
-│   ├── core/            ← git submodule VEYA FetchContent
-│   └── third_party.cmake
-├── apps/
-└── external/            ← vcpkg/conan paketleri
-```
-
-**toolsolution entegrasyonu (planlanan):**
 ```bash
-toolsolution.py repo add-submodule --url <url> --dest libs/core
-toolsolution.py repo add-fetch --name core --url <url> --tag v2.1.0
-toolsolution.py repo sync       # tüm submodülleri güncelle
-toolsolution.py repo versions   # her lib versiyonu
+toollib.py add my_lib --template singleton
+toollib.py add my_lib --template pimpl
+toollib.py add my_lib --template observer
+toollib.py add my_lib --template factory
 ```
 
-**toollib entegrasyonu (planlanan):**
+Her şablon, başlangıç implementasyonu + test + README üretir.
+
+---
+
+## P6 — toolsolution: CI simülasyonu (`toolsolution ci`)
+
+**Durum:** Pending  
+Tüm platform presetlerini sırayla çalıştırır, sonucu raporlar.
+
 ```bash
-toollib.py deps my_lib --add-url https://github.com/org/core@v2.1.0 --via fetchcontent
-# → external/fetch_deps.cmake günceller
-# → libs/my_lib/CMakeLists.txt target_link_libraries ekler
+toolsolution.py ci                     # mevcut platformdaki tüm presetler
+toolsolution.py ci --preset-filter gcc # sadece gcc presetleri
+toolsolution.py ci --fail-fast         # ilk hatada dur
 ```
 
-**Uygulama önceliği:** FetchContent → submodule → vcpkg/conan
-
 ---
 
-## P4: toollib Kapasite Genişletme (kalan)
+## P7 — GUI (Merkezi Yönetim Arayüzü)
 
-**Durum:** Pending (info, test tamamlandı)
-
-- `--add-url` ile harici dep (FetchContent/vcpkg/conan)
-- `toollib.py export <n>` — CMake install/export kuralları üret
-- Header-only lib scaffold (`--header-only`)
-- Interface lib scaffold (`--interface`)
-
----
-
-## P5: toolsolution Kapasite Genişletme (kalan)
-
-**Durum:** Pending (test, upgrade-std tamamlandı)
-
-- `toolsolution.py repo ...` — multi-repo yönetimi (bkz. P3)
-- `toolsolution.py ci` — CI pipeline simülasyonu (tüm presetleri sırayla dene)
-
----
-
-## P6: GUI (Merkezi Yönetim Arayüzü)
-
-**Durum:** Pending
-**Kapsam:** Tüm araçları (toollib, toolsolution, build.py) tek GUI üzerinden yönet.
+**Durum:** Pending  
+**Neden en sonda:** CLI araçlar stabil olunca GUI sadece wrapper olur.
 
 **Seçenekler:**
-- **VS Code WebView** — extension içinde panel (en uygun, zaten extension var)
-- **TUI (Textual/Rich)** — terminal tabanlı Python, en hızlı başlangıç
+- **VS Code WebView** — extension içinde panel (en uygun)
+- **TUI (Textual/Rich)** — terminal tabanlı Python, hızlı başlangıç
 
 **Kural:** Tüm işlemler arka planda CLI araçları çalıştırır, GUI sadece wrapper.

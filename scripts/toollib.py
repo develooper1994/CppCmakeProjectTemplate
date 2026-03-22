@@ -283,6 +283,81 @@ install(TARGETS {name} EXPORT {name}_Targets FILE_SET HEADERS)
 """
 
 
+# ── Header-only templates ──────────────────────────────────────────────────
+
+def lib_cmakelists_header_only(name: str, version: str, namespace: str, deps: list[str], cxx_standard: str = "") -> str:
+    upper = name.upper()
+    deps_block = ""
+    if deps:
+        dep_lines = "\n".join(f"        {d}" for d in deps)
+        deps_block = f"\ntarget_link_libraries({name}\n    INTERFACE\n{dep_lines}\n)\n"
+    cxx_req = f"\nset_target_properties({name} PROPERTIES\n    CXX_STANDARD          {cxx_standard}\n    CXX_STANDARD_REQUIRED ON\n    CXX_EXTENSIONS        OFF\n)\n" if cxx_standard else ""
+    return f"""\
+# libs/{name}/CMakeLists.txt  [header-only]
+
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    cmake_minimum_required(VERSION 3.25)
+    project({name} VERSION {version} LANGUAGES CXX)
+    list(APPEND CMAKE_MODULE_PATH "${{CMAKE_CURRENT_SOURCE_DIR}}/../../cmake")
+endif()
+
+add_library({name} INTERFACE)
+add_library({name}::{name} ALIAS {name})
+
+target_include_directories({name} INTERFACE
+    $<BUILD_INTERFACE:${{CMAKE_CURRENT_SOURCE_DIR}}/include>
+    $<INSTALL_INTERFACE:include>
+)
+{cxx_req}{deps_block}
+install(TARGETS {name} EXPORT {name}_Targets)
+install(DIRECTORY include/ DESTINATION include)
+"""
+
+
+def lib_header_only_h(name: str, namespace: str) -> str:
+    upper = name.upper()
+    return f"""\
+#pragma once
+
+#include <string_view>
+
+namespace {namespace} {{
+
+/// Returns a string identifying this library.
+inline constexpr std::string_view name() noexcept {{ return "{name}"; }}
+
+}} // namespace {namespace}
+"""
+
+
+def lib_cmakelists_interface(name: str, version: str, deps: list[str]) -> str:
+    """Pure INTERFACE target — no headers, no source. Used for propagating
+    compile definitions, include paths or linking deps to consumers."""
+    deps_block = ""
+    if deps:
+        dep_lines = "\n".join(f"        {d}" for d in deps)
+        deps_block = f"\ntarget_link_libraries({name}\n    INTERFACE\n{dep_lines}\n)\n"
+    return f"""\
+# libs/{name}/CMakeLists.txt  [interface]
+
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    cmake_minimum_required(VERSION 3.25)
+    project({name} VERSION {version} LANGUAGES CXX)
+endif()
+
+add_library({name} INTERFACE)
+add_library({name}::{name} ALIAS {name})
+{deps_block}
+# Add compile definitions / include paths consumed by users:
+# target_compile_definitions({name} INTERFACE MY_FEATURE=1)
+# target_include_directories({name} INTERFACE ...)
+
+install(TARGETS {name} EXPORT {name}_Targets)
+"""
+
+
+# ── Normal lib templates ────────────────────────────────────────────────────
+
 def lib_header(name: str, namespace: str) -> str:
     upper = name.upper()
     return f"""\
@@ -334,12 +409,13 @@ auto info = {name}::get_info();
 """
 
 
-def test_cmakelists(name: str) -> str:
+def test_cmakelists(name: str, header_only: bool = False) -> str:
+    link_vis = "PRIVATE" if not header_only else "PRIVATE"  # same for both
     return f"""\
 add_executable({name}_tests {name}_test.cpp)
 
 target_link_libraries({name}_tests
-    PRIVATE
+    {link_vis}
         {name}
         GTest::gtest_main
 )
@@ -350,7 +426,22 @@ add_test(NAME {name}_tests COMMAND {name}_tests)
 """
 
 
-def test_source(name: str, namespace: str) -> str:
+def test_source(name: str, namespace: str, header_only: bool = False) -> str:
+    if header_only:
+        return f"""\
+#include <gtest/gtest.h>
+#include "{name}/{name}.h"
+
+TEST({name}_Test, LibraryNameNotEmpty)
+{{
+    EXPECT_FALSE({namespace}::name().empty());
+}}
+
+TEST({name}_Test, LibraryNameMatchesExpected)
+{{
+    EXPECT_EQ({namespace}::name(), "{name}");
+}}
+"""
     return f"""\
 #include <gtest/gtest.h>
 #include "{name}/{name}.h"
@@ -600,9 +691,15 @@ def create_lib_skeleton(
     name: str, version: str, namespace: str,
     deps: list[str], link_app: bool, dry_run: bool,
     cxx_standard: str = "",
+    lib_type: str = "normal",   # "normal" | "header-only" | "interface"
 ) -> None:
     validate_name(name)
+    if lib_type not in ("normal", "header-only", "interface"):
+        fail(f"Unknown lib_type '{lib_type}'. Use: normal, header-only, interface")
+
     p = LibPaths(PROJECT_ROOT, name)
+    is_header_only = lib_type == "header-only"
+    is_interface   = lib_type == "interface"
 
     if p.lib_dir.exists():
         fail(f"libs/{name} already exists")
@@ -614,33 +711,62 @@ def create_lib_skeleton(
         if dep not in existing:
             fail(f"Dependency '{dep}' not found in libs/. Create it first.")
 
+    type_tag = f" [{lib_type}]" if lib_type != "normal" else ""
     if dry_run:
-        print(f"[dry-run] create libs/{name}/")
-        print(f"[dry-run] create tests/unit/{name}/")
+        print(f"[dry-run] create libs/{name}/{type_tag}")
+        if not is_interface:
+            print(f"[dry-run] create tests/unit/{name}/")
         print(f"[dry-run] add_subdirectory({name}) → libs/CMakeLists.txt")
-        print(f"[dry-run] add_subdirectory({name}) → tests/unit/CMakeLists.txt")
-        if deps:    print(f"[dry-run] deps: {', '.join(deps)}")
+        if not is_interface:
+            print(f"[dry-run] add_subdirectory({name}) → tests/unit/CMakeLists.txt")
+        if deps:     print(f"[dry-run] deps: {', '.join(deps)}")
         if link_app: print(f"[dry-run] link → apps/main_app/CMakeLists.txt")
         return
 
-    (p.lib_dir / "src").mkdir(parents=True)
-    (p.lib_dir / "include" / name).mkdir(parents=True)
-    (p.lib_dir / "docs").mkdir(parents=True)
+    # ── Directory structure ──────────────────────────────────────────────────
+    if is_interface:
+        p.lib_dir.mkdir(parents=True)
+    elif is_header_only:
+        (p.lib_dir / "include" / name).mkdir(parents=True)
+    else:
+        (p.lib_dir / "src").mkdir(parents=True)
+        (p.lib_dir / "include" / name).mkdir(parents=True)
+
+    (p.lib_dir / "docs").mkdir(parents=True, exist_ok=True)
     write_text(p.lib_dir / "docs" / ".gitkeep", "")
-    write_text(p.lib_dir / "CMakeLists.txt",        lib_cmakelists(name, version, namespace, deps, cxx_standard))
-    write_text(p.lib_dir / "include" / name / f"{name}.h", lib_header(name, namespace))
-    write_text(p.lib_dir / "src" / f"{name}.cpp",   lib_source(name, namespace))
-    write_text(p.lib_dir / "README.md",              lib_readme(name, deps))
 
-    p.test_dir.mkdir(parents=True)
-    write_text(p.test_dir / "CMakeLists.txt",        test_cmakelists(name))
-    write_text(p.test_dir / f"{name}_test.cpp",      test_source(name, namespace))
+    # ── CMakeLists.txt ───────────────────────────────────────────────────────
+    if is_interface:
+        write_text(p.lib_dir / "CMakeLists.txt",
+                   lib_cmakelists_interface(name, version, deps))
+    elif is_header_only:
+        write_text(p.lib_dir / "CMakeLists.txt",
+                   lib_cmakelists_header_only(name, version, namespace, deps, cxx_standard))
+        write_text(p.lib_dir / "include" / name / f"{name}.h",
+                   lib_header_only_h(name, namespace))
+    else:
+        write_text(p.lib_dir / "CMakeLists.txt",
+                   lib_cmakelists(name, version, namespace, deps, cxx_standard))
+        write_text(p.lib_dir / "include" / name / f"{name}.h",
+                   lib_header(name, namespace))
+        write_text(p.lib_dir / "src" / f"{name}.cpp",
+                   lib_source(name, namespace))
 
+    write_text(p.lib_dir / "README.md", lib_readme(name, deps))
+
+    # ── Tests (no tests for pure interface libs) ─────────────────────────────
     append_subdirectory(p.libs_cmake, name)
-    append_subdirectory(p.unit_cmake, name)
+    if not is_interface:
+        p.test_dir.mkdir(parents=True)
+        write_text(p.test_dir / "CMakeLists.txt",
+                   test_cmakelists(name, header_only=is_header_only))
+        write_text(p.test_dir / f"{name}_test.cpp",
+                   test_source(name, namespace, header_only=is_header_only))
+        append_subdirectory(p.unit_cmake, name)
 
-    print(f"  ✅ libs/{name}/")
-    print(f"  ✅ tests/unit/{name}/")
+    print(f"  ✅ libs/{name}/{type_tag}")
+    if not is_interface:
+        print(f"  ✅ tests/unit/{name}/")
     if deps:
         print(f"  🔗 deps: {', '.join(deps)}")
     if link_app:
@@ -941,6 +1067,14 @@ def cmd_doctor(_: argparse.Namespace) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def cmd_add(args: argparse.Namespace) -> None:
+    # Determine lib_type from flags
+    if getattr(args, "header_only", False):
+        lib_type = "header-only"
+    elif getattr(args, "interface", False):
+        lib_type = "interface"
+    else:
+        lib_type = "normal"
+
     create_lib_skeleton(
         name         = args.name,
         version      = args.version,
@@ -949,7 +1083,74 @@ def cmd_add(args: argparse.Namespace) -> None:
         link_app     = args.link_app,
         dry_run      = args.dry_run,
         cxx_standard = getattr(args, "cxx_standard", "") or "",
+        lib_type     = lib_type,
     )
+
+
+def export_library(name: str, dry_run: bool) -> None:
+    """Add find_package-compatible install/export rules to a library."""
+    validate_name(name)
+    p = paths_for(name)
+    if not p.lib_dir.exists():
+        fail(f"libs/{name} not found")
+
+    cmake_path = p.lib_dir / "CMakeLists.txt"
+    content    = read_text(cmake_path)
+
+    # Check if already done
+    if "install_project_library" in content:
+        print(f"  ⏭  {name} already has export rules (install_project_library found).")
+        return
+    if "configure_package_config_file" in content:
+        print(f"  ⏭  {name} already has export rules.")
+        return
+
+    # Also ensure ProjectExport is included in root CMakeLists.txt
+    root_cmake = PROJECT_ROOT / "CMakeLists.txt"
+    root_content = read_text(root_cmake)
+    needs_root_include = "include(ProjectExport)" not in root_content
+
+    if dry_run:
+        print(f"[dry-run] libs/{name}/CMakeLists.txt: add install_project_library({name} {name})")
+        if needs_root_include:
+            print(f"[dry-run] CMakeLists.txt: add include(ProjectExport)")
+        return
+
+    # 1. Add install_project_library call to lib CMakeLists.txt
+    # Insert after the existing install(TARGETS ...) line
+    export_block = (
+        f"\n# find_package({name} REQUIRED) support\n"
+        f"include(ProjectExport)\n"
+        f"install_project_library({name} {name})\n"
+    )
+    # Find the last install() call and append after it
+    import re as _re
+    install_re = _re.compile(r"^install\([^)]+\)\s*$", _re.MULTILINE)
+    matches = list(install_re.finditer(content))
+    if matches:
+        last = matches[-1]
+        insert_pos = last.end()
+        new_content = content[:insert_pos] + "\n" + export_block + content[insert_pos:]
+    else:
+        new_content = content + "\n" + export_block
+
+    write_text(cmake_path, new_content)
+    print(f"  ✅ {name}/CMakeLists.txt: install_project_library added")
+
+    # 2. Ensure root includes ProjectExport (for standalone builds, not strictly needed)
+    # ProjectExport is already include-guarded via include() so this is safe
+    if needs_root_include:
+        # Insert after include(EmbeddedUtils) or before add_subdirectory(libs)
+        insert_re = _re.compile(r"(include\(EmbeddedUtils\)[^\n]*\n)", _re.MULTILINE)
+        im = insert_re.search(root_content)
+        if im:
+            new_root = root_content[:im.end()] + "include(ProjectExport)\n" + root_content[im.end():]
+            write_text(root_cmake, new_root)
+            print(f"  ✅ CMakeLists.txt: include(ProjectExport) added")
+
+
+def cmd_export(args: argparse.Namespace) -> None:
+    export_library(name=args.name, dry_run=args.dry_run)
 
 
 def cmd_info(args: argparse.Namespace) -> None:
@@ -972,10 +1173,24 @@ def cmd_info(args: argparse.Namespace) -> None:
         if m:
             cxx_override = m.group(1) or "(inherit solution)"
 
+    # Detect lib type
+    lib_type_str = "normal"
+    if cmake.exists():
+        import re as _re2
+        ct = read_text(cmake)
+        if "add_library" in ct:
+            if _re2.search(r'add_library\s*\(\s*\S+\s+INTERFACE', ct):
+                # header-only or interface
+                lib_type_str = "header-only" if (p.lib_dir / "include").exists() else "interface"
+
+    export_ready = "install_project_library" in (read_text(cmake) if cmake.exists() else "")
+
     print(f"\n  Library: {name}")
+    print(f"  Type   : {lib_type_str}")
     print(f"  Path   : libs/{p.cmake_subdir_arg}")
     print(f"  Tests  : {'yes' if p.test_dir.exists() else 'no'}")
     print(f"  README : {'yes' if readme.exists() else 'missing'}")
+    print(f"  Export : {'✅ find_package ready' if export_ready else '⚠  run: toollib export ' + name}")
     print(f"  C++ std: {cxx_override}")
     if deps:
         print(f"  Deps   : {', '.join(deps)}")
@@ -1067,9 +1282,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--deps",         default="", help="Comma-separated deps, e.g. core,math")
     p.add_argument("--cxx-standard", default="", dest="cxx_standard",
                    help="Per-lib C++ standard override (14|17|20|23), empty = inherit")
-    p.add_argument("--link-app",  action="store_true")
-    p.add_argument("--dry-run",   action="store_true")
+    p.add_argument("--link-app",    action="store_true")
+    p.add_argument("--dry-run",     action="store_true")
+    type_grp = p.add_mutually_exclusive_group()
+    type_grp.add_argument("--header-only", action="store_true", dest="header_only",
+                          help="Header-only library (INTERFACE target, include/ only)")
+    type_grp.add_argument("--interface",   action="store_true",
+                          help="Pure INTERFACE target (no headers/source, deps/defs only)")
     p.set_defaults(func=cmd_add)
+
+    # export
+    p = sub.add_parser("export", help="Add find_package-compatible install/export rules")
+    p.add_argument("name")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_export)
 
     # remove
     p = sub.add_parser("remove", help="Detach or delete a library")

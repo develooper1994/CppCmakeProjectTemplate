@@ -252,6 +252,7 @@ python3 scripts/toolsolution.py test
 ```
 
 **With verbose output:**
+
 ```bash
 ctest --preset gcc-debug-static-x86_64 --output-on-failure --verbose
 
@@ -298,6 +299,7 @@ All options are passed as `-D<OPTION>=ON/OFF` to CMake or set via a preset.
 | `ENABLE_DOCS` | `OFF` | Build Doxygen documentation |
 
 Per-library C++ standard override (does not affect other targets):
+
 ```bash
 cmake --preset gcc-debug-static-x86_64 -DDUMMY_LIB_CXX_STANDARD=20
 # or via toolsolution:
