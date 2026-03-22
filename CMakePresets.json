@@ -236,18 +236,18 @@
     { "name": "clang-relwithdebinfo-static-x86_64",  "configurePreset": "clang-relwithdebinfo-static-x86_64" },
     { "name": "clang-relwithdebinfo-dynamic-x86_64", "configurePreset": "clang-relwithdebinfo-dynamic-x86_64" },
     { "name": "clang-debug-static-x86",             "configurePreset": "clang-debug-static-x86" },
-    { "name": "msvc-debug-static-x64",              "configurePreset": "msvc-debug-static-x64" },
-    { "name": "msvc-debug-dynamic-x64",             "configurePreset": "msvc-debug-dynamic-x64" },
-    { "name": "msvc-release-static-x64",            "configurePreset": "msvc-release-static-x64" },
-    { "name": "msvc-release-dynamic-x64",           "configurePreset": "msvc-release-dynamic-x64" },
-    { "name": "msvc-relwithdebinfo-static-x64",     "configurePreset": "msvc-relwithdebinfo-static-x64" },
-    { "name": "msvc-relwithdebinfo-dynamic-x64",    "configurePreset": "msvc-relwithdebinfo-dynamic-x64" },
-    { "name": "msvc-debug-static-x86",              "configurePreset": "msvc-debug-static-x86" },
-    { "name": "msvc-debug-dynamic-x86",             "configurePreset": "msvc-debug-dynamic-x86" },
-    { "name": "msvc-release-static-x86",            "configurePreset": "msvc-release-static-x86" },
-    { "name": "msvc-release-dynamic-x86",           "configurePreset": "msvc-release-dynamic-x86" },
-    { "name": "msvc-relwithdebinfo-static-x86",     "configurePreset": "msvc-relwithdebinfo-static-x86" },
-    { "name": "msvc-relwithdebinfo-dynamic-x86",    "configurePreset": "msvc-relwithdebinfo-dynamic-x86" },
+    { "name": "msvc-debug-static-x64",              "configurePreset": "msvc-debug-static-x64",              "configuration": "Debug" },
+    { "name": "msvc-debug-dynamic-x64",             "configurePreset": "msvc-debug-dynamic-x64",             "configuration": "Debug" },
+    { "name": "msvc-release-static-x64",            "configurePreset": "msvc-release-static-x64",            "configuration": "Release" },
+    { "name": "msvc-release-dynamic-x64",           "configurePreset": "msvc-release-dynamic-x64",           "configuration": "Release" },
+    { "name": "msvc-relwithdebinfo-static-x64",     "configurePreset": "msvc-relwithdebinfo-static-x64",     "configuration": "RelWithDebInfo" },
+    { "name": "msvc-relwithdebinfo-dynamic-x64",    "configurePreset": "msvc-relwithdebinfo-dynamic-x64",    "configuration": "RelWithDebInfo" },
+    { "name": "msvc-debug-static-x86",              "configurePreset": "msvc-debug-static-x86",              "configuration": "Debug" },
+    { "name": "msvc-debug-dynamic-x86",             "configurePreset": "msvc-debug-dynamic-x86",             "configuration": "Debug" },
+    { "name": "msvc-release-static-x86",            "configurePreset": "msvc-release-static-x86",            "configuration": "Release" },
+    { "name": "msvc-release-dynamic-x86",           "configurePreset": "msvc-release-dynamic-x86",           "configuration": "Release" },
+    { "name": "msvc-relwithdebinfo-static-x86",     "configurePreset": "msvc-relwithdebinfo-static-x86",     "configuration": "RelWithDebInfo" },
+    { "name": "msvc-relwithdebinfo-dynamic-x86",    "configurePreset": "msvc-relwithdebinfo-dynamic-x86",    "configuration": "RelWithDebInfo" },
     { "name": "embedded-arm-none-eabi",             "configurePreset": "embedded-arm-none-eabi" }
   ],
   "testPresets": [
@@ -257,8 +257,11 @@
       "output": { "outputOnFailure": true },
       "execution": { "noTestsAction": "error", "stopOnFailure": false }
     },
-    { "name": "gcc-debug-static-x86_64",   "inherits": "base-test", "configurePreset": "gcc-debug-static-x86_64" },
-    { "name": "clang-debug-static-x86_64", "inherits": "base-test", "configurePreset": "clang-debug-static-x86_64" },
-    { "name": "msvc-debug-static-x64",     "inherits": "base-test", "configurePreset": "msvc-debug-static-x64", "configuration": "Debug" }
+    { "name": "gcc-debug-static-x86_64",     "inherits": "base-test", "configurePreset": "gcc-debug-static-x86_64" },
+    { "name": "gcc-release-static-x86_64",   "inherits": "base-test", "configurePreset": "gcc-release-static-x86_64" },
+    { "name": "clang-debug-static-x86_64",   "inherits": "base-test", "configurePreset": "clang-debug-static-x86_64" },
+    { "name": "clang-release-static-x86_64", "inherits": "base-test", "configurePreset": "clang-release-static-x86_64" },
+    { "name": "msvc-debug-static-x64",       "inherits": "base-test", "configurePreset": "msvc-debug-static-x64",     "configuration": "Debug" },
+    { "name": "msvc-release-static-x64",     "inherits": "base-test", "configurePreset": "msvc-release-static-x64",   "configuration": "Release" }
   ]
 }

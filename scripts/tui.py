@@ -34,11 +34,48 @@ except ImportError:
     print("Textual not installed. Run: pip3 install textual --break-system-packages")
     sys.exit(1)
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-TOOLLIB      = Path(__file__).resolve().parent / "toollib.py"
-TOOLSOLUTION = Path(__file__).resolve().parent / "toolsolution.py"
-BUILD        = Path(__file__).resolve().parent / "build.py"
-PYTHON       = sys.executable
+PROJECT_ROOT  = Path(__file__).resolve().parent.parent
+TOOLLIB       = Path(__file__).resolve().parent / "toollib.py"
+TOOLSOLUTION  = Path(__file__).resolve().parent / "toolsolution.py"
+BUILD         = Path(__file__).resolve().parent / "build.py"
+PYTHON        = sys.executable
+SESSION_FILE  = PROJECT_ROOT / ".tui_session.json"
+
+
+# ── Session / priority helpers ────────────────────────────────────────────────
+# Priority: interactive (GUI) > cli args > session file
+
+def _load_session() -> dict:
+    """Load persisted session values (lowest priority)."""
+    if SESSION_FILE.exists():
+        try:
+            return json.loads(SESSION_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def _save_session(data: dict) -> None:
+    """Persist current session values."""
+    try:
+        SESSION_FILE.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _resolve_preset(cli_arg: str | None, interactive: str | None) -> str:
+    """Resolve preset with priority: interactive > cli_arg > session > default."""
+    if interactive and interactive != Select.NULL:
+        return str(interactive)
+    if cli_arg:
+        return cli_arg
+    session = _load_session()
+    if session.get("last_preset"):
+        return session["last_preset"]
+    return "gcc-debug-static-x86_64"
 
 
 def run_tool(cmd: list[str]) -> str:
