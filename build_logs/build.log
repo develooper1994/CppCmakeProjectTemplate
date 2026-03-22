@@ -1,4 +1,0 @@
-[1/4] Building CXX object apps/main_app/CMakeFiles/main_app.dir/src/main.cpp.o
-[2/4] Linking CXX executable apps/main_app/main_app
-[3/4] Building CXX object tests/unit/dummy_lib/CMakeFiles/dummy_lib_tests.dir/greet_test.cpp.o
-[4/4] Linking CXX executable tests/unit/dummy_lib/dummy_lib_tests

@@ -186,7 +186,9 @@ class CppTemplateTUI(App):
                                 ("gcc-debug-static-x86_64",   "gcc-debug-static-x86_64"),
                                 ("gcc-release-static-x86_64", "gcc-release-static-x86_64"),
                                 ("clang-debug-static-x86_64", "clang-debug-static-x86_64"),
+                                ("clang-release-static-x86_64", "clang-release-static-x86_64"),
                                 ("msvc-debug-static-x64",     "msvc-debug-static-x64"),
+                                ("msvc-release-static-x64",   "msvc-release-static-x64"),
                             ],
                             allow_blank=False,
                             id="build-preset",
@@ -264,7 +266,7 @@ class CppTemplateTUI(App):
                     yield Label("C++ Standard (solution-wide):")
                     with Horizontal(classes="row"):
                         yield Select(
-                            options=[("C++17", "17"), ("C++20", "20"), ("C++23", "23"), ("C++14", "14")],
+                            options=[("C++11", "11"), ("C++14", "14"), ("C++17", "17"), ("C++20", "20"), ("C++23", "23"), ("C++26", "26")],
                             allow_blank=False,
                             id="std-select",
                         )
