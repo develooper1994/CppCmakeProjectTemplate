@@ -423,6 +423,12 @@ python3 scripts/toollib.py deps renderer --add math --remove old_dep
 # Show detailed info about a library
 python3 scripts/toollib.py info dummy_lib
 
+# Add external dependency (FetchContent / vcpkg / conan)
+python3 scripts/toollib.py deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
+python3 scripts/toollib.py deps my_lib --add-url https://github.com/nlohmann/json@3.11.3 --target nlohmann_json::nlohmann_json
+python3 scripts/toollib.py deps my_lib --add-url fmt --via vcpkg
+python3 scripts/toollib.py deps my_lib --add-url fmt/10.2.1 --via conan
+
 # Build and run a single library's tests
 python3 scripts/toollib.py test dummy_lib
 python3 scripts/toollib.py test dummy_lib --preset clang-debug-static-x86_64

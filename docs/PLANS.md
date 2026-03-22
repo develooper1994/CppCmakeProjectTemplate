@@ -25,26 +25,7 @@
 
 ---
 
-## P3 — toollib: URL dep desteği (`toollib deps --add-url`)
-
-**Durum:** Pending  
-**Neden P2 sonrası:** Export kuralları tam olmadan harici liblerle entegrasyon yarım kalır.
-
-```bash
-# FetchContent ile harici dep
-toollib.py deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1 --via fetchcontent
-
-# vcpkg ile
-toollib.py deps my_lib --add-url fmt --via vcpkg
-
-# Conan ile
-toollib.py deps my_lib --add-url fmt/10.2.1 --via conan
-```
-
-- `external/fetch_deps.cmake` oluşturur/günceller
-- Root `CMakeLists.txt`'e `include(external/fetch_deps.cmake)` ekler
-- `libs/my_lib/CMakeLists.txt`'e `target_link_libraries` ekler
-- `vcpkg.json` veya `conanfile.py`'yi günceller (--via seçeneğine göre)
+## P3 — toollib: URL dep desteği (`toollib deps --add-url`) ✅ DONE
 
 ---
 

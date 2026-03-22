@@ -1255,11 +1255,211 @@ def cmd_move(args: argparse.Namespace) -> None:
     move_library(name=args.name, dest=args.dest, dry_run=args.dry_run)
 
 
+# ── URL dependency helpers ────────────────────────────────────────────────────
+
+def _parse_url_dep(raw: str) -> tuple[str, str, str]:
+    """Parse 'https://github.com/org/repo@tag' or 'pkg' or 'pkg/version'.
+    Returns (repo_url_or_pkg, tag, guessed_target_name)."""
+    raw = raw.strip()
+    if raw.startswith("http"):
+        # https://github.com/fmtlib/fmt@10.2.1
+        if "@" in raw:
+            url, tag = raw.rsplit("@", 1)
+        else:
+            url, tag = raw, "main"
+        # Guess target from repo name: fmtlib/fmt -> fmt
+        repo_name = url.rstrip("/").split("/")[-1]
+        # Common cmake target name normalizations
+        target_guess = {
+            "fmt":           "fmt::fmt",
+            "json":          "nlohmann_json::nlohmann_json",
+            "spdlog":        "spdlog::spdlog",
+            "googletest":    "GTest::gtest",
+            "Catch2":        "Catch2::Catch2WithMain",
+            "eigen":         "Eigen3::Eigen",
+            "abseil-cpp":    "absl::base",
+            "boost":         "Boost::boost",
+        }.get(repo_name, f"{repo_name}::{repo_name}")
+        return url, tag, target_guess
+    elif "/" in raw:
+        # conan-style: pkg/version
+        pkg, version = raw.split("/", 1)
+        return pkg, version, pkg
+    else:
+        return raw, "", raw
+
+
+def _fetchcontent_block(dep_id: str, url: str, tag: str) -> str:
+    return (
+        f"# ── {dep_id} ────────────────────────────────\n"
+        f"FetchContent_Declare({dep_id}\n"
+        f"    GIT_REPOSITORY {url}.git\n"
+        f"    GIT_TAG        {tag}\n"
+        f"    SYSTEM\n"
+        f")\n"
+        f"FetchContent_MakeAvailable({dep_id})\n"
+    )
+
+
+def add_url_dep_fetchcontent(
+    lib_name: str, url: str, tag: str,
+    cmake_target: str, dry_run: bool,
+) -> None:
+    """Add an external dependency via CMake FetchContent."""
+    # Dep identifier = repo name (last path component, without .git)
+    # Strip trailing .git if present, then take last path segment
+    _url_clean = url.rstrip("/")
+    if _url_clean.endswith(".git"):
+        _url_clean = _url_clean[:-4]
+    dep_id = _url_clean.split("/")[-1]
+    fetch_cmake = PROJECT_ROOT / "external" / "fetch_deps.cmake"
+    root_cmake  = PROJECT_ROOT / "CMakeLists.txt"
+
+    if dry_run:
+        print(f"[dry-run] external/fetch_deps.cmake: add FetchContent_Declare({dep_id} @ {tag})")
+        print(f"[dry-run] libs/{lib_name}/CMakeLists.txt: link {cmake_target}")
+        if "include(external/fetch_deps" not in read_text(root_cmake):
+            print(f"[dry-run] CMakeLists.txt: add include(external/fetch_deps.cmake)")
+        return
+
+    # 1. Create/update external/fetch_deps.cmake
+    fetch_cmake.parent.mkdir(exist_ok=True)
+    if fetch_cmake.exists():
+        existing = read_text(fetch_cmake)
+    else:
+        existing = (
+            "# external/fetch_deps.cmake\n"
+            "# Managed by: toollib.py deps --add-url ... --via fetchcontent\n"
+            "# DO NOT EDIT manually.\n"
+            "include(FetchContent)\n\n"
+        )
+
+    if dep_id in existing:
+        print(f"  ⏭  {dep_id} already in fetch_deps.cmake")
+    else:
+        write_text(fetch_cmake, existing + "\n" + _fetchcontent_block(dep_id, url, tag))
+        print(f"  ✅ external/fetch_deps.cmake: {dep_id} added")
+
+    # 2. Hook into root CMakeLists.txt
+    root_content = read_text(root_cmake)
+    include_line = "include(\"${CMAKE_CURRENT_SOURCE_DIR}/external/fetch_deps.cmake\" OPTIONAL)"
+    if "fetch_deps" not in root_content:
+        # Insert just before add_subdirectory(libs)
+        import re as _re
+        m = _re.search(r'^add_subdirectory\(libs\)', root_content, _re.MULTILINE)
+        if m:
+            insert = f"\n# External FetchContent dependencies\n{include_line}\n\n"
+            root_content = root_content[:m.start()] + insert + root_content[m.start():]
+            write_text(root_cmake, root_content)
+            print(f"  ✅ CMakeLists.txt: include(external/fetch_deps.cmake) added")
+
+    # 3. Link the target in lib's CMakeLists.txt
+    p = paths_for(lib_name)
+    lib_cmake = p.lib_dir / "CMakeLists.txt"
+    if not lib_cmake.exists():
+        fail(f"libs/{lib_name}/CMakeLists.txt not found")
+    lib_content = read_text(lib_cmake)
+    if cmake_target in lib_content:
+        print(f"  ⏭  {cmake_target} already linked in libs/{lib_name}")
+    else:
+        edit_lib_deps(lib_cmake, lib_name, [cmake_target], [])
+        print(f"  ✅ libs/{lib_name}: linked {cmake_target}")
+
+
+def add_url_dep_vcpkg(lib_name: str, package: str, dry_run: bool) -> None:
+    """Add a dependency via vcpkg (updates vcpkg.json)."""
+    vcpkg_json = PROJECT_ROOT / "vcpkg.json"
+    if not vcpkg_json.exists():
+        fail("vcpkg.json not found in project root")
+
+    import json as _json
+    data = _json.loads(vcpkg_json.read_text(encoding="utf-8"))
+    deps: list = data.setdefault("dependencies", [])
+
+    # Check already present
+    existing_names = [
+        d if isinstance(d, str) else d.get("name", "")
+        for d in deps
+    ]
+    if package in existing_names:
+        print(f"  ⏭  {package} already in vcpkg.json")
+        return
+
+    if dry_run:
+        print(f"[dry-run] vcpkg.json: add \"{package}\"")
+        return
+
+    deps.append(package)
+    vcpkg_json.write_text(
+        _json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    print(f"  ✅ vcpkg.json: {package} added")
+    print(f"  ℹ  Run cmake with -DCMAKE_TOOLCHAIN_FILE=.../vcpkg/scripts/buildsystems/vcpkg.cmake")
+
+
+def add_url_dep_conan(lib_name: str, package: str, dry_run: bool) -> None:
+    """Add a dependency via Conan (updates conanfile.py)."""
+    conan_file = PROJECT_ROOT / "conanfile.py"
+    if not conan_file.exists():
+        fail("conanfile.py not found in project root")
+
+    content = conan_file.read_text(encoding="utf-8")
+    if package in content:
+        print(f"  ⏭  {package} already in conanfile.py")
+        return
+
+    if dry_run:
+        print(f"[dry-run] conanfile.py: add self.requires(\"{package}\")")
+        return
+
+    # Insert self.requires() into the requirements() method, or create it
+    import re as _re
+    req_method = _re.search(r'def requirements\(self\):\n((?:[ \t]+.*\n)*)', content)
+    if req_method:
+        insert_at = req_method.end()
+        indent = "        "
+        new_content = (
+            content[:insert_at]
+            + f'{indent}self.requires("{package}")\n'
+            + content[insert_at:]
+        )
+    else:
+        # Add requirements() method before layout()
+        layout_m = _re.search(r'    def layout', content)
+        new_req = f'    def requirements(self):\n        self.requires("{package}")\n\n'
+        insert_at = layout_m.start() if layout_m else len(content)
+        new_content = content[:insert_at] + new_req + content[insert_at:]
+
+    conan_file.write_text(new_content, encoding="utf-8")
+    print(f"  ✅ conanfile.py: {package} added")
+    print(f"  ℹ  Run: conan install . --build=missing")
+
+
 def cmd_deps(args: argparse.Namespace) -> None:
-    add    = parse_deps_arg(getattr(args, "add",    ""))
-    remove = parse_deps_arg(getattr(args, "remove", ""))
+    add_url = getattr(args, "add_url", "") or ""
+    add     = parse_deps_arg(getattr(args, "add",    ""))
+    remove  = parse_deps_arg(getattr(args, "remove", ""))
+
+    if add_url:
+        via = args.via
+        url, tag, guessed_target = _parse_url_dep(add_url)
+        cmake_target = args.target or guessed_target
+
+        if via == "fetchcontent":
+            add_url_dep_fetchcontent(
+                lib_name=args.name, url=url, tag=tag,
+                cmake_target=cmake_target, dry_run=args.dry_run,
+            )
+        elif via == "vcpkg":
+            add_url_dep_vcpkg(lib_name=args.name, package=url, dry_run=args.dry_run)
+        elif via == "conan":
+            pkg = f"{url}/{tag}" if tag else url
+            add_url_dep_conan(lib_name=args.name, package=pkg, dry_run=args.dry_run)
+        return
+
     if not add and not remove:
-        fail("Specify --add and/or --remove")
+        fail("Specify --add, --remove, or --add-url")
     modify_deps(name=args.name, add=add, remove=remove, dry_run=args.dry_run)
 
 
@@ -1320,10 +1520,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_move)
 
     # deps
-    p = sub.add_parser("deps", help="Add or remove dependencies of an existing library")
+    p = sub.add_parser("deps", help="Add/remove local deps or add external URL deps")
     p.add_argument("name")
-    p.add_argument("--add",    default="", help="Comma-separated deps to add")
-    p.add_argument("--remove", default="", help="Comma-separated deps to remove")
+    p.add_argument("--add",     default="", help="Comma-separated local lib names to add")
+    p.add_argument("--remove",  default="", help="Comma-separated local lib names to remove")
+    p.add_argument("--add-url", default="", dest="add_url",
+                   help="External dep URL or package name. Examples:\n"
+                        "  FetchContent: https://github.com/fmtlib/fmt@10.2.1\n"
+                        "  vcpkg:        fmt  (package name in vcpkg registry)\n"
+                        "  conan:        fmt/10.2.1")
+    p.add_argument("--via",     default="fetchcontent",
+                   choices=["fetchcontent", "vcpkg", "conan"],
+                   help="Dependency manager (default: fetchcontent)")
+    p.add_argument("--target",  default="",
+                   help="CMake target name to link (FetchContent only, default: guessed from URL)")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_deps)
 
