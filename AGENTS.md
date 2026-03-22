@@ -67,3 +67,10 @@ If uncertain:
 2. Correctness
 3. Isolation
 4. Maintainability
+
+## Project Status Reporting
+
+**Agent Capability:**
+- The agent must verify the project status after significant changes.
+- The agent is responsible for updating `docs/PLANS.md` when tasks are completed.
+- The agent must be able to list remaining plans when requested.

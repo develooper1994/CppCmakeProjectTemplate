@@ -28,6 +28,10 @@ Thumbs.db
 
 # Extension build çıktıları (generate edilir, commit edilmez)
 *.vsix
+extension/templates/
+extension/LICENSE
+extension/node_modules/
+extension/package-lock.json
 scripts/extension/templates/
 scripts/extension/LICENSE
 scripts/extension/node_modules/

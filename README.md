@@ -453,6 +453,12 @@ target_generate_build_info(my_lib
 
 ---
 
+### New Capabilities (v1.0.0+)
+- **Header-only / Interface Libs:** `toollib.py add my_lib --header-only`
+- **Export Config:** `toollib.py export my_lib` (creates cmake config for find_package)
+- **URL Dependencies:** `toollib.py deps my_lib --add-url https://...` (FetchContent/vcpkg/conan)
+- **Repo Management:** `toolsolution.py repo ...` (submodules & fetch deps)
+
 ## 8. Project Orchestration
 
 **In VS Code:** `Ctrl+Shift+P` → *CppTemplate: Project Orchestrator (toolsolution)*

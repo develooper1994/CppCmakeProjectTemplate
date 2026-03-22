@@ -39,7 +39,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOG_DIR      = PROJECT_ROOT / "build_logs"
-EXT_DIR      = PROJECT_ROOT / "scripts" / "extension"
+EXT_DIR      = PROJECT_ROOT / "extension"
 TEMPLATE_DIR = EXT_DIR / "templates"
 
 DEFAULT_PRESET: dict[str, str] = {
@@ -60,12 +60,12 @@ EXT_INCLUDE: list[str] = [
 # Paths excluded from extension template (relative to project root, forward-slash)
 EXT_EXCLUDE: set[str] = {
     "build", "build_logs", "__pycache__", ".cache", "coverage_report",
-    "scripts/extension",           # circular
-    #"scripts/build.py",            # dev-only
-    #"scripts/toollib.py",          # dev-only
-    #"scripts/toolsolution.py",      # dev-only
-    #"scripts/common.py",            # dev-only
-    #"scripts/setup_hooks.py",      # dev-only
+    "extension",                   # prevent recursive copy
+    "scripts/build.py",            # dev-only
+    "scripts/toollib.py",          # dev-only
+    "scripts/toolsolution.py",      # dev-only
+    "scripts/common.py",            # dev-only
+    "scripts/setup_hooks.py",      # dev-only
     "İstekler-Eksikler-Sorunlar.md",
 }
 
@@ -298,7 +298,7 @@ def _do_extension(install: bool, publish: bool = False, log: Path | None = None)
         print("❌ .vsix not produced.", file=sys.stderr)
         sys.exit(1)
     vsix = vsix_files[0]
-    print(f"  ✅ Package: scripts/extension/{vsix.name}")
+    print(f"  ✅ Package: extension/{vsix.name}")
 
     if install:
         run(["code", "--install-extension", str(vsix)], cwd=PROJECT_ROOT)
