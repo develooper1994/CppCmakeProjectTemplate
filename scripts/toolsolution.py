@@ -426,6 +426,188 @@ def cmd_doctor(_: argparse.Namespace) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# repo management
+# ──────────────────────────────────────────────────────────────────────────────
+
+_GITMODULES = PROJECT_ROOT / ".gitmodules"
+
+
+def _read_gitmodules() -> list[dict]:
+    """Parse .gitmodules into a list of {name, path, url} dicts."""
+    if not _GITMODULES.exists():
+        return []
+    import configparser as _cp
+    cfg = _cp.ConfigParser()
+    cfg.read(str(_GITMODULES), encoding="utf-8")
+    result = []
+    for section in cfg.sections():
+        if section.startswith("submodule "):
+            name = section.split('"')[1]
+            result.append({
+                "name": name,
+                "path": cfg.get(section, "path", fallback=""),
+                "url":  cfg.get(section, "url",  fallback=""),
+            })
+    return result
+
+
+def _read_fetch_deps() -> list[dict]:
+    """Parse external/fetch_deps.cmake for FetchContent_Declare blocks."""
+    fetch_cmake = PROJECT_ROOT / "external" / "fetch_deps.cmake"
+    if not fetch_cmake.exists():
+        return []
+    import re as _re
+    content = fetch_cmake.read_text(encoding="utf-8")
+    result = []
+    for m in _re.finditer(
+        r'FetchContent_Declare\((\w+)\s+GIT_REPOSITORY\s+(\S+)\s+GIT_TAG\s+(\S+)',
+        content,
+    ):
+        result.append({"name": m.group(1), "url": m.group(2), "tag": m.group(3)})
+    return result
+
+
+def cmd_repo_list(_: argparse.Namespace) -> None:
+    submodules   = _read_gitmodules()
+    fetch_deps   = _read_fetch_deps()
+
+    print(f"\nSubmodules ({len(submodules)}):")
+    for s in submodules:
+        print(f"  {s['path']:<30} {s['url']}")
+    if not submodules:
+        print("  (none)")
+
+    print(f"\nFetchContent deps ({len(fetch_deps)}):")
+    for f in fetch_deps:
+        print(f"  {f['name']:<20} {f['url']}  @ {f['tag']}")
+    if not fetch_deps:
+        print("  (none)")
+
+
+def cmd_repo_add_submodule(args: argparse.Namespace) -> None:
+    dest   = args.dest   # e.g. libs/core
+    url    = args.url
+    branch = args.branch
+
+    if args.dry_run:
+        print(f"[dry-run] git submodule add -b {branch} {url} {dest}")
+        return
+
+    dest_path = PROJECT_ROOT / dest
+    if dest_path.exists() and any(dest_path.iterdir()):
+        fail(f"Destination '{dest}' already exists and is non-empty")
+
+    print(f"  Adding submodule {url} → {dest}...")
+    r = subprocess.run(
+        ["git", "submodule", "add", "-b", branch, url, dest],
+        cwd=PROJECT_ROOT,
+    )
+    if r.returncode != 0:
+        fail("git submodule add failed")
+
+    # Register in libs/CMakeLists.txt if dest starts with libs/
+    if dest.startswith("libs/"):
+        lib_name = dest.split("/")[-1]
+        libs_cmake = PROJECT_ROOT / "libs" / "CMakeLists.txt"
+        content = libs_cmake.read_text(encoding="utf-8")
+        if f"add_subdirectory({lib_name})" not in content:
+            libs_cmake.write_text(
+                content.rstrip() + f"\nadd_subdirectory({lib_name})\n",
+                encoding="utf-8",
+            )
+            print(f"  ✅ libs/CMakeLists.txt: add_subdirectory({lib_name}) added")
+    print(f"  ✅ Submodule added: {dest}")
+    print(f"  ℹ  Run: git submodule update --init --recursive")
+
+
+def cmd_repo_add_fetch(args: argparse.Namespace) -> None:
+    """Register a top-level FetchContent dep (not linked to any lib)."""
+    fetch_cmake = PROJECT_ROOT / "external" / "fetch_deps.cmake"
+    root_cmake  = PROJECT_ROOT / "CMakeLists.txt"
+
+    if args.dry_run:
+        print(f"[dry-run] external/fetch_deps.cmake: FetchContent_Declare({args.name} @ {args.tag})")
+        return
+
+    fetch_cmake.parent.mkdir(exist_ok=True)
+    if fetch_cmake.exists():
+        existing = fetch_cmake.read_text(encoding="utf-8")
+    else:
+        existing = (
+            "# external/fetch_deps.cmake\n"
+            "# Managed by: toolsolution.py / toollib.py\n"
+            "include(FetchContent)\n\n"
+        )
+
+    if args.name in existing:
+        print(f"  ⏭  {args.name} already in fetch_deps.cmake")
+    else:
+        block = (
+            f"# ── {args.name} ────────────────────────────────\n"
+            f"FetchContent_Declare({args.name}\n"
+            f"    GIT_REPOSITORY {args.url}\n"
+            f"    GIT_TAG        {args.tag}\n"
+            f"    SYSTEM\n)\n"
+            f"FetchContent_MakeAvailable({args.name})\n"
+        )
+        fetch_cmake.write_text(existing + "\n" + block, encoding="utf-8")
+        print(f"  ✅ external/fetch_deps.cmake: {args.name} added")
+
+    # Hook into root CMakeLists if not already done
+    root_content = root_cmake.read_text(encoding="utf-8")
+    if "fetch_deps" not in root_content:
+        import re as _re
+        m = _re.search(r'^add_subdirectory\(libs\)', root_content, _re.MULTILINE)
+        if m:
+            include_line = 'include("${CMAKE_CURRENT_SOURCE_DIR}/external/fetch_deps.cmake" OPTIONAL)'
+            insert = f"\n# External FetchContent dependencies\n{include_line}\n\n"
+            root_content = root_content[:m.start()] + insert + root_content[m.start():]
+            root_cmake.write_text(root_content, encoding="utf-8")
+            print(f"  ✅ CMakeLists.txt: include(external/fetch_deps.cmake) added")
+
+
+def cmd_repo_sync(_: argparse.Namespace) -> None:
+    print("  Updating all submodules...")
+    r = subprocess.run(
+        ["git", "submodule", "update", "--remote", "--merge"],
+        cwd=PROJECT_ROOT,
+    )
+    if r.returncode == 0:
+        print("  ✅ Submodules updated")
+    else:
+        fail("git submodule update failed")
+
+
+def cmd_repo_versions(_: argparse.Namespace) -> None:
+    print(f"\n  {'Component':<30} {'Version/Tag':<20} {'Source'}")
+    print(f"  {'-'*30} {'-'*20} {'-'*20}")
+
+    # 1. Solution version
+    v = get_project_version()
+    n = get_project_name()
+    print(f"  {n:<30} {v:<20} CMakeLists.txt")
+
+    # 2. Submodule versions (last tag in each)
+    for s in _read_gitmodules():
+        sub_path = PROJECT_ROOT / s["path"]
+        if sub_path.exists():
+            try:
+                tag = subprocess.check_output(
+                    ["git", "describe", "--tags", "--abbrev=0"],
+                    cwd=sub_path, stderr=subprocess.DEVNULL,
+                ).decode().strip()
+            except Exception:
+                tag = "(no tag)"
+        else:
+            tag = "(not initialized)"
+        print(f"  {s['path']:<30} {tag:<20} submodule")
+
+    # 3. FetchContent deps
+    for f in _read_fetch_deps():
+        print(f"  {f['name']:<30} {f['tag']:<20} FetchContent")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # test / upgrade-std
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -574,6 +756,31 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", default=None,  help="Specific lib (omit = solution-wide)")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_upgrade_std)
+
+    # ── repo ───────────────────────────────────────────────────────────────
+    repo = sub.add_parser("repo", help="Multi-repo management (submodules, FetchContent)")
+    repo_sub = repo.add_subparsers(dest="action", required=True)
+
+    p = repo_sub.add_parser("add-submodule", help="Add a git submodule as a library")
+    p.add_argument("--url",   required=True, help="Git remote URL")
+    p.add_argument("--dest",  required=True, help="Destination path (e.g. libs/core)")
+    p.add_argument("--branch", default="main")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_repo_add_submodule)
+
+    p = repo_sub.add_parser("add-fetch", help="Register a FetchContent external dependency")
+    p.add_argument("--name",   required=True, help="CMake FetchContent name")
+    p.add_argument("--url",    required=True, help="Git remote URL")
+    p.add_argument("--tag",    default="main", help="Git tag / commit hash")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_repo_add_fetch)
+
+    repo_sub.add_parser("sync",     help="Update all submodules to latest"
+                        ).set_defaults(func=cmd_repo_sync)
+    repo_sub.add_parser("versions", help="Show version of each component"
+                        ).set_defaults(func=cmd_repo_versions)
+    repo_sub.add_parser("list",     help="List submodules and FetchContent deps"
+                        ).set_defaults(func=cmd_repo_list)
 
     # ── doctor ───────────────────────────────────────────────────────────────
     sub.add_parser("doctor", help="Full project health check").set_defaults(func=cmd_doctor)
