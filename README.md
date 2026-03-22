@@ -389,7 +389,7 @@ python3 scripts/install_deps.py --all
 | Doxygen | API documentation | `sudo apt install doxygen` |
 | Qt 5/6 | GUI app (`ENABLE_QT=ON`) | `sudo apt install qt6-base-dev` |
 | Boost | Boost libraries (`ENABLE_BOOST=ON`) | `sudo apt install libboost-all-dev` |
-| gcc-multilib | x86 cross-compile on x86_64 | `sudo apt install gcc-multilib g++-multilib` |
+| crossbuild-essential-i386 | x86 cross-compile (i686-linux-gnu-gcc) | `sudo apt install crossbuild-essential-i386` |
 | arm-none-eabi-gcc | Embedded ARM preset | `sudo apt install gcc-arm-none-eabi` |
 | Node.js + npm | VS Code extension build | `sudo apt install nodejs npm` |
 | rsync | Remote deploy | `sudo apt install rsync` |
@@ -604,6 +604,20 @@ Four jobs run on every push (`.github/workflows/ci.yml`):
 python3 scripts/toolsolution.py doctor
 ctest --preset gcc-debug-static-x86_64 --output-on-failure
 ```
+
+### TUI (Terminal User Interface)
+
+A full-screen terminal UI wrapping all tooling:
+
+```bash
+# Install textual (one-time)
+pip3 install textual --break-system-packages
+
+# Launch TUI
+python3 scripts/tui.py
+```
+
+Tabs: 🔨 Build / 📚 Libraries / ⚙ Project / ℹ Info — all operations delegate to CLI tools.
 
 ---
 

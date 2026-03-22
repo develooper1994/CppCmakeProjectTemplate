@@ -91,11 +91,15 @@ DEPS: list[Dep] = [
     Dep("npm",           ["npm", "--version"],
         apt="npm", brew="node",
         optional=True, category="extension"),
+    Dep("textual (pip)", ["python3", "-c", "import textual"],
+        apt="",
+        note="TUI: pip3 install textual --break-system-packages",
+        optional=True, category="extension"),
 
     # ── Optional — cross-compile / embedded ─────────────────────────────────
-    Dep("gcc-multilib",  ["dpkg", "-s", "gcc-multilib"],
-        apt="gcc-multilib g++-multilib",
-        note="Linux only — needed for x86 presets on x86_64 host",
+    Dep("crossbuild-i386", ["dpkg", "-s", "crossbuild-essential-i386"],
+        apt="crossbuild-essential-i386",
+        note="Linux only — provides i686-linux-gnu-gcc/g++ for x86 presets",
         optional=True, category="embedded"),
     Dep("arm-none-eabi-gcc", ["arm-none-eabi-gcc", "--version"],
         apt="gcc-arm-none-eabi binutils-arm-none-eabi",

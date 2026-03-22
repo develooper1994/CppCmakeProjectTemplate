@@ -1,39 +1,35 @@
 # cmake/toolchains/linux-x86.cmake
-# 32-bit x86 compilation on x86_64 Linux host.
+# 32-bit x86 cross-compilation on x86_64 Linux.
 #
-# Requirements (must install before using x86 presets):
-#   GCC:   sudo apt install gcc-multilib g++-multilib
-#   Clang: sudo apt install libc6-dev-i386 libstdc++-dev:i386
+# Requirements (crossbuild-essential approach — recommended):
+#   sudo apt install crossbuild-essential-i386
+#   Provides: i686-linux-gnu-gcc, i686-linux-gnu-g++
+#
+# Alternative (multilib, NOT recommended — causes -m32 duplication issues):
+#   sudo apt install gcc-multilib g++-multilib
 #
 # Usage: referenced by CMakePresets.json gcc/clang-*-x86 presets via
 #   "toolchainFile": "${sourceDir}/cmake/toolchains/linux-x86.cmake"
-#
-# Design notes:
-#   - We do NOT set CMAKE_SYSTEM_NAME/PROCESSOR to avoid triggering CMake's
-#     cross-compilation mode which would break system library discovery.
-#   - Only compiler flags are set here; the -m32 flag is passed to the compiler
-#     which then handles both compile and link phases via the driver.
-#   - We deliberately omit CMAKE_EXE_LINKER_FLAGS_INIT and
-#     CMAKE_SHARED_LINKER_FLAGS_INIT to prevent -m32 being passed twice
-#     (once via compiler flags and once via linker flags).
 
-# Check multilib availability
-execute_process(
-    COMMAND ${CMAKE_C_COMPILER} -m32 -x c - -o /dev/null
-    INPUT_FILE /dev/null
-    RESULT_VARIABLE _multilib_check
-    ERROR_QUIET
-    OUTPUT_QUIET
-)
-if(NOT _multilib_check EQUAL 0)
+set(CMAKE_SYSTEM_NAME    Linux)
+set(CMAKE_SYSTEM_PROCESSOR i686)
+
+set(CMAKE_C_COMPILER   i686-linux-gnu-gcc)
+set(CMAKE_CXX_COMPILER i686-linux-gnu-g++)
+
+# Sysroot: use the host sysroot for now (crossbuild-essential sets up the
+# required 32-bit libraries under /usr/i686-linux-gnu)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+# Verify toolchain availability at configure time
+find_program(_cc_found i686-linux-gnu-gcc)
+if(NOT _cc_found)
     message(FATAL_ERROR
-        "32-bit compilation requires gcc-multilib / g++-multilib.\n"
-        "Install with: sudo apt install gcc-multilib g++-multilib\n"
-        "(Clang: sudo apt install libc6-dev-i386)"
+        "i686-linux-gnu-gcc not found.\n"
+        "Install with: sudo apt install crossbuild-essential-i386\n"
     )
 endif()
-
-set(CMAKE_C_FLAGS_INIT   "-m32")
-set(CMAKE_CXX_FLAGS_INIT "-m32")
-# Note: -m32 in compiler flags is forwarded to the linker by the GCC driver.
-# Explicitly setting CMAKE_EXE_LINKER_FLAGS_INIT would cause duplication.
+unset(_cc_found)
