@@ -3,35 +3,316 @@
 [![CI](https://github.com/develooper1994/CppCmakeProjectTemplate/actions/workflows/ci.yml/badge.svg)](https://github.com/develooper1994/CppCmakeProjectTemplate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CMake: 3.25+](https://img.shields.io/badge/CMake-3.25+-informational.svg)](https://cmake.org)
-[![C++ Standard](https://img.shields.io/badge/C++-17-blue.svg)](https://isocpp.org/)
+[![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20|%20Windows%20|%20macOS-lightgrey)](https://github.com/develooper1994/CppCmakeProjectTemplate)
 
-A world-class, multi-target C++ project skeleton.
+A professional, multi-target C++ project skeleton with cross-platform presets, per-library
+versioning, compile-time feature detection, and full tooling automation.
+
+> **VS Code Extension:**
+> `Ctrl+Shift+P` → *CppTemplate: Create New Project*
+> [Marketplace](https://marketplace.visualstudio.com/items?itemName=develooper1994.cpp-cmake-scaffolder)
 
 ---
 
-## ⚙️ Build Settings
+## Table of Contents
 
-All options passed as `-D<OPTION>=ON/OFF` to CMake or via presets.
+1. [Quick Start](#1-quick-start)
+2. [Directory Structure](#2-directory-structure)
+3. [Building](#3-building)
+   - [VS Code](#31-vs-code)
+   - [CMake Presets (terminal)](#32-cmake-presets-terminal)
+   - [CMake without presets](#33-cmake-without-presets)
+   - [build.py automation script](#34-buildpy-automation-script)
+   - [Build a single app or library](#35-build-a-single-app-or-library)
+4. [Testing](#4-testing)
+   - [All tests](#41-all-tests)
+   - [Single library tests](#42-single-library-tests)
+5. [Build Settings Reference](#5-build-settings-reference)
+6. [Dependencies](#6-dependencies)
+7. [Library Management](#7-library-management)
+8. [Project Orchestration](#8-project-orchestration)
+9. [Compile-time Build Info & Feature Flags](#9-compile-time-build-info--feature-flags)
+10. [Starting a New Project](#10-starting-a-new-project)
+11. [CI / Quality Guards](#11-ci--quality-guards)
+
+---
+
+## 1. Quick Start
+
+```bash
+# 1. Install mandatory dependencies (Ubuntu/Debian)
+python3 scripts/install_deps.py --install
+
+# 2. Configure + build + test (auto-detects platform preset)
+python3 scripts/build.py check
+
+# 3. Run the example app
+./build/gcc-debug-static-x86_64/apps/main_app/main_app
+```
+
+---
+
+## 2. Directory Structure
+
+```
+CppCmakeProjectTemplate/
+├── apps/
+│   ├── main_app/          # Executable — links dummy_lib, prints build info
+│   └── gui_app/           # Qt GUI app (compiled only when ENABLE_QT=ON)
+├── libs/
+│   └── dummy_lib/         # Example library with independent versioning
+├── tests/
+│   └── unit/
+│       └── dummy_lib/     # GoogleTest suite for dummy_lib
+├── cmake/                 # CMake modules
+│   ├── BuildInfo.cmake    # Per-target build metadata generation
+│   ├── BuildInfoHelper.h  # C++ helper — BUILD_INFO_PRINT_ALL macro
+│   ├── FeatureFlags.cmake # Dynamic FeatureFlags.h generation
+│   ├── ProjectInfo.h      # Single-include wrapper (BuildInfo + FeatureFlags)
+│   ├── ProjectConfigs.cmake
+│   ├── ProjectOptions.cmake
+│   └── toolchains/        # arm-none-eabi, linux-x86, template-custom-gnu
+├── scripts/
+│   ├── build.py           # Unified automation (build/check/clean/deploy/extension)
+│   ├── toollib.py         # Library management (add/remove/rename/move/deps/info/test)
+│   ├── toolsolution.py    # Project orchestration (presets/toolchains/config/upgrade-std)
+│   ├── install_deps.py    # Dependency checker and installer
+│   ├── init_project.py    # Rename project after git clone
+│   └── common.py          # Shared utilities for all scripts
+├── docs/
+│   ├── PLANS.md           # Pending feature plans
+│   └── EMBEDDED.md        # Embedded development guide
+├── CMakeLists.txt
+└── CMakePresets.json      # All platform/compiler/type/arch combinations
+```
+
+---
+
+## 3. Building
+
+### 3.1 VS Code
+
+Install the [CMake Tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools) extension, then:
+
+| Action | How |
+|---|---|
+| Select preset | Click **"[No Preset]"** in the status bar → choose e.g. `gcc-debug-static-x86_64` |
+| Configure | `Ctrl+Shift+P` → *CMake: Configure* |
+| Build whole solution | `F7` or *CMake: Build* |
+| Build single target | `Ctrl+Shift+P` → *CMake: Set Build Target* → pick target → `F7` |
+| Run | `Ctrl+Shift+P` → *CMake: Run Without Debugging* |
+| Debug | `F5` |
+| Test | Click **Tests** in the status bar (CTest integration) |
+
+**VS Code Tasks** (`Ctrl+Shift+B` or *Terminal → Run Task*):
+
+| Task | Action |
+|---|---|
+| `Project: Build` | Configure + compile default preset |
+| `Project: Build + Test + Extension` | Full check pipeline |
+| `Project: Clean` | Remove build artifacts |
+| `Project: Clean All` | Also removes `.vsix` and `build_logs` |
+| `Project: Build Extension (.vsix)` | Package VS Code extension |
+
+### 3.2 CMake Presets (terminal)
+
+Preset naming: `<compiler>-<type>-<link>-<arch>`
+
+```bash
+# List all available presets
+cmake --list-presets
+
+# Configure
+cmake --preset gcc-debug-static-x86_64
+
+# Build (whole solution)
+cmake --build --preset gcc-debug-static-x86_64
+
+# Build a specific target
+cmake --build --preset gcc-debug-static-x86_64 --target main_app
+cmake --build --preset gcc-debug-static-x86_64 --target dummy_lib
+cmake --build --preset gcc-debug-static-x86_64 --target dummy_lib_tests
+
+# Run tests (all)
+ctest --preset gcc-debug-static-x86_64 --output-on-failure
+
+# Run tests (filter by name)
+ctest --preset gcc-debug-static-x86_64 -R dummy_lib --output-on-failure
+```
+
+**Common presets:**
+
+| Preset | OS | Compiler | Type | Link |
+|---|---|---|---|---|
+| `gcc-debug-static-x86_64` | Linux | GCC | Debug | Static |
+| `gcc-release-static-x86_64` | Linux | GCC | Release | Static |
+| `gcc-relwithdebinfo-static-x86_64` | Linux | GCC | RelWithDebInfo | Static |
+| `clang-debug-static-x86_64` | Linux | Clang | Debug | Static |
+| `msvc-debug-static-x64` | Windows | MSVC | Debug | Static |
+| `msvc-release-static-x64` | Windows | MSVC | Release | Static |
+| `embedded-arm-none-eabi` | Any | arm-none-eabi-gcc | Release | Static |
+
+### 3.3 CMake without presets
+
+```bash
+# Configure manually (no preset)
+cmake -B build/manual \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_CXX_STANDARD=17
+
+# Build whole solution
+cmake --build build/manual
+
+# Build single target
+cmake --build build/manual --target main_app
+cmake --build build/manual --target dummy_lib
+
+# With extra options
+cmake -B build/manual \
+    -DENABLE_ASAN=ON \
+    -DENABLE_CLANG_TIDY=ON \
+    -DENABLE_UNIT_TESTS=ON \
+    -DENABLE_GTEST=ON
+cmake --build build/manual
+
+# Shared libraries
+cmake -B build/shared -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build/shared
+```
+
+### 3.4 build.py automation script
+
+```bash
+# Build (auto-detects platform default preset)
+python3 scripts/build.py
+
+# Build with specific preset
+python3 scripts/build.py build --preset clang-debug-static-x86_64
+
+# Full pipeline: configure + build + test + extension sync
+python3 scripts/build.py check
+
+# Full pipeline, skip extension sync
+python3 scripts/build.py check --no-sync
+
+# Clean build artifacts
+python3 scripts/build.py clean
+
+# Clean everything including .vsix and logs
+python3 scripts/build.py clean --all
+
+# Build VS Code extension
+python3 scripts/build.py extension
+
+# Build and install extension
+python3 scripts/build.py extension --install
+
+# Build and publish to Marketplace
+python3 scripts/build.py extension --publish
+
+# Remote deploy via rsync
+python3 scripts/build.py deploy --host user@192.168.1.10 --path /opt/myapp
+```
+
+### 3.5 Build a single app or library
+
+```bash
+# Via cmake --build --target (after configure)
+cmake --build --preset gcc-debug-static-x86_64 --target main_app
+cmake --build --preset gcc-debug-static-x86_64 --target dummy_lib
+
+# Via toolsolution (auto-configures if needed)
+python3 scripts/toolsolution.py target build main_app
+python3 scripts/toolsolution.py target build dummy_lib --preset gcc-release-static-x86_64
+
+# Via toollib (single library only)
+python3 scripts/toollib.py test dummy_lib
+```
+
+---
+
+## 4. Testing
+
+### 4.1 All tests
+
+```bash
+# Using ctest preset (recommended)
+ctest --preset gcc-debug-static-x86_64 --output-on-failure
+
+# Using build.py (configure + build + test)
+python3 scripts/build.py check --no-sync
+
+# Using toolsolution (auto-configures if needed)
+python3 scripts/toolsolution.py test
+
+# Via VS Code: click "Tests" in the status bar
+```
+
+**With verbose output:**
+```bash
+ctest --preset gcc-debug-static-x86_64 --output-on-failure --verbose
+
+# Stop on first failure
+ctest --preset gcc-debug-static-x86_64 --stop-on-failure
+```
+
+### 4.2 Single library tests
+
+```bash
+# Method 1: ctest filter by name
+ctest --preset gcc-debug-static-x86_64 -R dummy_lib --output-on-failure
+
+# Method 2: build and run the test binary directly
+cmake --build --preset gcc-debug-static-x86_64 --target dummy_lib_tests
+./build/gcc-debug-static-x86_64/tests/unit/dummy_lib/dummy_lib_tests
+
+# Run with GTest filter
+./build/gcc-debug-static-x86_64/tests/unit/dummy_lib/dummy_lib_tests \
+    --gtest_filter="BuildInfoTest.*"
+
+# Method 3: toollib (builds if needed)
+python3 scripts/toollib.py test dummy_lib
+
+# Method 4: toolsolution
+python3 scripts/toolsolution.py test dummy_lib
+```
+
+---
+
+## 5. Build Settings Reference
+
+All options are passed as `-D<OPTION>=ON/OFF` to CMake or set via a preset.
 
 ### Core Build
 
 | Option | Default | Description |
 |---|---|---|
-| `BUILD_SHARED_LIBS` | `OFF` | Shared (`.so`/`.dll`) vs Static (`.a`/`.lib`) |
+| `BUILD_SHARED_LIBS` | `OFF` | `OFF` = Static (`.a`/`.lib`), `ON` = Shared (`.so`/`.dll`) |
 | `CMAKE_BUILD_TYPE` | preset | `Debug` / `Release` / `RelWithDebInfo` |
-| `CMAKE_CXX_STANDARD` | `17` | C++ standard |
-| `ENABLE_WERROR` | `OFF` | Treat warnings as errors (ON in CI) |
+| `CMAKE_CXX_STANDARD` | `17` | `14` / `17` / `20` / `23` — solution-wide |
+| `ENABLE_WERROR` | `OFF` | Treat warnings as errors |
 | `ENABLE_UNITY_BUILD` | `OFF` | Unity builds for faster compilation |
 | `ENABLE_DOCS` | `OFF` | Build Doxygen documentation |
+
+Per-library C++ standard override (does not affect other targets):
+```bash
+cmake --preset gcc-debug-static-x86_64 -DDUMMY_LIB_CXX_STANDARD=20
+# or via toolsolution:
+python3 scripts/toolsolution.py upgrade-std --std 20 --target dummy_lib
+# solution-wide:
+python3 scripts/toolsolution.py upgrade-std --std 20
+```
 
 ### Tests
 
 | Option | Default | Description |
 |---|---|---|
-| `ENABLE_UNIT_TESTS` | `ON` | Enable test build (OFF removes all test deps) |
-| `ENABLE_GTEST` | `ON` | GoogleTest framework |
-| `ENABLE_CATCH2` | `OFF` | Catch2 v3 framework |
+| `ENABLE_UNIT_TESTS` | `ON` | Master switch — `OFF` removes all test dependencies |
+| `ENABLE_GTEST` | `ON` | GoogleTest (auto-downloaded) |
+| `ENABLE_CATCH2` | `OFF` | Catch2 v3 (auto-downloaded) |
 | `ENABLE_BOOST_TEST` | `OFF` | Boost.Test (requires `ENABLE_BOOST=ON`) |
 | QTest | auto | Enabled automatically when `ENABLE_QT=ON` |
 
@@ -41,220 +322,110 @@ All options passed as `-D<OPTION>=ON/OFF` to CMake or via presets.
 |---|---|---|
 | `ENABLE_ASAN` | `OFF` | AddressSanitizer |
 | `ENABLE_UBSAN` | `OFF` | UndefinedBehaviorSanitizer |
-| `ENABLE_TSAN` | `OFF` | ThreadSanitizer (cannot combine with ASan/UBSan) |
+| `ENABLE_TSAN` | `OFF` | ThreadSanitizer (mutually exclusive with ASan/UBSan) |
 
 ### Static Analysis & Coverage
 
 | Option | Default | Description |
 |---|---|---|
-| `ENABLE_CLANG_TIDY` | `OFF` | clang-tidy (requires clang-tidy installed) |
+| `ENABLE_CLANG_TIDY` | `OFF` | clang-tidy |
 | `ENABLE_CPPCHECK` | `OFF` | cppcheck |
-| `ENABLE_COVERAGE` | `OFF` | LCOV/GCOV coverage report |
+| `ENABLE_COVERAGE` | `OFF` | LCOV/GCOV HTML report |
+
+```bash
+cmake --preset gcc-debug-static-x86_64 -DENABLE_COVERAGE=ON
+cmake --build --preset gcc-debug-static-x86_64 --target coverage_report
+```
 
 ### Optional Frameworks
 
 | Option | Default | Description |
 |---|---|---|
-| `ENABLE_QT` | `OFF` | Qt Widgets (Qt5 or Qt6 auto-detected) |
-| `ENABLE_QML` | `OFF` | Qt QML support (requires `ENABLE_QT=ON`) |
-| `ENABLE_BOOST` | `OFF` | Boost library suite |
-| `BOOST_COMPONENTS` | `""` | Semicolon-separated components e.g. `filesystem;system` |
+| `ENABLE_QT` | `OFF` | Qt5 or Qt6 (auto-detected) |
+| `ENABLE_QML` | `OFF` | Qt QML (requires `ENABLE_QT=ON`) |
+| `ENABLE_BOOST` | `OFF` | Boost libraries |
+| `BOOST_COMPONENTS` | `""` | Semicolon-separated: `filesystem;system` |
 
-### MSVC-specific
+### MSVC Runtime
 
-| Behavior | Static build | Shared build |
+| | Static build | Shared build |
 |---|---|---|
-| Runtime library | `/MT` (MultiThreaded) | `/MD` (MultiThreadedDLL) |
-| Debug suffix | `/MTd` | `/MDd` |
-| `gtest_force_shared_crt` | `OFF` | `ON` |
+| Release | `/MT` | `/MD` |
+| Debug | `/MTd` | `/MDd` |
 
-> **Note:** MSVC runtime is set automatically from `BUILD_SHARED_LIBS`. Mixing runtimes causes LNK2038 linker errors.
-
-### C++ Compile-time Feature Detection
-
-Every option above maps to a preprocessor define in the auto-generated `FeatureFlags.h`:
-
-```cpp
-#include "FeatureFlags.h"
-
-// Check a single feature
-#if FEATURE_BOOST
-    // Boost is available
-#endif
-
-// Dump all features at runtime
-for (const auto& f : project_features::features)
-    std::cout << f.name << ": " << f.enabled << "\n";
-```
-
-| C++ macro | CMake option |
-|---|---|
-| `PROJECT_SHARED_LIBS` | `BUILD_SHARED_LIBS` |
-| `FEATURE_UNIT_TESTS` | `ENABLE_UNIT_TESTS` |
-| `FEATURE_GTEST` | `ENABLE_GTEST` |
-| `FEATURE_CATCH2` | `ENABLE_CATCH2` |
-| `FEATURE_BOOST_TEST` | `ENABLE_BOOST_TEST` |
-| `FEATURE_ASAN` | `ENABLE_ASAN` |
-| `FEATURE_UBSAN` | `ENABLE_UBSAN` |
-| `FEATURE_TSAN` | `ENABLE_TSAN` |
-| `FEATURE_CLANG_TIDY` | `ENABLE_CLANG_TIDY` |
-| `FEATURE_CPPCHECK` | `ENABLE_CPPCHECK` |
-| `FEATURE_COVERAGE` | `ENABLE_COVERAGE` |
-| `FEATURE_QT` | `ENABLE_QT` |
-| `FEATURE_QML` | `ENABLE_QML` |
-| `FEATURE_BOOST` | `ENABLE_BOOST` |
-| `FEATURE_DOCS` | `ENABLE_DOCS` |
+Set automatically from `BUILD_SHARED_LIBS`. Mixing runtimes causes `LNK2038`.
 
 ---
 
-## 📦 Dependencies
+## 6. Dependencies
 
 ### Mandatory
 
-| Dependency | Min Version | Purpose |
+| Dependency | Min Version | Install (Ubuntu) |
 |---|---|---|
-| CMake | 3.25+ | Build system |
-| Ninja | any | Default generator |
-| GCC **or** Clang **or** MSVC | GCC 10+ / Clang 12+ / VS 2022 | C++ compiler |
-| Python | 3.8+ | All automation scripts |
-| Git | any | Version info via `git describe` |
+| CMake | 3.25+ | `sudo apt install cmake` |
+| Ninja | any | `sudo apt install ninja-build` |
+| GCC **or** Clang **or** MSVC | GCC 10+ / Clang 12+ / VS 2022 | `sudo apt install build-essential` |
+| Python | 3.8+ | `sudo apt install python3` |
+| Git | any | `sudo apt install git` |
 
 ```bash
-# Ubuntu/Debian — install all mandatory deps
+# Check and auto-install mandatory deps
 python3 scripts/install_deps.py --install
 
-# Check only (no install)
-python3 scripts/install_deps.py
+# Check all (including optional)
+python3 scripts/install_deps.py --all
 ```
 
 ### Optional
 
-| Dependency | apt package | Purpose |
+| Dependency | Purpose | Install (Ubuntu) |
 |---|---|---|
-| Clang / clang-tidy | `clang clang-tidy` | Alternative compiler + static analysis |
-| cppcheck | `cppcheck` | Additional static analysis |
-| lcov | `lcov` | Coverage HTML reports |
-| Doxygen | `doxygen` | API documentation |
-| Valgrind | `valgrind` | Memory analysis *(planned)* |
-| Qt 5/6 | `qt6-base-dev` | GUI app (`ENABLE_QT=ON`) |
-| Boost | `libboost-all-dev` | Boost libraries (`ENABLE_BOOST=ON`) |
-| gcc-multilib | `gcc-multilib g++-multilib` | x86 cross-compile on x86_64 |
-| arm-none-eabi-gcc | `gcc-arm-none-eabi` | Embedded ARM preset |
-| Node.js + npm | `nodejs npm` | VS Code extension build |
-| rsync | `rsync` | Remote deploy |
+| clang / clang-tidy | Alternative compiler + static analysis | `sudo apt install clang clang-tidy` |
+| cppcheck | Additional static analysis | `sudo apt install cppcheck` |
+| lcov | Coverage HTML reports | `sudo apt install lcov` |
+| Doxygen | API documentation | `sudo apt install doxygen` |
+| Qt 5/6 | GUI app (`ENABLE_QT=ON`) | `sudo apt install qt6-base-dev` |
+| Boost | Boost libraries (`ENABLE_BOOST=ON`) | `sudo apt install libboost-all-dev` |
+| gcc-multilib | x86 cross-compile on x86_64 | `sudo apt install gcc-multilib g++-multilib` |
+| arm-none-eabi-gcc | Embedded ARM preset | `sudo apt install gcc-arm-none-eabi` |
+| Node.js + npm | VS Code extension build | `sudo apt install nodejs npm` |
+| rsync | Remote deploy | `sudo apt install rsync` |
 
-```bash
-# Check all optional deps too
-python3 scripts/install_deps.py --all
-```
-
-### Test Frameworks (auto-downloaded via FetchContent)
-
-| Flag | Framework | Default |
-|---|---|---|
-| `ENABLE_GTEST=ON` | GoogleTest 1.15 | ✅ |
-| `ENABLE_CATCH2=ON` | Catch2 v3.5 | |
-| `ENABLE_BOOST_TEST=ON` | Boost.Test | requires `ENABLE_BOOST=ON` |
-| `ENABLE_QT=ON` | QTest | auto-enabled with Qt |
-| `ENABLE_UNIT_TESTS=OFF` | *(none)* | disables test subsystem entirely |
+Test frameworks are **auto-downloaded** via CMake FetchContent — no manual install needed.
 
 ---
 
-## VS Code Extension: C++ CMake Scaffolder
-
-Generate new C++ projects
-Link: [C++ CMake Scaffolder](https://marketplace.visualstudio.com/items?itemName=develooper1994.cpp-cmake-scaffolder)
-
-## 🚀 Key Features
-
-- **Cross-Platform**: Windows (MSVC), Linux (GCC/Clang), and macOS (AppleClang) support.
-- **Modern CMake (3.25+)**: Pure target-based design. No global flags.
-- **VS Code Optimized**: Full GUI integration (Build, Test, Debug, Deploy).
-- **Dependency Management**: Vcpkg, Conan, and FetchContent integration.
-- **Quality Guard**: GoogleTest, Sanitizers (ASan/TSan), Static Analysis, Coverage reports.
-- **Embedded Ready**: ARM/GNU Toolchain support with auto-generated `.bin` & `.hex`.
-- **Packaging**: CPack-ready (.deb, .zip, .tar.gz).
-
----
-
-## 💻 Usage: The VS Code Way
-
-1. **Select Preset**: Click **"CMake: [No Preset]"** in status bar.
-2. **Build**: Press `F7` or click **Build**.
-3. **Debug**: Press `F5` to debug `main_app`.
-4. **Test**: Click **Test** in status bar to run GoogleTests.
-
-## ⌨️ Usage: The Terminal Way
-
-```bash
-# Build (auto-detects preset)
-python3 scripts/build.py build
-
-# Build + Test + Extension sync
-python3 scripts/build.py check
-
-# Clean
-python3 scripts/build.py clean
-
-# Build extension (.vsix)
-python3 scripts/build.py extension
-
-# Remote deploy
-python3 scripts/build.py deploy --host user@192.168.1.10
-```
-
----
-
-## 🔒 Quality Guards (Pre-Commit Hooks)
-
-Before you commit, ensure your code is perfect:
-
-```bash
-python3 scripts/setup_hooks.py
-```
-
-*Checks: Clang-Format, Clang-Tidy, and Secret Scanner.*
-
----
-
-## 🔄 Rename Project (Git Clone Sonrası)
-
-VSCode extension yerine terminal kullanıyorsanız:
-
-```bash
-python3 scripts/init_project.py --name MyProject
-```
-
-Tüm dosyalardaki `CppCmakeProjectTemplate` referanslarını `MyProject` ile değiştirir.
-LICENSE dosyası manuel güncellenmeli.
-
----
-
-## 🧩 Library Management (libtool)
+## 7. Library Management
 
 All library operations go through `scripts/toollib.py`.
-In VS Code: `Ctrl+Shift+P` → **CppTemplate: Library Manager (toollib)**.
-
-Project-wide orchestration: `Ctrl+Shift+P` → **CppTemplate: Project Orchestrator (toolsolution)**.
+**In VS Code:** `Ctrl+Shift+P` → *CppTemplate: Library Manager (toollib)*
 
 ```bash
-# Add a library
+# Create a new library
 python3 scripts/toollib.py add my_lib
-python3 scripts/toollib.py add renderer --deps core,math --link-app
+python3 scripts/toollib.py add renderer --deps core,math --link-app --cxx-standard 20
 
-# Remove (--delete also removes files)
+# Remove a library (--delete also removes files from disk)
 python3 scripts/toollib.py remove my_lib --delete
 
-# Rename (updates all source/CMake references)
+# Rename (updates all source files, headers, and CMake references)
 python3 scripts/toollib.py rename old_name new_name
 
-# Move (supports subdirectory layouts)
+# Move to a subdirectory
 python3 scripts/toollib.py move renderer graphics/renderer
 
 # Edit dependencies of an existing library
 python3 scripts/toollib.py deps renderer --add math --remove old_dep
 
-# Inspect
+# Show detailed info about a library
+python3 scripts/toollib.py info dummy_lib
+
+# Build and run a single library's tests
+python3 scripts/toollib.py test dummy_lib
+python3 scripts/toollib.py test dummy_lib --preset clang-debug-static-x86_64
+
+# List / tree / health check
 python3 scripts/toollib.py list
 python3 scripts/toollib.py tree
 python3 scripts/toollib.py doctor
@@ -262,26 +433,163 @@ python3 scripts/toollib.py doctor
 
 Append `--dry-run` to any command to preview changes without applying them.
 
-### Project Orchestrator
+Each library gets its own independent version via `target_generate_build_info`:
+
+```cmake
+# libs/my_lib/CMakeLists.txt
+target_generate_build_info(my_lib
+    NAMESPACE my_lib_info
+    PROJECT_VERSION "2.0.0"   # independent from solution version
+)
+```
+
+---
+
+## 8. Project Orchestration
+
+**In VS Code:** `Ctrl+Shift+P` → *CppTemplate: Project Orchestrator (toolsolution)*
 
 ```bash
+# List all targets (libs + apps)
 python3 scripts/toolsolution.py target list
-python3 scripts/toolsolution.py target build main_app --preset gcc-debug-static-x86_64
+
+# Build a single target (auto-configures if needed)
+python3 scripts/toolsolution.py target build main_app
+python3 scripts/toolsolution.py target build dummy_lib --preset gcc-release-static-x86_64
+
+# Run tests — all or single target
+python3 scripts/toolsolution.py test
+python3 scripts/toolsolution.py test dummy_lib
+
+# Manage presets
+python3 scripts/toolsolution.py preset list
 python3 scripts/toolsolution.py preset add --compiler gcc --type debug --link static --arch x86_64
-python3 scripts/toolsolution.py toolchain add --name stm32f4 --template arm-none-eabi --cpu cortex-m4 --fpu fpv4-sp-d16 --gen-preset
+python3 scripts/toolsolution.py preset remove my-custom-preset
+
+# Manage toolchains
+python3 scripts/toolsolution.py toolchain list
+python3 scripts/toolsolution.py toolchain add \
+    --name stm32f4 --template arm-none-eabi \
+    --cpu cortex-m4 --fpu fpv4-sp-d16 --gen-preset
+python3 scripts/toolsolution.py toolchain remove stm32f4
+
+# C++ standard — solution-wide or per-library
+python3 scripts/toolsolution.py upgrade-std --std 20
+python3 scripts/toolsolution.py upgrade-std --std 20 --target dummy_lib
+python3 scripts/toolsolution.py upgrade-std --std 20 --dry-run
+
+# View / set base preset cache variables
+python3 scripts/toolsolution.py config get
+python3 scripts/toolsolution.py config set ENABLE_ASAN ON
+
+# Full health check
 python3 scripts/toolsolution.py doctor
 ```
 
 ---
 
-## 📁 Directory Structure
+## 9. Compile-time Build Info & Feature Flags
 
-- `apps/` : Executable entry points.
-- `libs/` : Modüler, bağımsız derlenebilir kütüphaneler.
-- `cmake/` : Build system modules ([Embedded Tools](cmake/EmbeddedUtils.cmake)).
-- `scripts/` : Otomasyon ([Project Init](scripts/init_project.py)).
-- `docs/` : Detaylı teknik rehberler ([Embedded Guide](docs/EMBEDDED.md)).
-- `.github/`: CI/CD workflows and AI Agent instructions.
+Every target built with `target_generate_build_info` gets a `BuildInfo.h` at compile time.
+Include `ProjectInfo.h` as a single-header convenience wrapper:
+
+```cpp
+#include "ProjectInfo.h"   // BuildInfo.h + FeatureFlags.h + BuildInfoHelper.h
+
+// Print everything (build info + git + feature flags)
+BUILD_INFO_PRINT_ALL(std::cout, main_app_info);
+
+// Short version line: "CppCmakeProjectTemplate v1.0.0 (main@abc1234)"
+std::string ver = BUILD_INFO_VERSION_LINE(main_app_info);
+
+// Access individual fields
+std::cout << main_app_info::project_version << "\n";  // "1.0.0"
+std::cout << main_app_info::git_branch      << "\n";  // "main"
+std::cout << main_app_info::compiler_id     << "\n";  // "GNU"
+
+// Compile-time feature check
+#if FEATURE_ASAN
+    std::cout << "Running with AddressSanitizer\n";
+#endif
+
+// Runtime feature list
+for (const auto& f : project_features::features)
+    std::cout << (f.enabled ? "[x]" : "[ ]") << " " << f.name << "\n";
+```
+
+Each library has its **own independent version**:
+
+```cpp
+#include "BuildInfo.h"   // generated into dummy_lib's include path
+
+// dummy_lib version — independent from the solution version
+std::cout << dummy_lib_info::project_version;  // "2.5.0"
+std::cout << main_app_info::project_version;   // "1.0.0"
+```
+
+| C++ Symbol | Source | Notes |
+|---|---|---|
+| `<ns>::project_name` | `CMakeLists.txt` | Target name |
+| `<ns>::project_version` | `target_generate_build_info(...PROJECT_VERSION)` | Per-target |
+| `<ns>::git_hash` | `git rev-parse HEAD` | At configure time |
+| `<ns>::git_branch` | `git rev-parse --abbrev-ref HEAD` | At configure time |
+| `<ns>::git_dirty` | `git diff --quiet` | `bool` |
+| `<ns>::build_type` | `CMAKE_BUILD_TYPE` | Debug/Release/… |
+| `<ns>::library_type` | CMake target type | Static/Shared/Executable |
+| `<ns>::compiler_id` | `CMAKE_CXX_COMPILER_ID` | GNU/Clang/MSVC |
+| `<ns>::build_timestamp` | configure time | UTC string |
+| `FEATURE_GTEST` | `ENABLE_GTEST` | `0` or `1` |
+| `FEATURE_ASAN` | `ENABLE_ASAN` | `0` or `1` |
+| `PROJECT_SHARED_LIBS` | `BUILD_SHARED_LIBS` | `0` or `1` |
+
+---
+
+## 10. Starting a New Project
+
+**Option A — VS Code Extension (recommended):**
+
+1. `Ctrl+Shift+P` → *CppTemplate: Create New Project*
+2. Select target folder, enter project name.
+
+**Option B — Terminal:**
+
+```bash
+git clone https://github.com/develooper1994/CppCmakeProjectTemplate.git MyProject
+cd MyProject
+python3 scripts/init_project.py --name MyProject
+```
+
+Both options rename all `CppCmakeProjectTemplate` references to your project name.
+
+---
+
+## 11. CI / Quality Guards
+
+### Pre-commit hooks
+
+```bash
+python3 scripts/setup_hooks.py
+```
+
+Runs: clang-format, clang-tidy, secret scanner on every commit.
+
+### CI matrix
+
+Four jobs run on every push (`.github/workflows/ci.yml`):
+
+| Job | OS | Compiler |
+|---|---|---|
+| `build-linux` | Ubuntu | GCC 13 |
+| `build-linux-clang` | Ubuntu | Clang |
+| `build-windows` | Windows | MSVC 2022 |
+| `build-macos` | macOS | AppleClang |
+
+### Manual CI simulation
+
+```bash
+python3 scripts/toolsolution.py doctor
+ctest --preset gcc-debug-static-x86_64 --output-on-failure
+```
 
 ---
 
