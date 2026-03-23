@@ -1,8 +1,15 @@
 # Prerequisites
-# Build folders
+# Build output
+[Bb]in/
+[Oo]bj/
+Debug*/
+Release*/
+x64/Debug/
+x64/Release/
 build/
 bin/
 out/
+CMakeUserPresets.json
 
 # CMake artifacts
 CMakeCache.txt
@@ -13,9 +20,19 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 Makefile
+!CMakeLists.txt
+!CMakePresets.json
 
 # VS Code artifacts
+.vs/
 .vscode/*
+*.vcxproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.opendb
 !.vscode/settings.json
 !.vscode/extensions.json
 !.vscode/launch.json
