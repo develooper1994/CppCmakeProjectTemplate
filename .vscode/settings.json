@@ -1,14 +1,19 @@
 {
-  "cmake.configureOnOpen": true,
-  "cmake.sourceDirectory": "${workspaceFolder}",
-  "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
-  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  // ── Editor ──────────────────────────────────────────────────────────────
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit"
   },
-  "files.trimTrailingWhitespace": true,
-  "files.insertFinalNewline": true,
+  
+  // ── C++ ─────────────────────────────────────────────────────────────────
+  "C_Cpp.clang_format_style": "file",
+  "C_Cpp.clang_format_fallbackStyle": "Microsoft",
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  
+  // ── CMake ───────────────────────────────────────────────────────────────
+  "cmake.configureOnOpen": true,
+  "cmake.sourceDirectory": "${workspaceFolder}",
+  "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
   "cmake.useCMakePresets": "always",
   "cmake.buildDirectory": "${workspaceFolder}/build/${cmake.presetName}",
   "cmake.generator": "Ninja",
@@ -27,4 +32,20 @@
       "visibility": "visible"
     }
   }
+  
+  // ── Files ───────────────────────────────────────────────────────────────
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+    "files.associations": {
+    "*.h": "cpp",
+    "*.hpp": "cpp",
+    "*.inl": "cpp"
+  },
+  "files.exclude": {
+    "**/build": true,
+    "**/build-release": true,
+    "**/.vs": true,
+    "**/x64": true
+  }
+  
 }
