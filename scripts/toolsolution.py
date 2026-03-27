@@ -6,7 +6,7 @@ Manages targets, presets, toolchains, build config and project-wide operations.
 
 Commands:
     target   list                            List all libs and apps
-    target   build <n> [--preset X]         Build a single target
+    target   build <n> [--preset X]          Build a single target
     target   add-app <n>                     Scaffold a new app (stub)
 
     preset   list                            List available presets

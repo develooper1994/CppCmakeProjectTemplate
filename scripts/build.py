@@ -5,7 +5,7 @@ build.py — Unified project automation tool.
 Subcommands:
     build      [--preset X]                    Configure + compile
     check      [--preset X] [--no-sync]        Build + test + extension sync
-    clean      [--all]                          Remove build artifacts
+    clean      [targets...] [--all]             Remove build artifacts
     deploy     --host user@host [--path /tmp]   Remote deploy via rsync
                [--preset X]
     extension  [--install]                      Build .vsix extension package
@@ -16,6 +16,7 @@ Usage:
     python3 scripts/build.py check
     python3 scripts/build.py check --no-sync
     python3 scripts/build.py clean
+    python3 scripts/build.py clean logs extension
     python3 scripts/build.py clean --all
     python3 scripts/build.py deploy --host user@192.168.1.10
     python3 scripts/build.py extension
@@ -163,21 +164,45 @@ def cmd_check(args: argparse.Namespace) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def cmd_clean(args: argparse.Namespace) -> None:
-    targets = ["build", ".cache", "coverage_report", "build_logs"]
+    mapping = {
+        "build":     ["build"],
+        "cache":     [".cache"],
+        "coverage":  ["coverage_report"],
+        "logs":      ["build_logs"],
+        "extension": ["extension/templates"] + 
+                     [str(f.relative_to(PROJECT_ROOT)) for f in PROJECT_ROOT.glob("*.vsix")] + 
+                     [str(f.relative_to(PROJECT_ROOT)) for f in EXT_DIR.glob("*.vsix")]
+    }
+
+    to_clean: list[str] = []
+
     if args.all:
-        targets += [str(f) for f in PROJECT_ROOT.glob("*.vsix")]
+        for paths in mapping.values():
+            to_clean.extend(paths)
+    elif args.targets:
+        for t in args.targets:
+            if t in mapping:
+                to_clean.extend(mapping[t])
+            else:
+                to_clean.append(t)
+    else:
+        # Default: everything except extension unless requested
+        to_clean = mapping["build"] + mapping["cache"] + mapping["coverage"] + mapping["logs"]
+
+    # Deduplicate
+    to_clean = list(dict.fromkeys(to_clean))
 
     print("--> Cleaning...")
-    for d in targets:
-        p = PROJECT_ROOT / d
+    for item in to_clean:
+        p = PROJECT_ROOT / item
         if p.exists():
-            print(f"    Removing: {d}")
+            print(f"    Removing: {item}")
             if p.is_dir():
                 shutil.rmtree(p)
             else:
                 p.unlink()
         else:
-            print(f"    Skip: {d} (not found)")
+            print(f"    Skip: {item} (not found)")
     print("✅ Clean done.")
 
 
@@ -271,6 +296,7 @@ def _sync_version() -> None:
         print(f"  ✅ Version synced: {version}")
     else:
         print(f"  ⏭  Version up-to-date: {version}")
+
 def _sync_license() -> None:
     src = PROJECT_ROOT / "LICENSE"
     if src.exists():
@@ -341,7 +367,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # clean
     p = sub.add_parser("clean", help="Remove build artifacts")
-    p.add_argument("--all", action="store_true", help="Also remove .vsix files and build_logs")
+    p.add_argument("targets", nargs="*", help="Specific targets to clean (build, cache, coverage, logs, extension) or custom paths")
+    p.add_argument("--all", action="store_true", help="Remove everything including extension artifacts")
     p.set_defaults(func=cmd_clean)
 
     # deploy
