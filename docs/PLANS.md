@@ -21,22 +21,20 @@ Bu belge, projenin mevcut yeteneklerini, gelecek vizyonunu ve yönetim politikal
 
 1.1. **Modular Dispatcher (`tool`):** `cargo` benzeri bir yapı ile komutları bağımsız modüllere (`build`, `lib`, `solution`) yönlendiren dispatcher.
 1.2. **Plugin & Discovery Model:** Dahili ve harici komutların/eklentilerin otomatik keşfedilmesi (`tool-xxx` plugin desteği).
-1.3. **Migration & Compatibility:** Eski scriptlerin (`build.py` vb.) 2 sürüm boyunca `deprecated` olarak desteklenmesi ve ardından kaldırılması.
-1.4. **Observability & Diagnostics:**
-    - Standart exit code'lar.
+1.3. **Command Contracts:** Her komut için standart giriş/çıkış ve hata davranışı (Plugin ekosistemi için şart).
+1.4. **Migration & Compatibility:** Eski scriptlerin 2 sürüm boyunca `deprecated` olarak desteklenmesi.
+1.5. **Observability & Diagnostics:**
+    - Standart exit code'lar ve actionable error messages.
     - `--verbose`, `--debug`, `--quiet` bayrakları.
-    - `build_logs/tool.log` içinde yapılandırılmış (structured) hata raporları.
-1.5. **CLI Arg Parsing:** `argparse` veya `click` ile gelişmiş hata mesajları ve otomatik tamamlama.
+    - `build_logs/tool.log` içinde yapılandırılmış hata raporları.
+1.6. **Workspace / Multi-root Support:** Birden fazla projeyi veya iç içe geçmiş repository'leri yönetme desteği (Gelecek vizyonu).
 
 ### 🛠️ Faz 1 Uygulama Stratejisi
 
-Faz 1'i hayata geçirmek için şu teknik yol haritası izlenecektir:
-
-1. **Central Dispatcher (`scripts/tool.py`):** `argparse` subparsers kullanılarak hiyerarşik bir komut yapısı kurulacak.
-2. **Lazy Import Modeli:** Komut modülleri (build, lib vb.) sadece çağrıldıklarında `import` edilecek. Bu, CLI açılış hızını artıracak ve dairesel bağımlılıkları önleyecektir.
-3. **Library Refactoring:** Mevcut scriptlerin (`build.py`, `toollib.py` vb.) `main()` fonksiyonları, argümanları dışarıdan alabilecek (`def main(args=None)`) şekilde güncellenerek kütüphane gibi kullanılabilir hale getirilecek.
-4. **Deprecation Layer:** Eski scriptler doğrudan çalıştırıldığında `tool` komutuna yönlendiren renkli uyarı mesajları eklenecek.
-5. **Unified Logging:** Tüm modüller için ortak bir `Logger` ve `Result` objesi tanımlanarak hata raporlama standartlaştırılacak.
+1. **Central Dispatcher:** `scripts/tool.py` oluşturulacak.
+2. **Lazy Import:** Modüller sadece çağrıldığında yüklenecek.
+3. **Library Refactoring:** Scriptlerin `main(args=None)` olarak güncellenmesi.
+4. **Standardized IO:** Komutların JSON veya düz metin çıktı verme yeteneği.
 
 ---
 
@@ -44,95 +42,66 @@ Faz 1'i hayata geçirmek için şu teknik yol haritası izlenecektir:
 
 **Amaç:** Projenin dağıtımını profesyonelleştirmek ve şablon üretim motorunu standartlaştırmak.
 
-2.1. **Packaging & Distribution:** `tool` komutunun `pip package` veya `standalone script` olarak dağıtılabilmesi (`pyproject.toml` entegrasyonu).
-2.2. **Template Rendering Layer:** Şablon üretiminde `token replacement` yerine Jinja2 benzeri profesyonel bir rendering motoruna geçiş.
-2.3. **Supply Chain Security:** Bootstrap aşamasında indirilen bağımlılıkların `checksum` doğrulaması ve `pinned versions` kullanımı.
-2.4. **Validation Layer:** Proje scaffold edildikten sonra otomatik doğrulama (CMake parse, build tree tutarlılığı).
-
-### 🛠️ Faz 2 Uygulama Stratejisi
-
-Faz 2'de ürünleşme süreci şu adımlarla ilerleyecektir:
-
-1. **Jinja2 Entegrasyonu:** Şablon üretim katmanı mantıksal blokları (if/else, for) destekleyecek şekilde güncellenecek. Bu, "opsiyonel" özelliklerin (test framework seçimi, header-only seçeneği vb.) yönetimini kolaylaştıracaktır.
-2. **Python Packaging:** Proje köküne `pyproject.toml` eklenerek `tool` komutu bir console script olarak tanımlanacak. `pip install -e .` ile sistem genelinde kullanılabilir hale getirilecek.
-3. **Post-Gen Health Check:** Her `scaffold` işleminden sonra üretilen dosyaların tutarlılığını (CMake syntax check, path resolution) denetleyen bir doğrulama katmanı eklenecek.
-4. **Checksum Verification:** `tool setup` (Bootstrap) sırasında indirilen tüm harici araçlar ve scriptler için SHA-256 hash doğrulaması yapılarak tedarik zinciri güvenliği sağlanacak.
-5. **Extension Sync Automation:** VS Code extension şablonları ile ana proje arasındaki dosya senkronizasyonu `tool` üzerinden tek bir `sync-templates` komutuyla hatasız hale getirilecek.
+2.1. **Packaging & Distribution:** `tool` komutunun `pip package` veya `standalone script` olarak dağıtılması.
+2.2. **Template Rendering Layer:** Jinja2 motoruna geçiş. **Kural:** İş mantığı Python'da, render şablonda.
+2.3. **Supply Chain Security:** `tool setup` aşamasında SHA-256 doğrulaması ve pinned versions.
+2.4. **Validation Layer:** Scaffold sonrası otomatik doğrulama (CMake parse, build tree tutarlılığı).
+2.5. **Rollback & Recovery:** `scaffold` veya `update` işlemleri başarısız olursa otomatik geri alma (rollback) mekanizması.
 
 ---
 
 ## 🧪 Faz 3: Test Strategy & Structured CI
 
-**Amaç:** Hem CLI araçlarının hem de üretilen projelerin kalitesini garanti altına almak.
+**Amaç:** CLI araçlarının ve üretilen projelerin kalitesini, deterministik bir ortamda garanti altına almak.
 
 3.1. **Comprehensive Testing:**
     - **Unit/Integration:** CLI fonksiyonlarının testi.
-    - **Fixture-based:** `toollib` ve `toolsolution` için izole ortam testleri.
-    - **Template-generation:** Üretilen projelerin derlenebilirlik ve çalışma testleri (Smoke tests).
-3.2. **Structured CI Pipeline:** CI sürecinin net aşamalara bölünmesi:
-    `format` -> `lint` -> `build` -> `test` -> `package` -> `artifact validation`.
-
-### 🛠️ Faz 3 Uygulama Stratejisi
-
-Faz 3'te kalite kontrol süreçleri şu şekilde kurgulanacaktır:
-
-1. **Fixture Isolation:** `pytest` kullanılarak testlerin birbirini etkilemediği, geçici dosya sistemlerinde çalışan izole bir test altyapısı kurulacak.
-2. **Smoke Test Automation:** Her şablon değişikliğinde, `tool scaffold` ile üretilen örnek bir projenin `gcc`, `clang` ve `msvc` ile derlenip derlenmediği otomatik doğrulanacak.
-3. **CI Stage Gatekeeper:** CI pipeline aşamaları bağımsız `exit code` kontrolü ile çalışacak; bir aşama başarısız olursa sonraki adımlar durdurulacak (fail-fast).
+    - **Fixture-based:** İzole dosya sisteminde fixture tabanlı testler.
+    - **Template-generation:** Üretilen projelerin farklı platformlarda Smoke testleri.
+3.2. **Structured CI Pipeline:** `format` -> `lint` -> `build` -> `test` -> `package` -> `artifact validation`.
+3.3. **Deterministic CI:** Frozen environment, pinned tool ve compiler versiyonları kullanımı.
 
 ---
 
-## 🛡️ Faz 4: Safety & Hardening
+## 🛡️ Faz 4: Safety, Hardening & Sanitizers
 
-**Amaç:** Güvenlik odaklı C++ geliştirme pratiklerini otomatize etmek.
+**Amaç:** Güvenlik odaklı C++ pratiklerini ve dinamik analiz araçlarını otomatize etmek.
 
-4.1. **Safety Profiles:** CLI üzerinden dinamik profil seçimi:
-    - `Normal`: Standart C++.
-    - `Safe`: Sıkı statik analiz, `_GLIBCXX_ASSERTIONS`.
-    - `Hardened`: Stack smashing protection, Control-flow integrity.
-4.2. **Supply Chain Protection:** Harici bağımlılıkların (vcpkg/conan) güvenlik taramaları.
-
-### 🛠️ Faz 4 Uygulama Stratejisi
-
-Faz 4'te güvenlik katmanı şu detaylarla zenginleştirilecek:
-
-1. **Hidden Presets:** `CMakePresets.json` içinde kullanıcıdan gizlenen "safety" presetleri tanımlanacak. Seçilen profile göre derleyici bayrakları (`-fstack-protector-all` vb.) dinamik olarak enjekte edilecek.
-2. **Security Audit:** `tool safety audit` komutu ile projedeki harici kütüphaneler için CVE taramaları (`osv-scanner` vb.) entegre edilecek.
+4.1. **Safety Profiles:** CLI üzerinden dinamik profil seçimi (Normal, Safe, Hardened).
+4.2. **Sanitizer Profiles:** `tool build --profile sanitized` ile ASAN, UBSAN, TSAN veya MSAN desteği.
+4.3. **Security Audit:** Harici bağımlılıklar için CVE taramaları (`osv-scanner` vb.).
 
 ---
 
 ## ⚡ Faz 5: Performance & Optimization
 
-**Amaç:** Endüstriyel seviyede performans takibi ve optimizasyon.
+**Amaç:** Endüstriyel performans takibi ve "Performance Budget" yönetimi.
 
-5.1. **Release Optimization:** LTO, PGO ve `march=native` seçeneklerinin CLI'dan yönetimi.
-5.2. **Benchmark Integration:** `Google Benchmark` entegrasyonu ve commit-bazlı performans kaybı (regression) takibi.
-
-### 🛠️ Faz 5 Uygulama Stratejisi
-
-Faz 5'te performans yönetimi şu şekilde optimize edilecek:
-
-1. **Benchmark History:** `.benchmarks/history.json` dosyası üzerinden commit-bazlı karşılaştırma yapılacak. %5'ten fazla performans kaybı durumunda uyarı raporu üretilecek.
-2. **PGO Workflow:** Profile-Guided Optimization süreci (Enstrümante et -> Veri topla -> Re-optimize et) tek komutla otomatize edilecek.
+5.1. **Release Optimization:** LTO, PGO ve `march=native` seçeneklerinin yönetimi.
+5.2. **Benchmark Integration:** `Google Benchmark` entegrasyonu ve regresyon takibi.
+5.3. **Performance Budget:** Threshold politikası (örn: Regresyon > %10 -> Fail).
 
 ---
 
 ## 🌟 Faz 6: Ecosystem & UI
 
-**Amaç:** Geliştirici etkileşimini artırmak.
+**Amaç:** Geliştirici etkileşimini artırmak ve otomasyonu kolaylaştırmak.
 
-6.1. **GUI / TUI:** `Textual` tabanlı TUI ve VS Code WebView paneli.
-6.2. **Documentation as Code:** CLI yardım çıktılarından ve README'lerden otomatik döküman üretimi ve `tool doc serve` ile sunumu.
-6.3. **Python API:** Otomasyonlar için dahili Python kütüphanesi.
+6.1. **TUI as a Wrapper:** `scripts/tui.py` merkezi `tool` yapısını kullanan görsel bir kabuk olacak.
+6.2. **Non-Interactive Mode:** Otomasyon ve CI için `--yes` bayrağı desteği.
+6.3. **Documentation as Code:** Otomatik döküman üretimi ve `tool doc serve` ile sunumu.
 
-### 🛠️ Faz 6 Uygulama Stratejisi
+---
 
-Faz 6'da kullanıcı arayüzü ve ekosistem şu adımlarla tamamlanacak:
+## ⚙️ Faz 7: Configuration & State Management
 
-1. **TUI as a Wrapper:** TUI (`scripts/tui.py`), merkezi `tool` yapısının üzerine giydirilmiş bir "kabuk" görevi görecek. TUI içinde hiçbir iş mantığı (business logic) bulunmayacak; her kullanıcı hareketi arka planda ilgili `tool` komutunu (`tool build`, `tool lib add` vb.) tetikleyecek ve çıktıyı görsel olarak sunacaktır. Bu, CLI ve TUI arasında tam davranış tutarlılığı sağlar.
-2. **TUI Dashboard:** `Textual` ile terminal içinde tüm projeyi, kütüphaneleri ve build durumlarını izleyebileceğiniz interaktif bir pano oluşturulacak.
-3. **VS Code Integration:** Extension tarafına eklenecek bir WebView ile kütüphane ekleme ve bağımlılık yönetimi "Form" tabanlı bir arayüzle kolaylaştırılacak.
-4. **Live Doc Server:** `tool doc serve` komutu arka planda Doxygen çalıştırıp anlık üretilen dokümantasyonu yerel bir HTTP sunucusu üzerinden sunacak.
+**Amaç:** Tool davranışının deterministik, reproducible ve yönetilebilir olması.
+
+7.1. **Configuration System:** Tool davranışının `tool.toml` ile merkezi yönetimi.
+7.2. **Schema Versioning:** `tool.toml` ve `.tool/state.json` için şema sürümü tanımlanması.
+7.3. **Migration Framework:** State veya konfigürasyon formatı değiştiğinde veriyi taşıyacak `tool migrate` sistemi.
+7.4. **State Persistence:** `.tool/` klasöründe çalışma anı bilgilerinin (history, versions) saklanması.
+7.5. **Lock Files:** Reproducibility için `tool.lock` kullanımı.
 
 ---
 
@@ -141,23 +110,22 @@ Faz 6'da kullanıcı arayüzü ve ekosistem şu adımlarla tamamlanacak:
 ### Versioning Policy
 
 - **SemVer:** CLI ve Şablon için Semantic Versioning uygulanır.
-- **Template vs Generated:** Şablon sürümü (v1.2.0) ile üretilen projenin sürümü (v0.1.0) birbirinden bağımsız yönetilir.
+- **Template vs Generated:** Şablon ve üretilen proje sürümleri bağımsızdır.
 
-### Platform Matrix
+### Platform Matrix (Minimum Versions)
 
-- **Birinci Sınıf Destek:** Linux (Ubuntu/Debian), Windows (MSVC), macOS.
-- **Embedded:** ARM-none-eabi (Cortex-M serisi).
+- **Linux:** Ubuntu 22.04+, GCC 10+, Clang 12+.
+- **Windows:** MSVC 2019+.
+- **Core:** CMake 3.21+, Python 3.10+.
 
-### Release Process
+### Support Policy (LTS)
 
-- Otomatik `changelog` üretimi.
-- Git tag + Artifact (VSIX, tar.gz) yayınlama.
-- Release checklist (Testlerden geçme zorunluluğu).
+- **Latest / LTS / Deprecated / EOL** akışı uygulanır.
 
 ---
 
 ## 💡 Stratejik Öneriler (Agent Recommendations)
 
-1. **Template Sync:** Şablon güncellendiğinde, mevcut projelerin bu güncellemeleri alabilmesi için `tool update` komutu.
-2. **Docker Dev Containers:** Geliştiriciler için hazır `.devcontainer` ortamı.
+1. **Atomic Operations:** Dosya yazma işlemlerinin atomic (ya tam başarı ya tam rollback) olması.
+2. **Template Sync:** Şablon güncellendiğinde mevcut projelerin güncellenmesi için `tool update`.
 3. **Lint Gatekeeper:** `clang-tidy --fix` desteğinin `check` komutuna entegrasyonu.
