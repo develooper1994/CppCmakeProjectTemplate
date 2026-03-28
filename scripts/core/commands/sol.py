@@ -16,11 +16,20 @@ _SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from core.utils.common import Logger, GlobalConfig, CLIResult, run_proc, PROJECT_ROOT
+from core.utils.common import (
+    Logger,
+    GlobalConfig,
+    CLIResult,
+    run_proc,
+    PROJECT_ROOT,
+    json_read_cached,
+    json_cache_clear,
+)
 import json
 import shutil
 import re
 import subprocess
+from functools import lru_cache
 
 TOOLCHAINS_DIR = PROJECT_ROOT / "cmake" / "toolchains"
 PRESETS_FILE = PROJECT_ROOT / "CMakePresets.json"
@@ -31,14 +40,30 @@ def load_presets() -> dict:
     if not PRESETS_FILE.exists():
         return {}
     try:
-        return json.loads(PRESETS_FILE.read_text(encoding="utf-8"))
+        data = json_read_cached(PRESETS_FILE, default={}) or {}
+        return data
     except Exception:
         Logger.error("Failed to parse CMakePresets.json")
         raise
 
 
+@lru_cache(maxsize=1)
+def load_fetch_deps() -> list:
+    if not FETCH_DEPS_FILE.exists():
+        return []
+    try:
+        return json.loads(FETCH_DEPS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        Logger.error("Failed to parse .fetch_deps.json")
+        return []
+
+
 def save_presets(data: dict) -> None:
     PRESETS_FILE.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    try:
+        json_cache_clear(PRESETS_FILE)
+    except Exception:
+        pass
 
 
 VALID_COMPILERS = {"gcc", "clang", "msvc"}
@@ -224,8 +249,7 @@ def _impl_cmd_repo_list(args) -> None:
             print(" -", m.group(1))
     if FETCH_DEPS_FILE.exists():
         print("Fetch deps:")
-        data = json.loads(FETCH_DEPS_FILE.read_text(encoding="utf-8"))
-        for d in data:
+        for d in load_fetch_deps():
             print(f" - {d.get('name')} -> {d.get('url')} @ {d.get('tag')}")
 
 
@@ -251,15 +275,15 @@ def _impl_cmd_repo_add_fetch(args) -> None:
     if dry:
         print("Dry-run: would record fetch dep:", entry)
         return
-    data = []
-    if FETCH_DEPS_FILE.exists():
-        try:
-            data = json.loads(FETCH_DEPS_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            data = []
+    data = list(load_fetch_deps())
     data.append(entry)
     FETCH_DEPS_FILE.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     Logger.info(f"Recorded fetch dep: {name} -> {url}@{tag}")
+    # Clear cached view after writing
+    try:
+        load_fetch_deps.cache_clear()
+    except Exception:
+        pass
 
 
 def _impl_cmd_repo_sync(args) -> None:
@@ -269,8 +293,7 @@ def _impl_cmd_repo_sync(args) -> None:
     except SystemExit:
         Logger.warn("Submodule update failed")
     if FETCH_DEPS_FILE.exists():
-        data = json.loads(FETCH_DEPS_FILE.read_text(encoding="utf-8"))
-        for d in data:
+        for d in load_fetch_deps():
             dest = PROJECT_ROOT / "external" / d.get("name")
             dest.parent.mkdir(parents=True, exist_ok=True)
             if dest.exists():
@@ -292,8 +315,7 @@ def _impl_cmd_repo_versions(args) -> None:
     if not FETCH_DEPS_FILE.exists():
         print("No fetch deps recorded")
         return
-    data = json.loads(FETCH_DEPS_FILE.read_text(encoding="utf-8"))
-    for d in data:
+    for d in load_fetch_deps():
         name = d.get("name")
         url = d.get("url")
         print(f"Versions for {name} ({url}):")

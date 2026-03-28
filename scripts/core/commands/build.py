@@ -18,7 +18,16 @@ _SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from core.utils.common import Logger, GlobalConfig, CLIResult, run_proc, list_presets, PROJECT_ROOT
+from core.utils.common import (
+    Logger,
+    GlobalConfig,
+    CLIResult,
+    run_proc,
+    list_presets,
+    PROJECT_ROOT,
+    json_read_cached,
+    json_cache_clear,
+)
 from core.utils.common import get_project_version, get_project_name
 import json
 
@@ -94,13 +103,17 @@ def _sync_version() -> None:
     if not pkg.exists():
         return
     try:
-        data = json.loads(pkg.read_text(encoding="utf-8"))
+        data = json_read_cached(pkg, default={}) or {}
     except Exception:
         return
     ver = get_project_version()
     if data.get("version") != ver:
         data["version"] = ver
         pkg.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        try:
+            json_cache_clear(pkg)
+        except Exception:
+            pass
         Logger.info(f"Synchronized extension version -> {ver}")
 
 

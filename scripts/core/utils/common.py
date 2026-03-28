@@ -140,6 +140,40 @@ def get_project_name(root: Path = PROJECT_ROOT) -> str:
     return m.group(1) if m else "CppProject"
 
 
+# Small JSON file cache to avoid repeated parsing of small config files during a single run.
+# Cached by file path and mtime; use `json_cache_clear()` to invalidate after writes.
+_JSON_CACHE: dict = {}
+
+
+def json_read_cached(path: Path, default=None):
+    try:
+        if not path.exists():
+            return default
+        mtime = path.stat().st_mtime
+        key = str(path)
+        entry = _JSON_CACHE.get(key)
+        if entry and entry[0] == mtime:
+            return entry[1]
+        try:
+            val = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            val = default
+        _JSON_CACHE[key] = (mtime, val)
+        return val
+    except Exception:
+        return default
+
+
+def json_cache_clear(path: Path | None = None) -> None:
+    try:
+        if path is None:
+            _JSON_CACHE.clear()
+        else:
+            _JSON_CACHE.pop(str(path), None)
+    except Exception:
+        pass
+
+
 # Session persistence helpers (shared between tool and TUI)
 SESSION_FILE: Path = PROJECT_ROOT / ".session.json"
 
