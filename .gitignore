@@ -59,8 +59,9 @@ build_logs/
 # Python
 __pycache__/
 
-# TUI session
-.tui_session.json
+# Session file
+.tui_session.json*
+.session.json*
 
 # Extension generated files (copied from repo root during build)
 extension/README.md

@@ -23,7 +23,7 @@ versioning, compile-time feature detection, and full tooling automation.
    - [VS Code](#31-vs-code)
    - [CMake Presets (terminal)](#32-cmake-presets-terminal)
    - [CMake without presets](#33-cmake-without-presets)
-    - [tool.py automation (unified CLI)](#34-toolpy-automation-unified-cli)
+   - [tool.py automation (unified CLI)](#34-toolpy-automation-unified-cli)
    - [Build a single app or library](#35-build-a-single-app-or-library)
 4. [Testing](#4-testing)
    - [All tests](#41-all-tests)
