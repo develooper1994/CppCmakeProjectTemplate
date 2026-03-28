@@ -1,35 +1,218 @@
 #!/usr/bin/env python3
 """
-core/commands/build.py — Build command façade.
+core/commands/build.py — Full build implementation.
 
-Imports functions directly from scripts/build.py — no subprocess.
+This module contains the authoritative build implementation used by
+`tool build`. Implementations previously lived in `scripts/build.py`.
 """
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
+from typing import Optional
 
 # ── Path bootstrap ────────────────────────────────────────────────────────────
 _SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-# Import real implementation (no subprocess)
-import build as _build  # scripts/build.py
+from core.utils.common import Logger, GlobalConfig, CLIResult, run_proc, list_presets, PROJECT_ROOT
+from core.utils.common import get_project_version, get_project_name
+import json
 
-from core.utils.common import Logger, GlobalConfig, CLIResult
+DEFAULT_PRESET = "gcc-debug-static-x86_64"
+
+# Extension template configuration (kept small and safe)
+EXT_DIR = PROJECT_ROOT / "extension"
+TEMPLATE_DIR = EXT_DIR / "templates"
+
+EXT_INCLUDE = [
+    "CMakeLists.txt", "CMakePresets.json", "conanfile.py", "vcpkg.json",
+    "Dockerfile", "LICENSE", "README.md", "AGENTS.md", "GEMINI.md",
+    "MASTER_GENERATOR_PROMPT.md", "cmake", "apps", "libs", "tests", "scripts", "docs",
+]
+
+EXT_EXCLUDE = {
+    "build", "build_logs", "__pycache__", ".cache", "extension",
+    "scripts/build.py", "scripts/toollib.py", "scripts/toolsolution.py", "scripts/common.py",
+}
 
 
-# ── Thin wrappers that forward to the real implementation ─────────────────────
+def _is_excluded(rel: str) -> bool:
+    # Normalize to forward slashes
+    r = rel.replace("\\", "/")
+    if r in EXT_EXCLUDE:
+        return True
+    for e in EXT_EXCLUDE:
+        if r.startswith(e + "/"):
+            return True
+    return False
+
+
+def _sync_templates() -> int:
+    """Copy project files into extension templates directory, excluding dev files.
+    Returns number of files copied."""
+    if not TEMPLATE_DIR.exists():
+        TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for item in EXT_INCLUDE:
+        src = PROJECT_ROOT / item
+        if not src.exists():
+            continue
+        if src.is_file():
+            rel = item
+            if _is_excluded(rel):
+                continue
+            dst = TEMPLATE_DIR / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            copied += 1
+            continue
+        # directory
+        for f in src.rglob("*"):
+            if f.is_file():
+                rel = f.relative_to(PROJECT_ROOT).as_posix()
+                if _is_excluded(rel):
+                    continue
+                dst = TEMPLATE_DIR / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f, dst)
+                copied += 1
+    Logger.info(f"Synced {copied} template files into {TEMPLATE_DIR}")
+    return copied
+
+
+def _sync_version() -> None:
+    pkg = EXT_DIR / "package.json"
+    if not pkg.exists():
+        return
+    try:
+        data = json.loads(pkg.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    ver = get_project_version()
+    if data.get("version") != ver:
+        data["version"] = ver
+        pkg.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        Logger.info(f"Synchronized extension version -> {ver}")
+
+
+def _sync_license() -> None:
+    src = PROJECT_ROOT / "LICENSE"
+    dst = EXT_DIR / "LICENSE"
+    if src.exists():
+        shutil.copy2(src, dst)
+
+
+def _choose_preset(preset: Optional[str]) -> str:
+    if preset:
+        return preset
+    presets = list_presets()
+    if presets:
+        return presets[0]
+    return DEFAULT_PRESET
+
+
+def _impl_cmd_build(args) -> None:
+    preset = _choose_preset(getattr(args, "preset", None))
+    Logger.info(f"Configuring with preset '{preset}'")
+    run_proc(["cmake", "--preset", preset])
+    Logger.info("Building")
+    run_proc(["cmake", "--build", "--preset", preset])
+
+
+def _impl_cmd_check(args) -> None:
+    preset = _choose_preset(getattr(args, "preset", None))
+    _impl_cmd_build(args)
+    Logger.info("Running tests")
+    run_proc(["ctest", "--preset", preset, "--output-on-failure"])
+    if not getattr(args, "no_sync", False):
+        try:
+            run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "build", "extension"])
+        except SystemExit:
+            Logger.warn("Extension build failed (non-fatal)")
+
+
+def _impl_cmd_clean(args) -> None:
+    if getattr(args, "all", False):
+        build_dir = PROJECT_ROOT / "build"
+        if build_dir.exists():
+            Logger.info("Removing build directory")
+            shutil.rmtree(build_dir)
+        return
+    preset = _choose_preset(None)
+    targets = getattr(args, "targets", []) or []
+    if targets:
+        for t in targets:
+            run_proc(["cmake", "--build", "--preset", preset, "--target", t])
+    else:
+        run_proc(["cmake", "--build", "--preset", preset, "--target", "clean"])
+
+
+def _impl_cmd_deploy(args) -> None:
+    host = getattr(args, "host", None)
+    path = getattr(args, "path", "/tmp/cpp_project")
+    preset = getattr(args, "preset", None)
+    if not host:
+        Logger.error("Missing --host for deploy")
+        raise SystemExit(2)
+    build_dir = PROJECT_ROOT / "build" / (_choose_preset(preset))
+    if not build_dir.exists():
+        Logger.error("Build directory not found; run build first")
+        raise SystemExit(2)
+    if shutil.which("rsync"):
+        run_proc(["rsync", "-avz", str(build_dir) + "/", f"{host}:{path}"])
+    else:
+        Logger.error("rsync not available")
+        raise SystemExit(2)
+
+
+def _impl_cmd_extension(args) -> None:
+    ext_dir = PROJECT_ROOT / "extension"
+    if not ext_dir.exists():
+        Logger.error("extension/ directory not found")
+        raise SystemExit(2)
+    # Sync templates, version and license into extension/ before packaging
+    try:
+        _sync_templates()
+        _sync_version()
+        _sync_license()
+    except Exception:
+        Logger.warn("Template/version/license sync encountered an error (continuing)")
+    # npm build (best-effort)
+    if shutil.which("npm"):
+        try:
+            run_proc(["npm", "ci"], cwd=ext_dir)
+        except SystemExit:
+            Logger.warn("npm ci failed (continuing)")
+        try:
+            run_proc(["npm", "run", "build"], cwd=ext_dir)
+        except SystemExit:
+            Logger.warn("npm run build failed (continuing)")
+    # package with vsce if available
+    if shutil.which("vsce"):
+        run_proc(["vsce", "package"], cwd=ext_dir)
+        if getattr(args, "install", False):
+            vsixs = list(ext_dir.glob("*.vsix"))
+            if vsixs and shutil.which("code"):
+                run_proc(["code", "--install-extension", str(vsixs[0])], cwd=ext_dir)
+        if getattr(args, "publish", False):
+            run_proc(["vsce", "publish"], cwd=ext_dir)
+    else:
+        Logger.warn("vsce not found; skipping .vsix packaging")
+
+
+# ── Facade wrappers that return CLIResult ────────────────────────────────────
+
 
 def cmd_build(args: argparse.Namespace) -> CLIResult:
-    # Propagate dry-run / verbose into scripts/build.py's global defaults
     if GlobalConfig.DRY_RUN:
         Logger.info("[DRY-RUN] Would run: cmake --preset + cmake --build")
         return CLIResult(success=True, message="[DRY-RUN] build skipped")
     try:
-        _build.cmd_build(args)
+        _impl_cmd_build(args)
         return CLIResult(success=True, message="Build complete.")
     except SystemExit as e:
         return CLIResult(success=(e.code == 0), code=e.code or 1, message="Build failed.")
@@ -40,7 +223,7 @@ def cmd_check(args: argparse.Namespace) -> CLIResult:
         Logger.info("[DRY-RUN] Would run: cmake + build + ctest + extension sync")
         return CLIResult(success=True, message="[DRY-RUN] check skipped")
     try:
-        _build.cmd_check(args)
+        _impl_cmd_check(args)
         return CLIResult(success=True, message="All checks passed.")
     except SystemExit as e:
         return CLIResult(success=(e.code == 0), code=e.code or 1, message="Check failed.")
@@ -50,8 +233,11 @@ def cmd_clean(args: argparse.Namespace) -> CLIResult:
     if GlobalConfig.DRY_RUN:
         Logger.info("[DRY-RUN] Would clean build artifacts")
         return CLIResult(success=True, message="[DRY-RUN] clean skipped")
-    _build.cmd_clean(args)
-    return CLIResult(success=True, message="Clean done.")
+    try:
+        _impl_cmd_clean(args)
+        return CLIResult(success=True, message="Clean done.")
+    except SystemExit as e:
+        return CLIResult(success=(e.code == 0), code=e.code or 1, message="Clean failed.")
 
 
 def cmd_deploy(args: argparse.Namespace) -> CLIResult:
@@ -59,7 +245,7 @@ def cmd_deploy(args: argparse.Namespace) -> CLIResult:
         Logger.info(f"[DRY-RUN] Would deploy to {args.host}:{args.path}")
         return CLIResult(success=True, message="[DRY-RUN] deploy skipped")
     try:
-        _build.cmd_deploy(args)
+        _impl_cmd_deploy(args)
         return CLIResult(success=True, message="Deploy complete.")
     except SystemExit as e:
         return CLIResult(success=(e.code == 0), code=e.code or 1, message="Deploy failed.")
@@ -70,13 +256,14 @@ def cmd_extension(args: argparse.Namespace) -> CLIResult:
         Logger.info("[DRY-RUN] Would build .vsix extension")
         return CLIResult(success=True, message="[DRY-RUN] extension skipped")
     try:
-        _build.cmd_extension(args)
+        _impl_cmd_extension(args)
         return CLIResult(success=True, message="Extension built.")
     except SystemExit as e:
         return CLIResult(success=(e.code == 0), code=e.code or 1, message="Extension build failed.")
 
 
-# ── Parser (mirrors scripts/build.py's parser) ────────────────────────────────
+# ── Parser (mirrors previous build parser) ───────────────────────────────────
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -92,7 +279,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # check
     p = sub.add_parser("check", help="Build + test + extension sync")
-    p.add_argument("--preset",  default=None)
+    p.add_argument("--preset", default=None)
     p.add_argument("--no-sync", action="store_true")
     p.set_defaults(func=cmd_check)
 

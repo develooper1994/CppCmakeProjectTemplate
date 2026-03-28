@@ -2,15 +2,15 @@ name: C++ CMake Project Template
 description: "A production-ready, multi-target C++ project boilerplate."
 
 post_generate_message: |
-  # Project Initialized!
-  
-  Your new project is ready. To get started:
-  
-  1. Rename the project:
-     `python3 scripts/init_project.py --name MyNewApp`
-  
-  2. Setup quality guards:
-     `python3 scripts/setup_hooks.py`
-  
-  3. Build your project:
-     `python3 scripts/build.py`
+   # Project Initialized!
+
+   Your new project is ready. To get started:
+
+   1. Rename the project:
+      `python3 scripts/tool.py init --name MyNewApp`
+
+   2. Setup quality guards:
+      `python3 scripts/tool.py hooks`
+
+   3. Build your project:
+      `python3 scripts/tool.py build`

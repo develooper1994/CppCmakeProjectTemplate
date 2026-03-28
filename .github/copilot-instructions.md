@@ -10,26 +10,26 @@ Read `AGENTS.md` and `GEMINI.md` for the complete reference.
 **Before writing any code or CMake, check if the tooling already handles it:**
 
 ```bash
-python3 scripts/toollib.py --help       # Library management
-python3 scripts/toolsolution.py --help  # Project orchestration
-python3 scripts/build.py --help         # Build automation
+python3 scripts/tool.py lib --help       # Library management
+python3 scripts/tool.py sol --help       # Project orchestration
+python3 scripts/tool.py build --help     # Build automation
 ```
 
 ## Adding a Library
 
 ```bash
-python3 scripts/toollib.py add my_lib               # normal
-python3 scripts/toollib.py add my_lib --header-only # header-only
-python3 scripts/toollib.py add my_lib --interface   # interface target
-python3 scripts/toollib.py add my_lib --template singleton  # pattern
-python3 scripts/toollib.py deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
-python3 scripts/toollib.py export my_lib            # find_package support
+python3 scripts/tool.py lib add my_lib               # normal
+python3 scripts/tool.py lib add my_lib --header-only # header-only
+python3 scripts/tool.py lib add my_lib --interface   # interface target
+python3 scripts/tool.py lib add my_lib --template singleton  # pattern
+python3 scripts/tool.py lib deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
+python3 scripts/tool.py lib export my_lib            # find_package support
 ```
 
 ## Validation (run after every change)
 
 ```bash
-python3 scripts/build.py check --no-sync
+python3 scripts/tool.py build check --no-sync
 ```
 
 ## Mandatory Rules
@@ -40,6 +40,12 @@ python3 scripts/build.py check --no-sync
 - Never touch `external/` directly
 - Never remove presets from `CMakePresets.json`
 - C++ standard: use `target_generate_build_info` for per-lib versioning
+
+## Module Splitting Guidelines
+
+- **Conservative modularization:** When refactoring or splitting code into modules, avoid excessive fragmentation. Keep related functionality together unless there is a clear, testable boundary that benefits from separation.
+- **Avoid the "lowest common denominator" trap:** Don't split only to satisfy minimal reuse — prefer cohesive modules that reduce complexity and cognitive overhead.
+- **Agent rule:** Agents should prefer conservative grouping by default; when in doubt, leave code together and ask the maintainer before further splitting.
 
 ## C++ Build Info
 

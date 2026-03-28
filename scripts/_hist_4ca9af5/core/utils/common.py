@@ -108,27 +108,3 @@ def list_presets() -> list[str]:
     if not presets_file.exists(): return []
     data = json.loads(presets_file.read_text(encoding="utf-8"))
     return [p["name"] for p in data.get("configurePresets", []) if not p.get("hidden", False)]
-
-
-def get_project_version(root: Path = PROJECT_ROOT) -> str:
-    """Resolve project version from CMakeLists.txt or git tags, fallback '0.0.0'."""
-    cmake_path = root / "CMakeLists.txt"
-    if cmake_path.exists():
-        clean = re.sub(r'#.*', '', cmake_path.read_text(encoding="utf-8"))
-        m = re.search(r'project\s*\([^)]*VERSION\s+([\d.]+)', clean, re.IGNORECASE | re.DOTALL)
-        if m:
-            return m.group(1)
-    try:
-        tag = subprocess.check_output([
-            "git", "describe", "--tags", "--abbrev=0"
-        ], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
-        return re.sub(r'^v', '', tag)
-    except Exception:
-        pass
-    return "0.0.0"
-
-
-def get_project_name(root: Path = PROJECT_ROOT) -> str:
-    cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8") if (root / "CMakeLists.txt").exists() else ""
-    m = re.search(r'project\s*\(\s*(\S+)', cmake, re.IGNORECASE)
-    return m.group(1) if m else "CppProject"

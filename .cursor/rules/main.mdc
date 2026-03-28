@@ -1,69 +1,89 @@
----
-description: C++ CMake Project Template — AI Agent Rules
-globs: ["**/*"]
-alwaysApply: true
----
+# CppCmakeProjectTemplate - AI Agent Rules
 
-# C++ CMake Project Template — Cursor AI Rules
+This document outlines the rules and guidelines for AI agents interacting with the CppCmakeProjectTemplate project.
 
-## CRITICAL: Read Before Acting
+## Core Mandates
 
-This repository has **full automation tooling**. Before writing any code or CMake:
-1. Check if `scripts/toollib.py` or `scripts/toolsolution.py` can do it
-2. Run `python3 scripts/toollib.py --help` to see available commands
-3. Use existing tools — do NOT re-implement library scaffolding, preset management, etc.
+- **Unified CLI:** Use `python3 scripts/tool.py <command>` for public operations. Implementation modules (e.g. `scripts/build.py`, `scripts/toollib.py`, `scripts/toolsolution.py`) are internal — prefer the dispatcher and do not call implementation modules directly.
+- **Command Structure:** Commands follow the pattern `python3 scripts/tool.py <core_command|plugin> [args...]`
+  - **Core Commands:**
+    - `build`: For build, check, clean, deploy operations.
+    - `lib`: For library management (add, remove, list, etc.).
+    - `sol`: For project orchestration (presets, toolchains, CI, doctor).
+  - **Plugin Commands:** Dynamically discovered from `scripts/plugins/` (e.g., `hello`, `setup`, `init`).
+- **Structured Output:** Prefer `--json` flag for machine-readable output.
+- **Non-interactive Mode:** Use `--yes` flag for automated execution.
+- **Dry Run:** Use `--dry-run` to preview changes.
 
-## Validation (run after EVERY change)
+## Key Files & Directories
 
-```bash
-python3 scripts/build.py check --no-sync
-```
+- **Dispatcher:** `scripts/tool.py` is the main entry point.
+- **Core Logic:** `scripts/core/commands/` contains the main command implementations (build, lib, sol).
+- **Core Utilities:** `scripts/core/utils/common.py` provides shared infrastructure (Logger, Config, Result).
+- **Plugins:** `scripts/plugins/` hosts dynamic commands (e.g., setup, hooks, init).
+- **Documentation:** `docs/PLANS.md` outlines the project roadmap.
 
-## Library Management
+## Recommended Workflows
 
-```bash
-python3 scripts/toollib.py add <name>               # normal lib
-python3 scripts/toollib.py add <name> --header-only # header-only
-python3 scripts/toollib.py add <name> --interface   # interface target
-python3 scripts/toollib.py deps <name> --add <dep>  # local dep
-python3 scripts/toollib.py deps <name> --add-url https://github.com/org/repo@tag  # external
-python3 scripts/toollib.py export <name>            # find_package() support
-python3 scripts/toollib.py info <name>              # show details
-python3 scripts/toollib.py doctor                   # health check
-```
+### Project Setup & Build
 
-## Project Management
+1. **Clone & Enter:**
 
-```bash
-python3 scripts/toolsolution.py target list
-python3 scripts/toolsolution.py preset add --compiler gcc --type debug --link static --arch x86_64
-python3 scripts/toolsolution.py toolchain add --name stm32 --template arm-none-eabi --cpu cortex-m4 --gen-preset
-python3 scripts/toolsolution.py upgrade-std --std 20
-python3 scripts/toolsolution.py doctor
-```
+    ```bash
+    git clone https://github.com/develooper1994/CppCmakeProjectTemplate.git
+    cd CppCmakeProjectTemplate
+    ```
 
-## Structure Rules
+2. **Install Dependencies:**
 
-- Every library in `libs/` must have: `CMakeLists.txt`, `README.md`, `include/<n>/`, `docs/`
-- Normal libs also need: `src/<n>.cpp`, `tests/unit/<n>/`
-- All targets use target-scoped CMake — no global flags
-- Never touch `external/` directly (managed by toollib/toolsolution)
-- Never remove presets from `CMakePresets.json`
+    ```bash
+    python3 scripts/tool.py setup --install
+    ```
 
-## C++ Build Info
+3. **Build & Check:**
 
-```cpp
-#include "ProjectInfo.h"
-BUILD_INFO_PRINT_ALL(std::cout, my_namespace);
-#if FEATURE_BOOST
-    // Boost available
-#endif
-```
+    ```bash
+    python3 scripts/tool.py build check --no-sync
+    ```
 
-## Forbidden
+### Library Management
 
-- Re-implementing library scaffolding (use toollib.py)
-- Global CMake flags
-- Editing external/
-- Breaking existing tests
-- Partial/placeholder code
+- **List Libraries:** `python3 scripts/tool.py lib list`
+- **Add Library:** `python3 scripts/tool.py lib add <library-name>`
+- **Remove Library:** `python3 scripts/tool.py lib remove <library-name> [--delete]`
+
+### Project Orchestration
+
+- **List Presets:** `python3 scripts/tool.py sol preset list`
+- **Run CI:** `python3 scripts/tool.py sol ci`
+- **Health Check:** `python3 scripts/tool.py sol doctor`
+
+## Implementation Notes
+
+The files `scripts/build.py`, `scripts/toollib.py`, and `scripts/toolsolution.py` contain internal implementation used by the unified dispatcher `scripts/tool.py`.
+
+- Use `python3 scripts/tool.py <command>` for all public CLI operations.
+- These implementation modules are intended for internal reuse and are not the public entrypoint.
+
+## Security Considerations
+
+- Always sanitize user input before passing it to shell commands.
+- Prefer using the `run_proc` utility from `core.utils.common` for executing external processes.
+- Be mindful of secrets management, especially when interacting with external services or APIs.
+
+## Coding Standards
+
+- Adhere to Python's PEP 8 style guide.
+- Use type hints and docstrings for clarity.
+- Prefer structured logging via `core.utils.common.Logger`.
+
+## Agent Output Format
+
+- For machine-readable outputs prefer `--json` when available.
+- Avoid interactive prompts; use `--yes` for non-interactive runs.
+
+## Quick Execution Checklist
+
+- Use `python3 scripts/tool.py <command>` for all operations.
+- Preview changes with `--dry-run` before making modifications.
+- Validate at the end with `python3 scripts/tool.py build check --no-sync`.

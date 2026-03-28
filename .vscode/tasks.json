@@ -5,81 +5,138 @@
       "label": "Project: Build",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/build.py", "build"],
-      "group": { "kind": "build", "isDefault": true },
-      "problemMatcher": ["$gcc"]
+      "args": [
+        "scripts/tool.py",
+        "build"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
       "label": "Project: Build + Test + Extension",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/build.py", "check"],
+      "args": [
+        "scripts/tool.py",
+        "build",
+        "check"
+      ],
       "group": "build",
-      "problemMatcher": ["$gcc"]
+      "problemMatcher": [
+        "$gcc"
+      ]
     },
     {
       "label": "Project: Clean",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/build.py", "clean"],
+      "args": [
+        "scripts/tool.py",
+        "build",
+        "clean"
+      ],
       "problemMatcher": []
     },
     {
       "label": "Project: Clean All",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/build.py", "clean", "--all"],
+      "args": [
+        "scripts/tool.py",
+        "build",
+        "clean",
+        "--all"
+      ],
       "problemMatcher": []
     },
     {
       "label": "Project: Build Extension (.vsix)",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/build.py", "extension"],
+      "args": [
+        "scripts/tool.py",
+        "build",
+        "extension"
+      ],
       "problemMatcher": []
     },
     {
       "label": "Project: Run Tests (CTest)",
       "type": "shell",
       "command": "cmake",
-      "args": ["--build", "--preset", "gcc-debug-static-x86_64", "--target", "test"],
+      "args": [
+        "--build",
+        "--preset",
+        "gcc-debug-static-x86_64",
+        "--target",
+        "test"
+      ],
       "group": "test"
     },
     {
       "label": "Project: Generate Coverage Report",
       "type": "shell",
       "command": "cmake",
-      "args": ["--build", "--preset", "gcc-debug-static-x86_64", "--target", "coverage_report"],
-      "dependsOn": ["Project: Run Tests (CTest)"]
+      "args": [
+        "--build",
+        "--preset",
+        "gcc-debug-static-x86_64",
+        "--target",
+        "coverage_report"
+      ],
+      "dependsOn": [
+        "Project: Run Tests (CTest)"
+      ]
     },
     {
       "label": "Project: Package (CPack)",
       "type": "shell",
       "command": "cmake",
-      "args": ["--build", "--preset", "gcc-debug-static-x86_64", "--target", "package"]
+      "args": [
+        "--build",
+        "--preset",
+        "gcc-debug-static-x86_64",
+        "--target",
+        "package"
+      ]
     },
     {
       "label": "Project: Remote Deploy",
       "type": "shell",
       "command": "python3",
       "args": [
-        "scripts/build.py", "deploy",
-        "--host", "${input:remoteHost}",
-        "--path", "${input:remotePath}"
+        "scripts/tool.py",
+        "build",
+        "deploy",
+        "--host",
+        "${input:remoteHost}",
+        "--path",
+        "${input:remotePath}"
       ]
     },
     {
       "label": "Project: Launch TUI",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/tui.py"],
+      "args": [
+        "scripts/tui.py"
+      ],
       "problemMatcher": []
     },
     {
       "label": "Project: Doctor (check health)",
       "type": "shell",
       "command": "python3",
-      "args": ["scripts/toolsolution.py", "doctor"],
+      "args": [
+        "scripts/tool.py",
+        "sol",
+        "doctor"
+      ],
       "problemMatcher": []
     }
   ],

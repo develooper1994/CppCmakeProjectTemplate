@@ -1,30 +1,246 @@
 #!/usr/bin/env python3
 """
-core/commands/lib.py — Library management façade.
+core/commands/lib.py — Library management implementation.
 
-Imports functions directly from scripts/toollib.py — no subprocess.
+This module implements library management commands that used to live in
+`scripts/toollib.py`. It is now the authoritative implementation for
+`tool lib`.
 """
 from __future__ import annotations
 
 import argparse
+import shutil
+import re
 import sys
 from pathlib import Path
+from typing import Optional
 
 # ── Path bootstrap ────────────────────────────────────────────────────────────
 _SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-# Import real implementation (no subprocess)
-import toollib as _lib  # scripts/toollib.py
+from core.utils.common import Logger, GlobalConfig, CLIResult, run_proc, PROJECT_ROOT
+from core.utils.toollib import create_library
 
-from core.utils.common import Logger, GlobalConfig, CLIResult
+LIBS_DIR = PROJECT_ROOT / "libs"
 
 
-# ── Thin wrappers ─────────────────────────────────────────────────────────────
+def _ensure_libs() -> None:
+    LIBS_DIR.mkdir(exist_ok=True)
+
+
+def _impl_cmd_list(args) -> None:
+    _ensure_libs()
+    for d in sorted([p.name for p in LIBS_DIR.iterdir() if p.is_dir()]):
+        print(d)
+
+
+def _impl_cmd_tree(args) -> None:
+    _ensure_libs()
+    for p in sorted([p for p in LIBS_DIR.iterdir() if p.is_dir()]):
+        print(p.name)
+        for child in sorted(p.rglob("*")):
+            if child.is_file():
+                print("  -", child.relative_to(p))
+
+
+def _impl_cmd_doctor(args) -> None:
+    _ensure_libs()
+    problems = False
+    if not any(LIBS_DIR.iterdir()):
+        print("Warning: libs/ is empty")
+        problems = True
+    if not problems:
+        print("toollib doctor: OK")
+
+
+def _impl_cmd_add(args) -> None:
+    _ensure_libs()
+    name = args.name
+    deps = []
+    if getattr(args, "deps", ""):
+        deps = [d.strip() for d in args.deps.split(",") if d.strip()]
+
+    create_library(
+        name=name,
+        version=getattr(args, "version", "1.0.0"),
+        namespace=getattr(args, "namespace", None),
+        deps=deps,
+        header_only=getattr(args, "header_only", False),
+        interface=getattr(args, "interface", False),
+        template=getattr(args, "template", ""),
+        cxx_standard=getattr(args, "cxx_standard", ""),
+        link_app=getattr(args, "link_app", False),
+        dry_run=getattr(args, "dry_run", False),
+        root=PROJECT_ROOT,
+    )
+
+
+def _impl_cmd_remove(args) -> None:
+    name = args.name
+    lib_dir = LIBS_DIR / name
+    if not lib_dir.exists():
+        print("Not found:", name)
+        return
+    if getattr(args, "delete", False):
+        shutil.rmtree(lib_dir)
+        print("Deleted library", name)
+    else:
+        print("Detach not implemented; use --delete to remove files")
+
+
+def _impl_cmd_rename(args) -> None:
+    old = args.old
+    new = args.new
+    src = LIBS_DIR / old
+    dst = LIBS_DIR / new
+    if not src.exists():
+        print("Not found:", old)
+        return
+    src.rename(dst)
+    print(f"Renamed {old} -> {new}")
+
+
+def _impl_cmd_move(args) -> None:
+    name = args.name
+    dest = args.dest
+    src = LIBS_DIR / name
+    dst = LIBS_DIR / dest
+    if not src.exists():
+        print("Not found:", name)
+        return
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    src.rename(dst)
+    print(f"Moved {name} -> {dest}")
+
+
+def _impl_cmd_deps(args) -> None:
+    name = args.name
+    lib_dir = LIBS_DIR / name
+    if not lib_dir.exists():
+        print("Not found:", name)
+        raise SystemExit(2)
+    deps_file = lib_dir / "deps.txt"
+    if getattr(args, "add", ""):
+        deps_file.write_text((deps_file.read_text(encoding="utf-8") if deps_file.exists() else "") + args.add + "\n",
+                              encoding="utf-8")
+        print("Added dependency", args.add)
+        return
+    if getattr(args, "remove", ""):
+        if deps_file.exists():
+            lines = [l for l in deps_file.read_text(encoding="utf-8").splitlines() if l.strip() != args.remove]
+            deps_file.write_text("\n".join(lines), encoding="utf-8")
+        print("Removed dependency", args.remove)
+        return
+    if getattr(args, "add_url", ""):
+        url = args.add_url
+        via = getattr(args, "via", "fetchcontent")
+        # Simple handling: create a deps.cmake with FetchContent usage for fetchcontent
+        if via == "fetchcontent":
+            # try to derive a safe name from the URL
+            m = re.search(r'([^/]+?)(?:\.git)?(?:@.*)?$', url)
+            depname = (m.group(1) if m else "external_dep").replace('-', '_')
+            deps_cmake = lib_dir / "deps.cmake"
+            content = (
+                f"# Auto-generated FetchContent for {url}\n"
+                "include(FetchContent)\n"
+                f"FetchContent_Declare(\n    {depname}\n    URL \"{url}\"\n)\n"
+                f"FetchContent_MakeAvailable({depname})\n"
+            )
+            deps_cmake.write_text(content, encoding="utf-8")
+            # ensure CMakeLists includes deps.cmake
+            cm = lib_dir / "CMakeLists.txt"
+            if cm.exists():
+                cm_text = cm.read_text(encoding="utf-8")
+                if "deps.cmake" not in cm_text:
+                    cm.write_text("include(\"${CMAKE_CURRENT_LIST_DIR}/deps.cmake\")\n\n" + cm_text, encoding="utf-8")
+            print("Added external URL dependency (FetchContent) ->", deps_cmake)
+            return
+        else:
+            # For vcpkg/conan just record into deps.txt for manual action
+            deps_file.write_text((deps_file.read_text(encoding="utf-8") if deps_file.exists() else "") + url + "\n",
+                                  encoding="utf-8")
+            print(f"Recorded external dependency ({via}) -> deps.txt")
+            return
+    print("deps: simplified implementation — use direct CMake edits for complex cases")
+
+
+def _impl_cmd_info(args) -> None:
+    name = args.name
+    lib_dir = LIBS_DIR / name
+    if not lib_dir.exists():
+        print("Not found:", name)
+        return
+    for p in sorted(lib_dir.rglob("*")):
+        print(p.relative_to(lib_dir))
+
+
+def _impl_cmd_test(args) -> None:
+    name = args.name
+    preset = getattr(args, "preset", None)
+    if preset:
+        run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "build", "--preset", preset])
+        try:
+            run_proc(["cmake", "--build", "--preset", preset, "--target", f"{name}_tests"])
+        except SystemExit:
+            raise
+    else:
+        # Fallback: run project-wide check
+        run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "build", "check"])
+
+
+def _impl_cmd_export(args) -> None:
+    # Use the modular libpkg export helper when available.
+    name = args.name
+    try:
+        from core.libpkg import export as lib_export
+    except Exception:
+        lib_export = None
+
+    lib_dir = LIBS_DIR / name
+    if not lib_dir.exists():
+        print("Not found:", name)
+        return
+
+    dry = getattr(args, "dry_run", False)
+    if lib_export:
+        try:
+            path = lib_export.create_export_snippet(name, root=PROJECT_ROOT, dry_run=dry)
+            if dry:
+                return
+            print("Wrote install/export helper:", path)
+            print("Tip: include this file from your top-level CMake install step or CPack configuration.")
+            return
+        except FileNotFoundError:
+            print("Not found:", name)
+            return
+        except Exception as e:
+            print("export: failed to generate advanced export files:", e)
+            # fallback to simple install snippet below
+
+    # fallback simple behavior
+    install_file = lib_dir / "install.cmake"
+    content = (
+        f"# Install/export snippet for {name}\n"
+        f"install(TARGETS {name}\n"
+        "    EXPORT {name}Targets\n"
+        "    ARCHIVE DESTINATION lib\n"
+        "    LIBRARY DESTINATION lib\n"
+        "    RUNTIME DESTINATION bin\n"
+        ")\n\n"
+        f"install(EXPORT {name}Targets FILE {name}Targets.cmake NAMESPACE {name}:: DESTINATION lib/cmake/{name})\n"
+    )
+    if dry:
+        print("Dry-run: would create:", install_file)
+        print("---\n" + content)
+        return
+    install_file.write_text(content, encoding="utf-8")
+    print("Wrote install snippet:", install_file)
+    print("Tip: include or add this to your top-level install step or CPack configuration.")
+
 
 def _wrap(fn, args) -> CLIResult:
-    """Run a toollib cmd_* function, catch SystemExit."""
     try:
         fn(args)
         return CLIResult(success=True)
@@ -32,20 +248,21 @@ def _wrap(fn, args) -> CLIResult:
         return CLIResult(success=(e.code == 0), code=e.code or 1)
 
 
-def cmd_list(args):     return _wrap(_lib.cmd_list,   args)
-def cmd_tree(args):     return _wrap(_lib.cmd_tree,   args)
-def cmd_doctor(args):   return _wrap(_lib.cmd_doctor, args)
-def cmd_add(args):      return _wrap(_lib.cmd_add,    args)
-def cmd_remove(args):   return _wrap(_lib.cmd_remove, args)
-def cmd_rename(args):   return _wrap(_lib.cmd_rename, args)
-def cmd_move(args):     return _wrap(_lib.cmd_move,   args)
-def cmd_deps(args):     return _wrap(_lib.cmd_deps,   args)
-def cmd_info(args):     return _wrap(_lib.cmd_info,   args)
-def cmd_test(args):     return _wrap(_lib.cmd_test,   args)
-def cmd_export(args):   return _wrap(_lib.cmd_export, args)
+def cmd_list(args):     return _wrap(_impl_cmd_list,   args)
+def cmd_tree(args):     return _wrap(_impl_cmd_tree,   args)
+def cmd_doctor(args):   return _wrap(_impl_cmd_doctor, args)
+def cmd_add(args):      return _wrap(_impl_cmd_add,    args)
+def cmd_remove(args):   return _wrap(_impl_cmd_remove, args)
+def cmd_rename(args):   return _wrap(_impl_cmd_rename, args)
+def cmd_move(args):     return _wrap(_impl_cmd_move,   args)
+def cmd_deps(args):     return _wrap(_impl_cmd_deps,   args)
+def cmd_info(args):     return _wrap(_impl_cmd_info,   args)
+def cmd_test(args):     return _wrap(_impl_cmd_test,   args)
+def cmd_export(args):   return _wrap(_impl_cmd_export, args)
 
 
-# ── Parser (mirrors scripts/toollib.py build_parser) ─────────────────────────
+# ── Parser (mirrors previous build_parser) ─────────────────────────────────
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -67,7 +284,7 @@ def build_parser() -> argparse.ArgumentParser:
     type_grp.add_argument("--header-only", action="store_true", dest="header_only")
     type_grp.add_argument("--interface",   action="store_true")
     p.add_argument("--template", default="",
-                   choices=["", "singleton", "pimpl", "observer", "factory"])
+                   help="Template name (builtin: singleton,pimpl,observer,factory or a folder under extension/templates/libs)")
     p.set_defaults(func=cmd_add)
 
     # export

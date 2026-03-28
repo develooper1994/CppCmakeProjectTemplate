@@ -23,7 +23,7 @@ versioning, compile-time feature detection, and full tooling automation.
    - [VS Code](#31-vs-code)
    - [CMake Presets (terminal)](#32-cmake-presets-terminal)
    - [CMake without presets](#33-cmake-without-presets)
-   - [build.py automation script](#34-buildpy-automation-script)
+    - [tool.py automation (unified CLI)](#34-toolpy-automation-unified-cli)
    - [Build a single app or library](#35-build-a-single-app-or-library)
 4. [Testing](#4-testing)
    - [All tests](#41-all-tests)
@@ -42,10 +42,10 @@ versioning, compile-time feature detection, and full tooling automation.
 
 ```bash
 # 1. Install mandatory dependencies (Ubuntu/Debian)
-python3 scripts/install_deps.py --install
+python3 scripts/tool.py setup --install
 
 # 2. Configure + build + test (auto-detects platform preset)
-python3 scripts/build.py check
+python3 scripts/tool.py build check
 
 # 3. Run the example app
 ./build/gcc-debug-static-x86_64/apps/main_app/main_app
@@ -74,12 +74,10 @@ CppCmakeProjectTemplate/
 │   ├── ProjectOptions.cmake
 │   └── toolchains/        # arm-none-eabi, linux-x86, template-custom-gnu
 ├── scripts/
-│   ├── build.py           # Unified automation (build/check/clean/deploy/extension)
-│   ├── toollib.py         # Library management (add/remove/rename/move/deps/info/test)
-│   ├── toolsolution.py    # Project orchestration (presets/toolchains/config/upgrade-std)
-│   ├── install_deps.py    # Dependency checker and installer
-│   ├── init_project.py    # Rename project after git clone
-│   └── common.py          # Shared utilities for all scripts
+│   ├── tool.py            # Unified CLI entrypoint (build, lib, sol, tui, plugins)
+│   ├── tui.py             # Terminal UI (callable directly or via `tool tui`)
+│   ├── core/              # Command implementations (core.commands)
+│   └── plugins/           # Dynamic plugins (setup, init, hooks, ...)
 ├── docs/
 │   ├── PLANS.md           # Pending feature plans
 │   └── EMBEDDED.md        # Embedded development guide
@@ -183,38 +181,38 @@ cmake -B build/shared -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build/shared
 ```
 
-### 3.4 build.py automation script
+### 3.4 tool.py automation (unified CLI)
 
 ```bash
 # Build (auto-detects platform default preset)
-python3 scripts/build.py
+python3 scripts/tool.py build
 
 # Build with specific preset
-python3 scripts/build.py build --preset clang-debug-static-x86_64
+python3 scripts/tool.py build --preset clang-debug-static-x86_64
 
 # Full pipeline: configure + build + test + extension sync
-python3 scripts/build.py check
+python3 scripts/tool.py build check
 
 # Full pipeline, skip extension sync
-python3 scripts/build.py check --no-sync
+python3 scripts/tool.py build check --no-sync
 
 # Clean build artifacts
-python3 scripts/build.py clean
+python3 scripts/tool.py build clean
 
 # Clean everything including .vsix and logs
-python3 scripts/build.py clean --all
+python3 scripts/tool.py build clean --all
 
 # Build VS Code extension
-python3 scripts/build.py extension
+python3 scripts/tool.py build extension
 
 # Build and install extension
-python3 scripts/build.py extension --install
+python3 scripts/tool.py build extension --install
 
 # Build and publish to Marketplace
-python3 scripts/build.py extension --publish
+python3 scripts/tool.py build extension --publish
 
 # Remote deploy via rsync
-python3 scripts/build.py deploy --host user@192.168.1.10 --path /opt/myapp
+python3 scripts/tool.py build deploy --host user@192.168.1.10 --path /opt/myapp
 ```
 
 ### 3.5 Build a single app or library
@@ -225,11 +223,11 @@ cmake --build --preset gcc-debug-static-x86_64 --target main_app
 cmake --build --preset gcc-debug-static-x86_64 --target dummy_lib
 
 # Via toolsolution (auto-configures if needed)
-python3 scripts/toolsolution.py target build main_app
-python3 scripts/toolsolution.py target build dummy_lib --preset gcc-release-static-x86_64
+python3 scripts/tool.py sol target build main_app
+python3 scripts/tool.py sol target build dummy_lib --preset gcc-release-static-x86_64
 
-# Via toollib (single library only)
-python3 scripts/toollib.py test dummy_lib
+# Via tool lib (single library only)
+python3 scripts/tool.py lib test dummy_lib
 ```
 
 ---
@@ -242,11 +240,11 @@ python3 scripts/toollib.py test dummy_lib
 # Using ctest preset (recommended)
 ctest --preset gcc-debug-static-x86_64 --output-on-failure
 
-# Using build.py (configure + build + test)
-python3 scripts/build.py check --no-sync
+# Using unified CLI (configure + build + test)
+python3 scripts/tool.py build check --no-sync
 
 # Using toolsolution (auto-configures if needed)
-python3 scripts/toolsolution.py test
+python3 scripts/tool.py sol test
 
 # Via VS Code: click "Tests" in the status bar
 ```
@@ -274,11 +272,11 @@ cmake --build --preset gcc-debug-static-x86_64 --target dummy_lib_tests
 ./build/gcc-debug-static-x86_64/tests/unit/dummy_lib/dummy_lib_tests \
     --gtest_filter="BuildInfoTest.*"
 
-# Method 3: toollib (builds if needed)
-python3 scripts/toollib.py test dummy_lib
+# Method 3: tool lib (builds if needed)
+python3 scripts/tool.py lib test dummy_lib
 
-# Method 4: toolsolution
-python3 scripts/toolsolution.py test dummy_lib
+# Method 4: tool sol
+python3 scripts/tool.py sol test dummy_lib
 ```
 
 ---
@@ -302,10 +300,10 @@ Per-library C++ standard override (does not affect other targets):
 
 ```bash
 cmake --preset gcc-debug-static-x86_64 -DDUMMY_LIB_CXX_STANDARD=20
-# or via toolsolution:
-python3 scripts/toolsolution.py upgrade-std --std 20 --target dummy_lib
+# or via toolsolution (use unified CLI):
+python3 scripts/tool.py sol upgrade-std --std 20 --target dummy_lib
 # solution-wide:
-python3 scripts/toolsolution.py upgrade-std --std 20
+python3 scripts/tool.py sol upgrade-std --std 20
 ```
 
 ### Tests
@@ -400,43 +398,43 @@ Test frameworks are **auto-downloaded** via CMake FetchContent — no manual ins
 
 ## 7. Library Management
 
-All library operations go through `scripts/toollib.py`.
-**In VS Code:** `Ctrl+Shift+P` → *CppTemplate: Library Manager (toollib)*
+All library operations go through `scripts/tool.py lib` (use the `lib` subcommand).
+**In VS Code:** `Ctrl+Shift+P` → *CppTemplate: Library Manager*
 
 ```bash
 # Create a new library
-python3 scripts/toollib.py add my_lib
-python3 scripts/toollib.py add renderer --deps core,math --link-app --cxx-standard 20
+python3 scripts/tool.py lib add my_lib
+python3 scripts/tool.py lib add renderer --deps core,math --link-app --cxx-standard 20
 
 # Remove a library (--delete also removes files from disk)
-python3 scripts/toollib.py remove my_lib --delete
+python3 scripts/tool.py lib remove my_lib --delete
 
 # Rename (updates all source files, headers, and CMake references)
-python3 scripts/toollib.py rename old_name new_name
+python3 scripts/tool.py lib rename old_name new_name
 
 # Move to a subdirectory
-python3 scripts/toollib.py move renderer graphics/renderer
+python3 scripts/tool.py lib move renderer graphics/renderer
 
 # Edit dependencies of an existing library
-python3 scripts/toollib.py deps renderer --add math --remove old_dep
+python3 scripts/tool.py lib deps renderer --add math --remove old_dep
 
 # Show detailed info about a library
-python3 scripts/toollib.py info dummy_lib
+python3 scripts/tool.py lib info dummy_lib
 
 # Add external dependency (FetchContent / vcpkg / conan)
-python3 scripts/toollib.py deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
-python3 scripts/toollib.py deps my_lib --add-url https://github.com/nlohmann/json@3.11.3 --target nlohmann_json::nlohmann_json
-python3 scripts/toollib.py deps my_lib --add-url fmt --via vcpkg
-python3 scripts/toollib.py deps my_lib --add-url fmt/10.2.1 --via conan
+python3 scripts/tool.py lib deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
+python3 scripts/tool.py lib deps my_lib --add-url https://github.com/nlohmann/json@3.11.3 --target nlohmann_json::nlohmann_json
+python3 scripts/tool.py lib deps my_lib --add-url fmt --via vcpkg
+python3 scripts/tool.py lib deps my_lib --add-url fmt/10.2.1 --via conan
 
 # Build and run a single library's tests
-python3 scripts/toollib.py test dummy_lib
-python3 scripts/toollib.py test dummy_lib --preset clang-debug-static-x86_64
+python3 scripts/tool.py lib test dummy_lib
+python3 scripts/tool.py lib test dummy_lib --preset clang-debug-static-x86_64
 
 # List / tree / health check
-python3 scripts/toollib.py list
-python3 scripts/toollib.py tree
-python3 scripts/toollib.py doctor
+python3 scripts/tool.py lib list
+python3 scripts/tool.py lib tree
+python3 scripts/tool.py lib doctor
 ```
 
 Append `--dry-run` to any command to preview changes without applying them.
@@ -454,10 +452,11 @@ target_generate_build_info(my_lib
 ---
 
 ### New Capabilities (v1.0.0+)
-- **Header-only / Interface Libs:** `toollib.py add my_lib --header-only`
-- **Export Config:** `toollib.py export my_lib` (creates cmake config for find_package)
-- **URL Dependencies:** `toollib.py deps my_lib --add-url https://...` (FetchContent/vcpkg/conan)
-- **Repo Management:** `toolsolution.py repo ...` (submodules & fetch deps)
+
+- **Header-only / Interface Libs:** `python3 scripts/tool.py lib add my_lib --header-only`
+- **Export Config:** `python3 scripts/tool.py lib export my_lib` (creates cmake config for find_package)
+- **URL Dependencies:** `python3 scripts/tool.py lib deps my_lib --add-url https://...` (FetchContent/vcpkg/conan)
+- **Repo Management:** `python3 scripts/tool.py sol repo ...` (submodules & fetch deps)
 
 ## 8. Project Orchestration
 
@@ -465,39 +464,39 @@ target_generate_build_info(my_lib
 
 ```bash
 # List all targets (libs + apps)
-python3 scripts/toolsolution.py target list
+python3 scripts/tool.py sol target list
 
 # Build a single target (auto-configures if needed)
-python3 scripts/toolsolution.py target build main_app
-python3 scripts/toolsolution.py target build dummy_lib --preset gcc-release-static-x86_64
+python3 scripts/tool.py sol target build main_app
+python3 scripts/tool.py sol target build dummy_lib --preset gcc-release-static-x86_64
 
 # Run tests — all or single target
-python3 scripts/toolsolution.py test
-python3 scripts/toolsolution.py test dummy_lib
+python3 scripts/tool.py sol test
+python3 scripts/tool.py sol test dummy_lib
 
 # Manage presets
-python3 scripts/toolsolution.py preset list
-python3 scripts/toolsolution.py preset add --compiler gcc --type debug --link static --arch x86_64
-python3 scripts/toolsolution.py preset remove my-custom-preset
+python3 scripts/tool.py sol preset list
+python3 scripts/tool.py sol preset add --compiler gcc --type debug --link static --arch x86_64
+python3 scripts/tool.py sol preset remove my-custom-preset
 
 # Manage toolchains
-python3 scripts/toolsolution.py toolchain list
-python3 scripts/toolsolution.py toolchain add \
+python3 scripts/tool.py sol toolchain list
+python3 scripts/tool.py sol toolchain add \
     --name stm32f4 --template arm-none-eabi \
     --cpu cortex-m4 --fpu fpv4-sp-d16 --gen-preset
-python3 scripts/toolsolution.py toolchain remove stm32f4
+python3 scripts/tool.py sol toolchain remove stm32f4
 
 # C++ standard — solution-wide or per-library
-python3 scripts/toolsolution.py upgrade-std --std 20
-python3 scripts/toolsolution.py upgrade-std --std 20 --target dummy_lib
-python3 scripts/toolsolution.py upgrade-std --std 20 --dry-run
+python3 scripts/tool.py sol upgrade-std --std 20
+python3 scripts/tool.py sol upgrade-std --std 20 --target dummy_lib
+python3 scripts/tool.py sol upgrade-std --std 20 --dry-run
 
 # View / set base preset cache variables
-python3 scripts/toolsolution.py config get
-python3 scripts/toolsolution.py config set ENABLE_ASAN ON
+python3 scripts/tool.py sol config get
+python3 scripts/tool.py sol config set ENABLE_ASAN ON
 
 # Full health check
-python3 scripts/toolsolution.py doctor
+python3 scripts/tool.py sol doctor
 ```
 
 ---
@@ -601,7 +600,7 @@ Four jobs run on every push (`.github/workflows/ci.yml`):
 ### Manual CI simulation
 
 ```bash
-python3 scripts/toolsolution.py doctor
+python3 scripts/tool.py sol doctor
 ctest --preset gcc-debug-static-x86_64 --output-on-failure
 ```
 

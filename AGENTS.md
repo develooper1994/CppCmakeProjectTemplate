@@ -1,141 +1,84 @@
-# AGENTS.md — AI Agent Execution Contract
-# Read this file FIRST. It tells you what this repo is and how to work with it.
+# AGENTS.md — AI Agent Integration Guidelines
 
-## What This Repository Is
+This document outlines how AI agents should interact with the CppCmakeProjectTemplate tooling.
 
-A professional, multi-target C++ CMake project template and scaffold system.
-It is **not** a single-purpose library — it is an **orchestrated project framework**
-with full automation tooling. Do not re-invent things that already exist here.
+## Core Mandates
 
-## Existing Tooling (USE THESE, don't re-implement)
+- **Use the Unified CLI:** ALWAYS prefer `python3 scripts/tool.py <command>` over legacy scripts.
+- **Command Structure:** Commands follow the pattern: `python3 scripts/tool.py <core_command|plugin> [args...]`
+- **Core Commands:**
+  - `build`: Build, check, clean, deploy.
+  - `lib`: Library management (add, remove, list, etc.).
+  - `sol`: Project orchestration (presets, toolchains, CI, doctor).
+- **Plugin Commands:** Dynamically discovered from `scripts/plugins/` (e.g., `hello`, `setup`, `init`).
+- **Structured Output:** Use `--json` flag for machine-readable output.
+- **Non-interactive Mode:** Use `--yes` flag for automated execution.
+- **Dry Run:** Use `--dry-run` to preview changes.
 
-**Single entry point:** `python3 scripts/tool.py <command> [args]`
+## Key Files & Directories
 
-| Command | Purpose |
-|---|---|
-| `tool build check` | Configure + build + test + extension sync |
-| `tool build build --preset <n>` | Configure + compile |
-| `tool build clean [--all]` | Remove artifacts |
-| `tool build extension [--install] [--publish]` | Build .vsix |
-| `tool lib add <n> [--header-only\|--interface\|--template X]` | Create library |
-| `tool lib remove/rename/move/deps/export/info/test` | Library management |
-| `tool sol target/preset/toolchain/config/repo/test/upgrade-std/ci/doctor` | Orchestration |
-| `tool sol --lib <toollib args>` | Library ops via sol |
-| `tool tui` | Terminal UI |
-| `tool setup [--install] [--all]` | Dependency management |
-| `tool init --name MyProject` | Rename project |
-| `tool hooks` | Install pre-commit hooks |
-| `cmake --preset <n>` | Direct CMake build |
-| `ctest --preset <n>` | Direct CTest run |
+- **Dispatcher:** `scripts/tool.py` is the main entry point.
+- **Core Logic:** `scripts/core/commands/` (build, lib, sol)
+- **Core Utilities:** `scripts/core/utils/common.py`
+- **Plugins:** `scripts/plugins/` (dynamic commands)
+- **Documentation:** `docs/PLANS.md` outlines the project roadmap.
 
-> **Internal modules** (`scripts/build.py`, `scripts/toollib.py`, `scripts/toolsolution.py`)
-> are implementation details. Use `tool.py` for all automation.
+## Recommended Workflows
 
-### Available presets (naming: `<compiler>-<type>-<link>-<arch>`)
-- Linux: `gcc-debug-static-x86_64`, `gcc-release-static-x86_64`, `clang-debug-static-x86_64`
-- Windows: `msvc-debug-static-x64`, `msvc-release-static-x64`
-- macOS: `clang-debug-static-x86_64`
-- Embedded: `embedded-arm-none-eabi`
+### Project Setup & Build
 
-## Agent Workflow (MANDATORY — 7 Steps)
+1. **Clone & Enter:**
 
-1. **ANALYZE** — Identify affected area: `libs/` `apps/` `tests/` `cmake/` `scripts/` `docs/`
-2. **IMPACT** — New target? CMake change? Tests needed? Docs needed? Build impact?
-3. **PLAN** — Choose minimal safe change. Avoid unrelated edits.
-4. **IMPLEMENT** — Complete code only. No placeholders. Respect existing structure.
-5. **INTEGRATE** — Use `tool lib add` for new libs. Update CMake. Link deps. Add tests + README.
-6. **VALIDATE** — `python3 scripts/tool.py build check` must pass.
-7. **OUTPUT** — Full, working result. No partial code.
+    ```bash
+    git clone <repository_url>
+    cd <repository_directory>
+    ```
 
-## Forbidden Actions
+2. **Install Dependencies:**
 
-- Editing `external/` directory
-- Removing presets from `CMakePresets.json`
-- Disabling `CMAKE_EXPORT_COMPILE_COMMANDS`
-- Global CMake flags (always target-scoped)
-- Large blind refactors across multiple subsystems
-- Re-implementing what `tool lib` or `tool sol` already do
-- Calling `toollib.py`, `toolsolution.py`, `build.py` directly (use `tool.py`)
+    ```bash
+    python3 scripts/tool.py setup --install
+    ```
 
-## File Structure
+3. **Build & Check:**
 
-```
-apps/          Executable targets (main_app, gui_app)
-libs/          Library targets — each has CMakeLists.txt + README.md + include/ + src/ + docs/
-tests/unit/    GoogleTest suites — one subdirectory per library
-cmake/         Build system modules + generated headers
-  BuildInfo.cmake        Per-target git/compiler metadata → BuildInfo.h
-  FeatureFlags.cmake     All ENABLE_* options → FeatureFlags.h (dynamic)
-  ProjectInfo.h          Single-include wrapper: BuildInfo + FeatureFlags + BuildInfoHelper
-  BuildInfoHelper.h      BUILD_INFO_PRINT_ALL, BUILD_INFO_VERSION_LINE macros
-  ProjectExport.cmake    find_package() support for libraries
-  toolchains/            arm-none-eabi, linux-x86, template-custom-gnu
-scripts/
-  tool.py                ← SINGLE ENTRY POINT
-  core/commands/         build.py, lib.py, sol.py (façades over implementation modules)
-  core/utils/common.py   Logger, CLIResult, GlobalConfig, run_proc
-  plugins/               setup.py, init.py, hooks.py, hello.py
-  build.py               Implementation (not for direct use)
-  toollib.py             Implementation (not for direct use)
-  toolsolution.py        Implementation (not for direct use)
-  tui.py                 Terminal UI (also callable via: tool tui)
-extension/     VS Code extension source and .vsix output
-docs/          PLANS.md, EMBEDDED.md
-external/      Third-party FetchContent deps (fetch_deps.cmake)
-```
+    ```bash
+    python3 scripts/tool.py build check --no-sync
+    ```
 
-## Adding a New Library
+### Library Management
 
-```bash
-# Normal library
-python3 scripts/tool.py lib add my_lib --deps core --link-app
+- **List Libraries:** `python3 scripts/tool.py lib list`
+- **Add Library:** `python3 scripts/tool.py lib add <library-name>`
+- **Remove Library:** `python3 scripts/tool.py lib remove <library-name> [--delete]`
 
-# Header-only
-python3 scripts/tool.py lib add math_utils --header-only
+### Project Orchestration
 
-# Interface (compile defs / include propagation only)
-python3 scripts/tool.py lib add feature_config --interface
+- **List Presets:** `python3 scripts/tool.py sol preset list`
+- **Run CI:** `python3 scripts/tool.py sol ci`
+- **Health Check:** `python3 scripts/tool.py sol doctor`
 
-# Pattern-based scaffold
-python3 scripts/tool.py lib add my_service --template singleton
+## Implementation Notes
 
-# With external dep
-python3 scripts/tool.py lib deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
+The modules `scripts/build.py`, `scripts/toollib.py`, and `scripts/toolsolution.py` implement the command logic used by the unified dispatcher `scripts/tool.py`.
 
-# Add find_package() support
-python3 scripts/tool.py lib export my_lib
-```
+- Public interface: use `python3 scripts/tool.py <command>` (e.g. `tool lib`, `tool sol`, `tool build`).
+- Internal modules: the files above are internal implementation details — do not call them directly from outside the `scripts/` package.
 
-## Compile-time Build Info in C++
+## Security Considerations
 
-```cpp
-#include "ProjectInfo.h"   // single include
+- Always sanitize user input before passing it to shell commands.
+- Prefer using the `run_proc` utility from `core.utils.common` for executing external processes.
+- Be mindful of secrets management, especially when interacting with external services or APIs.
 
-BUILD_INFO_PRINT_ALL(std::cout, my_namespace);    // print all info
-auto v = BUILD_INFO_VERSION_LINE(my_namespace);   // "Name v1.0 (main@abc1234)"
-#if FEATURE_ASAN
-    // ASan is enabled
-#endif
-for (const auto& f : project_features::features)
-    std::cout << f.name << ": " << f.enabled << "\n";
-```
+## Coding Standards
 
-## Per-library Independent Versioning
+- Adhere to Python's PEP 8 style guide.
+- Use type hints and docstrings for clarity.
+- Prefer structured logging via `core.utils.common.Logger`.
 
-```cmake
-target_generate_build_info(my_lib NAMESPACE my_lib_info PROJECT_VERSION "2.0.0")
-```
+## Module Splitting Guidelines
 
-## Priority Rules
-
-1. Build integrity (never break the build)
-2. Correctness
-3. Isolation (no cross-contamination between targets)
-4. Maintainability
-
-## Agent Status Responsibility
-
-- After completing work: run `python3 scripts/tool.py build check`
-- Update `docs/PLANS.md`: mark completed tasks, add new discovered tasks
-- Check `python3 scripts/tool.py sol doctor` passes
-- Check `python3 scripts/tool.py lib doctor` passes
+- Conservative modularization: prefer grouping related code together. Only split files when a clear separation of concerns or testability benefit exists.
+- Avoid the "lowest common denominator" trap: don't split purely for potential reuse across unrelated components.
+- Agents must follow this guideline when modifying or refactoring repository code — prefer fewer, cohesive modules and ask the maintainer before aggressive decomposition.

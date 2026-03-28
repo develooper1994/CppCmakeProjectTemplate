@@ -49,18 +49,23 @@ function getWorkspaceRoot() {
 }
 
 function runToollib(workspaceRoot, args) {
+    const tool = path.join(workspaceRoot, 'scripts', 'tool.py');
     const script = path.join(workspaceRoot, 'scripts', 'toollib.py');
-    if (!fs.existsSync(script)) {
-        vscode.window.showErrorMessage(
-            'toollib.py not found. Is this a CppCmakeProjectTemplate project?'
-        );
+
+    const terminal = vscode.window.createTerminal({ name: 'toollib', cwd: workspaceRoot });
+    terminal.show();
+
+    // Prefer unified CLI if available
+    if (fs.existsSync(tool)) {
+        terminal.sendText(`python3 "${tool}" lib ${args}`);
         return;
     }
-    const terminal = vscode.window.createTerminal({
-        name: 'toollib',
-        cwd: workspaceRoot,
-    });
-    terminal.show();
+
+    if (!fs.existsSync(script)) {
+        vscode.window.showErrorMessage('No tool.py or toollib.py found. Is this a CppCmakeProjectTemplate project?');
+        return;
+    }
+
     terminal.sendText(`python3 "${script}" ${args}`);
 }
 
@@ -231,11 +236,8 @@ async function toolsolutionUI() {
     });
     if (!picked) return;
 
-    const script = path.join(root, 'scripts', 'toolsolution.py');
-    if (!fs.existsSync(script)) {
-        vscode.window.showErrorMessage('toolsolution.py not found.');
-        return;
-    }
+    const toolPath = path.join(root, 'scripts', 'tool.py');
+    const legacyScript = path.join(root, 'scripts', 'toolsolution.py');
 
     let argStr = picked.op;
 
@@ -276,7 +278,18 @@ async function toolsolutionUI() {
 
     const terminal = vscode.window.createTerminal({ name: 'toolsolution', cwd: root });
     terminal.show();
-    terminal.sendText(`python3 "${script}" ${argStr}`);
+
+    if (fs.existsSync(toolPath)) {
+        terminal.sendText(`python3 "${toolPath}" sol ${argStr}`);
+        return;
+    }
+
+    if (!fs.existsSync(legacyScript)) {
+        vscode.window.showErrorMessage('No tool.py or toolsolution.py found. Is this a CppCmakeProjectTemplate project?');
+        return;
+    }
+
+    terminal.sendText(`python3 "${legacyScript}" ${argStr}`);
 }
 
 // ─── activate ─────────────────────────────────────────────────────────────────
