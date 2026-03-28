@@ -60,7 +60,6 @@ build_logs/
 __pycache__/
 
 # Session file
-.tui_session.json*
 .session.json*
 
 # Extension generated files (copied from repo root during build)
