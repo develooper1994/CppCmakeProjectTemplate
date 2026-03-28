@@ -43,7 +43,7 @@ Makefile
 Thumbs.db
 *.Zone.Identifier
 
-# Extension build çıktıları (generate edilir, commit edilmez)
+# Extension build outputs (generated, do not commit)
 *.vsix
 extension/templates/
 extension/LICENSE
@@ -54,7 +54,7 @@ scripts/extension/LICENSE
 scripts/extension/node_modules/
 scripts/extension/package-lock.json
 
-# Geçici log dizini
+# Temporary log directory
 build_logs/
 # Python
 __pycache__/

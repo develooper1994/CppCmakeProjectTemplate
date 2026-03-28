@@ -3,8 +3,8 @@
 # ════════════════════════════════════════════════════════════════════════════════
 # https://editorconfig.org
 #
-# Editör ayarlarını proje genelinde standartlaştırır.
-# VS, VS Code, CLion, Vim, Emacs ve diğer editörler destekler.
+# Standardize editor settings across the project.
+# Supported by VS, VS Code, CLion, Vim, Emacs and other editors.
 # ════════════════════════════════════════════════════════════════════════════════
 
 root = true
@@ -36,7 +36,7 @@ trim_trailing_whitespace = false
 indent_style = space
 indent_size = 2
 
-# ── Visual Studio proje dosyaları ────────────────────────────────────────────
+# ── Visual Studio project files ────────────────────────────────────────────
 [*.{sln,vcxproj,vcxproj.filters,props}]
 indent_style = space
 indent_size = 2

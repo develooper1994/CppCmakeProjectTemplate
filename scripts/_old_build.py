@@ -68,7 +68,7 @@ EXT_EXCLUDE: set[str] = {
     "scripts/common.py",           # dev-only
     "scripts/setup_hooks.py",      # dev-only
     "scripts/tui.py",              # dev-only (requires textual)
-    "İstekler-Eksikler-Sorunlar.md",
+    "Requests-Missing-Issues.md",
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -169,8 +169,8 @@ def cmd_clean(args: argparse.Namespace) -> None:
         "cache":     [".cache"],
         "coverage":  ["coverage_report"],
         "logs":      ["build_logs"],
-        "extension": ["extension/templates"] + 
-                     [str(f.relative_to(PROJECT_ROOT)) for f in PROJECT_ROOT.glob("*.vsix")] + 
+        "extension": ["extension/templates"] +
+                     [str(f.relative_to(PROJECT_ROOT)) for f in PROJECT_ROOT.glob("*.vsix")] +
                      [str(f.relative_to(PROJECT_ROOT)) for f in EXT_DIR.glob("*.vsix")]
     }
 

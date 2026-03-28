@@ -7,8 +7,8 @@ class CppCmakeProjectTemplateRecipe(ConanFile):
     generators = "CMakeDeps", "CMakeToolchain"
 
     def build_requirements(self):
-        # test_requires: gtest sadece test build'ine girer,
-        # bu paketi kullanan downstream consumer'lara yayılmaz.
+        # test_requires: gtest is only required for test builds and
+        # will not be propagated to downstream consumers.
         self.test_requires("gtest/1.15.0")
 
     def layout(self):

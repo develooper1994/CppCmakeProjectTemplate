@@ -301,29 +301,29 @@ function activate(context) {
         'cpp-cmake-scaffolder.init',
         async () => {
             const picked = await vscode.window.showOpenDialog({
-                canSelectFiles: false, canSelectFolders: true, openLabel: 'Projeyi Oluştur',
+                canSelectFiles: false, canSelectFolders: true, openLabel: 'Create Project',
             });
             if (!picked || picked.length === 0) return;
             const targetDir = picked[0].fsPath;
 
             const projectName = await vscode.window.showInputBox({
-                prompt: 'Proje adı (CMake uyumlu: harf/rakam/alt çizgi)',
+                prompt: 'Project name (CMake-compatible: letter/digit/underscore)',
                 value: path.basename(targetDir),
-                validateInput: v => /^[A-Za-z_][A-Za-z0-9_]*$/.test(v) ? null : 'Geçersiz isim',
+                validateInput: v => /^[A-Za-z_][A-Za-z0-9_]*$/.test(v) ? null : 'Invalid name',
             });
             if (!projectName) return;
 
             const templateDir = path.join(context.extensionPath, 'templates');
             try {
                 copyDir(templateDir, targetDir, projectName);
-                vscode.window.showInformationMessage(`✅ "${projectName}" oluşturuldu.`);
+                vscode.window.showInformationMessage(`✅ "${projectName}" created.`);
                 await vscode.commands.executeCommand(
                     'vscode.openFolder',
                     vscode.Uri.file(targetDir),
                     { forceNewWindow: true }
                 );
             } catch (err) {
-                vscode.window.showErrorMessage(`Hata: ${err.message}`);
+                vscode.window.showErrorMessage(`Error: ${err.message}`);
             }
         }
     );

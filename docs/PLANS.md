@@ -1,101 +1,94 @@
 # CppCmakeProjectTemplate — Plans & Capabilities
 
-Bu belge, projenin mevcut yeteneklerini, yönetim politikalarını ve gelecek vizyonunu öncelik sırasına göre listeler.
+This document lists the project's current capabilities, governance policies, and roadmap in priority order.
 
 ---
 
-## ✅ Mevcut Özellikler (What This Repo Can Do)
+## ✅ Current Capabilities
 
 ### Unified CLI & Tooling Framework
 
-- **Unified CLI (`tool.py`):** Tüm komutların (`build`, `lib`, `sol`) ve dinamik eklentileri (`plugins/`) yöneten merkezi giriş noktası.
-- **Modern Dizin Mimarisi:** Altyapı (`core/utils`), iş mantığı (`core/commands`) ve eklentiler (`plugins/`) arasında net ayrım.
-- **Structured Logging:** Standart seviyeli loglama ve kalıcı log kayıtları.
-- **Standardized Results:** Tüm komutların `CLIResult` dönmesi ve `--json` desteği ile otomasyona tam uyum.
-- **Clean Environment:** Tüm eski scriptler temizlendi, sistem tek bir profesyonel arayüzde birleşti.
+- **Unified CLI (`tool.py`):** A single entrypoint that manages all commands (`build`, `lib`, `sol`) and dynamic plugins (`plugins/`).
+- **Modern Directory Layout:** Clear separation between infrastructure (`core/utils`), command logic (`core/commands`) and plugins (`plugins/`).
+- **Structured Logging:** Standard log levels and persistent log storage.
+- **Standardized Results:** Commands return a `CLIResult` and support `--json` for automation.
+- **Clean Environment:** Legacy scripts consolidated into a single professional interface.
 
 ### Build System
 
-- **Modern CMake 3.25+:** Saf target-based mimari, global flag içermez.
-- **Preset Matrisi:** Linux, Windows, macOS ve Embedded (ARM) için hazır konfigürasyonlar.
-- **MSVC Consistency:** Otomatik `/MT` veya `/MD` seçimi.
+- **Modern CMake (3.25+):** Target-based structure with no global flags.
+- **Preset Matrix:** Ready presets for Linux, Windows, macOS and Embedded (ARM).
+- **MSVC Consistency:** Automatic selection of `/MT` or `/MD` when appropriate.
 
 ### Compile-time Build Metadata
 
-- **Per-Target BuildInfo:** Bağımsız versiyon ve git metadata desteği.
-- **Dinamik FeatureFlags:** Derleme anında özellik kontrolü.
+- **Per-Target BuildInfo:** Per-target versioning and git metadata support.
+- **Dynamic Feature Flags:** Feature toggles controlled at build time.
 
 ### Quality & CI/CD
 
-- **Testing:** GoogleTest, Catch2, Boost.Test ve QTest desteği.
-- **Quality Gates:** ASan, UBSan, TSan, Clang-Tidy ve Cppcheck entegrasyonu.
-- **CI/CD:** GitHub Actions multi-platform matrix build süreçleri.
+- **Testing:** Support for GoogleTest, Catch2, Boost.Test and QTest.
+- **Quality Gates:** ASan, UBSan, TSan, Clang-Tidy and Cppcheck integration.
+- **CI/CD:** GitHub Actions multi-platform matrix builds.
 
 ---
 
-## 🚀 Yol Haritası (Roadmap)
+## 🚀 Roadmap
 
-### Faz 1: Foundation & Unified CLI ✅ TAMAMLANDI
+### Phase 1: Foundation & Unified CLI — Completed
 
 - **Modular Dispatcher:** ✅ DONE
-
 - **Command Contracts:** ✅ DONE
 - **Structured Logging:** ✅ DONE
 - **Plugin Discovery:** ✅ DONE
-- **Migration & Cleanup:** ✅ DONE (Eski scriptler tamamen temizlendi)
-- **Refactoring & Core Migration:** ✅ DONE (İş mantığı `core/commands` altına taşındı)
+- **Migration & Cleanup:** ✅ DONE (legacy scripts consolidated)
+- **Refactoring & Core Migration:** ✅ DONE (command logic moved under `core/commands`)
 
-### Faz 2: Distribution & Template Engine (Sıradaki)
+### Phase 2: Distribution & Template Engine (Next)
 
-- **Jinja2 Migration:** f-string tabanlı şablonların Jinja2'ye taşınması.
+- **Jinja2 Migration:** Move f-string based templates to Jinja2.
+- **Packaging:** Distribute `tool` as a pip-installable package.
+- **Bootstrap (`tool setup`):** Automated installation of dependencies and Python environment.
+- **Rollback & Recovery:** Add state rollback for failed file operations.
 
-- **Packaging:** `tool` komutunun `pip package` olması.
-- **Bootstrap (`tool setup`):** Bağımlılıkların ve Python ortamının otomatik kurulumu.
-- **Rollback & Recovery:** Hatalı dosya işlemlerinde state geri alma.
+### Phase 3: Test Strategy & Structured CI
 
-### Faz 3: Test Strategy & Structured CI
+- **Comprehensive Testing:** Unit and fixture tests for CLI tooling.
+- **Deterministic CI:** Frozen environments for reproducible builds.
+- **Template Smoke Tests:** Automated template validation across compilers.
 
-- **Comprehensive Testing:** CLI araçları için Unit ve Fixture testleri.
+### Phase 4: Safety, Hardening & Sanitizers
 
-- **Deterministic CI:** Frozen environment gereksinimleri.
-- **Template Smoke Tests:** Farklı derleyicilerde otomatik şablon doğrulaması.
+- **Sanitizer Profiles:** `tool build --profile sanitized` support.
+- **Security Audit:** Integrate CVE scanning (e.g., `osv-scanner`).
 
-### Faz 4: Safety, Hardening & Sanitizers
+### Phase 5: Performance & Optimization
 
-- **Sanitizer Profiles:** `tool build --profile sanitized` desteği.
+- **Performance Tracking:** Benchmark history and regression tracking.
+- **Performance Budget:** Threshold checks for performance regressions.
 
-- **Security Audit:** CVE taraması (`osv-scanner` entegrasyonu).
+### Phase 6: Ecosystem & UI
 
-### Faz 5: Performance & Optimization
+- **TUI as Wrapper:** Integrate `scripts/tui.py` with the central `tool` dispatcher.
+- **Live Doc Server:** `tool doc serve` to serve documentation locally.
 
-- **Performance Tracking:** Benchmark history ve regresyon takibi.
+### Phase 7: Configuration & State Management
 
-- **Performance Budget:** Threshold kontrolleri.
-
-### Faz 6: Ecosystem & UI
-
-- **TUI as Wrapper:** `scripts/tui.py`'nin merkezi `tool` yapısına tam entegrasyonu.
-
-- **Live Doc Server:** `tool doc serve` ile anlık dokümantasyon.
-
-### Faz 7: Configuration & State Management
-
-- **`tool.toml`:** Merkezi konfigürasyon dosyası.
-
-- **State Persistence:** `.tool/state.json` ile çalışma anı tarihçesi.
-- **Lock Files:** Deterministik bağımlılık yönetimi.
+- **`tool.toml`:** Central configuration file.
+- **State Persistence:** `.tool/state.json` for session history.
+- **Lock Files:** Deterministic dependency management via lock files.
 
 ---
 
-## 📜 Yönetim Politikaları (Governance)
+## 📜 Governance
 
-- **SemVer:** CLI ve Şablon için Semantic Versioning.
-- **LTS Support:** En güncel (Latest) ve Kararlı (LTS) sürüm akışı.
+- **SemVer:** Semantic versioning for CLI and templates.
+- **LTS Support:** Maintain both Latest and LTS release streams.
 
 ---
 
-## 💡 Stratejik Öneriler (Agent Recommendations)
+## 💡 Strategic Recommendations
 
-1. **Template Logic Minimal:** Şablon dosyaları basit kalmalı; iş mantığı Python tarafında çözülmelidir.
-2. **Atomic Operations:** Dosya mutasyonlarının rollback destekli olması sağlanmalıdır.
-3. **Static Analysis Integration:** `clang-tidy --fix` desteğinin `check` komutuna entegrasyonu kaliteyi artıracaktır.
+1. **Keep Template Logic Minimal:** Keep template files small; implement complex logic in Python.
+2. **Atomic Operations:** Ensure file mutations support rollback.
+3. **Static Analysis Integration:** Integrate `clang-tidy --fix` into the `check` command to improve quality.

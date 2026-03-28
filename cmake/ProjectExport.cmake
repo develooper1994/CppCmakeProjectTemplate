@@ -1,14 +1,14 @@
 # cmake/ProjectExport.cmake
-# install_project_library(target export_name) fonksiyonu:
-# - Install kuralları oluşturur (lib, header, binary)
-# - CMake package config dosyaları üretir (find_package destekli)
-# - Export set'i yazar
+# Function install_project_library(target export_name):
+# - Generate install rules (libraries, headers, binaries)
+# - Generate CMake package config files (for find_package)
+# - Write the export set
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 function(install_project_library target export_name)
-    # 1. Install kuralları
+    # 1. Install rules
     install(TARGETS ${target}
         EXPORT ${export_name}Targets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -18,8 +18,8 @@ function(install_project_library target export_name)
         FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 
-    # 2. Config.cmake.in template'ini bul
-    # Önce library-özgün template'e bak, yoksa genel template'i kullan.
+    # 2. Locate the Config.cmake.in template
+    # Prefer a library-specific template, otherwise fall back to the global template.
     set(_config_in "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${export_name}Config.cmake.in")
     if(NOT EXISTS "${_config_in}")
         set(_config_in "${PROJECT_SOURCE_DIR}/cmake/LibraryConfig.cmake.in")
@@ -27,13 +27,13 @@ function(install_project_library target export_name)
 
     if(NOT EXISTS "${_config_in}")
         message(FATAL_ERROR
-            "install_project_library: Config template bulunamadı.\n"
-            "Beklenen: ${CMAKE_CURRENT_SOURCE_DIR}/cmake/${export_name}Config.cmake.in\n"
+            "install_project_library: Config template not found.\n"
+            "Expected: ${CMAKE_CURRENT_SOURCE_DIR}/cmake/${export_name}Config.cmake.in\n"
             "Fallback : ${PROJECT_SOURCE_DIR}/cmake/LibraryConfig.cmake.in"
         )
     endif()
 
-    # 3. Config dosyalarını üret
+    # 3. Generate config files
     configure_package_config_file(
         "${_config_in}"
         "${CMAKE_CURRENT_BINARY_DIR}/${export_name}Config.cmake"
@@ -46,14 +46,14 @@ function(install_project_library target export_name)
         COMPATIBILITY SameMajorVersion
     )
 
-    # 4. Export set'i yaz
+    # 4. Write the export set
     install(EXPORT ${export_name}Targets
         FILE ${export_name}Targets.cmake
         NAMESPACE ${export_name}::
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${export_name}"
     )
 
-    # 5. Config dosyalarını yükle
+    # 5. Install the config files
     install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/${export_name}Config.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/${export_name}ConfigVersion.cmake"

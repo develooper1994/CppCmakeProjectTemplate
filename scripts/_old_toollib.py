@@ -409,9 +409,9 @@ def lib_readme(name: str, deps: list[str]) -> str:
     return f"""\
 # {name}
 
-TODO: Bu kütüphanenin ne yaptığını açıkla.
+TODO: Describe what this library does.
 {deps_section}
-## Kullanım
+## Usage
 
 ```cpp
 #include <{name}/{name}.h>
