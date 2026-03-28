@@ -183,12 +183,10 @@ def load_session() -> dict:
     Returns an empty dict when no session file exists or parsing fails.
     """
     try:
-        # Backwards compatibility: prefer .session.json, fall back to .tui_session.json
-        alt = PROJECT_ROOT / ".tui_session.json"
-        target = SESSION_FILE if SESSION_FILE.exists() else (alt if alt.exists() else None)
-        if not target:
+        # Use the canonical shared session file only
+        if not SESSION_FILE.exists():
             return {}
-        return json.loads(target.read_text(encoding="utf-8"))
+        return json.loads(SESSION_FILE.read_text(encoding="utf-8"))
     except Exception:
         return {}
 
@@ -203,12 +201,7 @@ def save_session(data: dict) -> None:
         SESSION_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     except Exception:
         pass
-    # Also write legacy TUI session file for compatibility
-    try:
-        alt = PROJECT_ROOT / ".tui_session.json"
-        alt.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    except Exception:
-        pass
+    # Do not write a separate TUI session file; prefer the shared `SESSION_FILE` only.
 
 
 def backup_session() -> Path | None:

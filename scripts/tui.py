@@ -12,7 +12,7 @@ Usage:
 Priority order for preset value:
     interactive (widget change) > --preset CLI arg > session file > default
 
-Session is persisted to .tui_session.json in project root.
+Session is persisted to .session.json in project root (shared with `tool.py`).
 All operations use DIRECT IMPORTS — no subprocess calls between Python modules.
 """
 
