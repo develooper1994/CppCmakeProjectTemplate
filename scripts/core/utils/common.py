@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
 from typing import NoReturn, Any
+from functools import lru_cache
 
 class GlobalConfig:
     VERBOSE: bool = False
@@ -57,12 +58,12 @@ class Logger:
         prefix = f"[{level}]"
         print(f"{color}{prefix:<8} {msg}{Logger.RESET}")
         try:
-            log_file = PROJECT_ROOT / "build_logs" / "tool.log"
-            log_file.parent.mkdir(exist_ok=True)
-            with open(log_file, "a", encoding="utf-8") as f:
+            LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
                 full_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(f"{full_ts} {level:<8} {msg}\n")
-        except Exception: pass
+        except Exception:
+            pass
 
     @staticmethod
     def info(msg: str): Logger._log("INFO", msg, Logger.BLUE)
@@ -85,6 +86,7 @@ def find_project_root(start: Path) -> Path:
         p = p.parent
 
 PROJECT_ROOT: Path = find_project_root(Path(__file__).resolve())
+LOG_FILE: Path = PROJECT_ROOT / "build_logs" / "tool.log"
 
 def run_proc(cmd: list[str], check: bool = True, cwd: Path = PROJECT_ROOT) -> int:
     Logger.debug(f"Executing: {' '.join(str(c) for c in cmd)}")
@@ -104,6 +106,7 @@ def header(title: str, subtitle: str | None = None) -> None:
     print(f"  Root: {PROJECT_ROOT}")
     print(f"{Logger.BOLD}{'=' * 52}{Logger.RESET}")
 
+@lru_cache(maxsize=None)
 def list_presets() -> list[str]:
     presets_file = PROJECT_ROOT / "CMakePresets.json"
     if not presets_file.exists(): return []
@@ -111,6 +114,7 @@ def list_presets() -> list[str]:
     return [p["name"] for p in data.get("configurePresets", []) if not p.get("hidden", False)]
 
 
+@lru_cache(maxsize=None)
 def get_project_version(root: Path = PROJECT_ROOT) -> str:
     """Resolve project version from CMakeLists.txt or git tags, fallback '0.0.0'."""
     cmake_path = root / "CMakeLists.txt"
@@ -129,6 +133,7 @@ def get_project_version(root: Path = PROJECT_ROOT) -> str:
     return "0.0.0"
 
 
+@lru_cache(maxsize=None)
 def get_project_name(root: Path = PROJECT_ROOT) -> str:
     cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8") if (root / "CMakeLists.txt").exists() else ""
     m = re.search(r'project\s*\(\s*(\S+)', cmake, re.IGNORECASE)
