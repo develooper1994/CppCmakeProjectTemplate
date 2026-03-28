@@ -61,6 +61,20 @@ def _impl_cmd_load(args) -> None:
     print("Session loaded into runtime globals.")
 
 
+def _impl_cmd_set(args) -> None:
+    """Set a session key to a value. Value will be JSON-decoded when possible."""
+    key = getattr(args, "key")
+    val = getattr(args, "value")
+    sess = load_session() or {}
+    try:
+        parsed = json.loads(val)
+    except Exception:
+        parsed = val
+    sess[key] = parsed
+    save_session(sess)
+    print(f"Set session {key}")
+
+
 def _wrap(fn, args) -> CLIResult:
     try:
         fn(args)
@@ -71,6 +85,7 @@ def _wrap(fn, args) -> CLIResult:
 
 def cmd_save(args): return _wrap(_impl_cmd_save, args)
 def cmd_load(args): return _wrap(_impl_cmd_load, args)
+def cmd_set(args):  return _wrap(_impl_cmd_set, args)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -85,6 +100,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("load", help="Load session into runtime globals")
     p.add_argument("--print", action="store_true", help="Print session JSON instead of applying")
     p.set_defaults(func=cmd_load)
+
+    p = sub.add_parser("set", help="Set a session key to a value (value may be JSON)")
+    p.add_argument("--key", required=True, help="Session key to set")
+    p.add_argument("--value", required=True, help="Value to set (JSON-decoded when possible)")
+    p.set_defaults(func=cmd_set)
 
     return parser
 

@@ -7,6 +7,15 @@ Delegates to scripts/init_project.py — no subprocess.
 """
 from __future__ import annotations
 
+PLUGIN_META = {
+    "name": "init",
+    "description": "Rename the project after cloning (adjusts files and metadata).",
+    "args": [
+        {"name": "name", "help": "New project name", "type": "string", "required": True},
+        {"name": "old_name", "help": "Old project directory/name (optional)", "type": "string", "required": False},
+    ],
+}
+
 import sys
 from pathlib import Path
 

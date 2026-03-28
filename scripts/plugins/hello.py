@@ -4,9 +4,18 @@ Example Plugin: Hello
 Usage: python3 scripts/tool.py hello --name Mustafa
 
 This file serves as a template for creating dynamic plugins for the 'tool' dispatcher.
-To add a new command, simply create a file named 'tool_<command_name>.py' in 
+To add a new command, simply create a file named 'tool_<command_name>.py' in
 the scripts directory and implement a 'main(argv)' function.
 """
+
+# Machine-readable plugin metadata used by `tool plugins describe` and the TUI
+PLUGIN_META = {
+    "name": "hello",
+    "description": "Simple example plugin that greets the provided name.",
+    "args": [
+        {"name": "name", "help": "Person's name to greet", "type": "string", "required": False}
+    ],
+}
 
 def main(argv):
     print("👋 Hello from a dynamically discovered plugin!")

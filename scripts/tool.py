@@ -27,6 +27,7 @@ CORE_COMMANDS = {
     "sol":   "core.commands.sol",
     "tui":   "tui",  # scripts/tui.py
     "session": "core.commands.session",
+    "plugins": "core.commands.plugins",
 }
 
 def discover_plugins():
@@ -134,6 +135,7 @@ Core Commands:
   lib          Library CRUD (add/remove/rename/move/deps/export/info/test)
   sol          Presets, toolchains, repo, CI, upgrade-std, doctor
   tui          Terminal UI (interactive wrapper)
+    plugins      List and inspect available `scripts/plugins/` modules
 
 Plugins (scripts/plugins/):
   setup        Check/install project dependencies

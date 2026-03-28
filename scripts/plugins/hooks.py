@@ -7,6 +7,12 @@ Delegates to scripts/setup_hooks.py — no subprocess.
 """
 from __future__ import annotations
 
+PLUGIN_META = {
+    "name": "hooks",
+    "description": "Install git pre-commit hooks for the project.",
+    "args": [],
+}
+
 import sys
 from pathlib import Path
 

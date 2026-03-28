@@ -7,6 +7,15 @@ Delegates to scripts/install_deps.py — no subprocess.
 """
 from __future__ import annotations
 
+PLUGIN_META = {
+    "name": "setup",
+    "description": "Check and optionally install system and Python dependencies for the project.",
+    "args": [
+        {"name": "install", "help": "Run installation of detected missing packages", "type": "flag", "required": False},
+        {"name": "all", "help": "Install all optional dependencies as well", "type": "flag", "required": False},
+    ],
+}
+
 import sys
 from pathlib import Path
 
