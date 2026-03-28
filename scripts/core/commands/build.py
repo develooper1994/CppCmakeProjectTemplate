@@ -63,14 +63,24 @@ def _is_excluded(rel: str) -> bool:
 def _sync_templates() -> int:
     """Copy project files into extension templates directory, excluding dev files.
     Returns number of files copied."""
-    # Ensure a clean templates directory to avoid stale files from previous runs
-    if TEMPLATE_DIR.exists():
-        try:
-            shutil.rmtree(TEMPLATE_DIR)
-        except Exception:
-            pass
+    # Incremental sync: avoid full removal/copy when files haven't changed.
     TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+    expected = set()
     copied = 0
+
+    def _should_copy(src_path: Path, dst_path: Path) -> bool:
+        if not dst_path.exists():
+            return True
+        try:
+            s = src_path.stat()
+            d = dst_path.stat()
+            # If size and mtime match (to second), skip copy
+            if s.st_size == d.st_size and int(s.st_mtime) == int(d.st_mtime):
+                return False
+        except Exception:
+            return True
+        return True
+
     for item in EXT_INCLUDE:
         src = PROJECT_ROOT / item
         if not src.exists():
@@ -81,8 +91,13 @@ def _sync_templates() -> int:
                 continue
             dst = TEMPLATE_DIR / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-            copied += 1
+            expected.add(dst.relative_to(TEMPLATE_DIR).as_posix())
+            if _should_copy(src, dst):
+                try:
+                    shutil.copy2(src, dst)
+                    copied += 1
+                except Exception:
+                    pass
             continue
         # directory
         for f in src.rglob("*"):
@@ -92,8 +107,27 @@ def _sync_templates() -> int:
                     continue
                 dst = TEMPLATE_DIR / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(f, dst)
-                copied += 1
+                expected.add(dst.relative_to(TEMPLATE_DIR).as_posix())
+                if _should_copy(f, dst):
+                    try:
+                        shutil.copy2(f, dst)
+                        copied += 1
+                    except Exception:
+                        pass
+
+    # Remove stale files that are not part of expected set
+    try:
+        for f in TEMPLATE_DIR.rglob("*"):
+            if f.is_file():
+                rel = f.relative_to(TEMPLATE_DIR).as_posix()
+                if rel not in expected:
+                    try:
+                        f.unlink()
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
     Logger.info(f"Synced {copied} template files into {TEMPLATE_DIR}")
     return copied
 
