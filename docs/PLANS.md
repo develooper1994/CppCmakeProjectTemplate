@@ -110,3 +110,20 @@ Progress updates:
 1. **Keep Template Logic Minimal:** Keep template files small; implement complex logic in Python.
 2. **Atomic Operations:** Ensure file mutations support rollback.
 3. **Static Analysis Integration:** Integrate `clang-tidy --fix` into the `check` command to improve quality.
+
+
+---
+
+## **Recent Work (2026-03-28)**
+
+- **Session persistence:** Shared session helpers (`load_session`, `save_session`, `backup_session`) available at `scripts/core/utils/common.py`; both `tool.py` and `tui.py` use the shared `.session.json`.
+- **Verification harness:** Added `scripts/verify_full.py` which automates build, test, extension packaging and library flows; logs to `build_logs/verify.log`.
+- **Cross-platform venv helper & CI:** Added `scripts/setup_python_env.py` and `.github/workflows/create_envs.yml` to create environments on Ubuntu/macOS/Windows.
+- **Extension packaging & release:** Hardened extension packaging flow; ensured `.vsix` packaging works via `vsce`/`npx` and added minimal `build` script in `extension/package.json`. Published a test patch and created tag `v1.03`.
+- **Library tooling improvements:** Refactored `core.libpkg` exports; `tool lib` uses the modular helpers for create/export/remove flows and writes debug logs to `build_logs/`.
+- **Performance micro-optimizations (safe):**
+	- Added a small JSON-read cache and helpers (`json_read_cached`, `json_cache_clear`) in `scripts/core/utils/common.py`.
+	- Replaced repeated `json.loads()` reads for presets and `.fetch_deps.json` with cached readers in `scripts/core/commands/sol.py` and `scripts/core/commands/build.py`.
+	- Implemented an incremental template sync in `scripts/core/commands/build.py` to avoid full remove/copy cycles and skip unchanged files.
+
+All changes were tested via `scripts/verify_full.py` and `ctest` — no syntax or runtime issues were found. See `build_logs/verify.log` for details.
