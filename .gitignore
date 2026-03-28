@@ -58,3 +58,10 @@ scripts/extension/package-lock.json
 build_logs/
 # Python
 __pycache__/
+
+# TUI session
+.tui_session.json
+
+# Extension generated files (copied from repo root during build)
+extension/README.md
+extension/LICENSE

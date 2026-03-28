@@ -9,15 +9,27 @@ with full automation tooling. Do not re-invent things that already exist here.
 
 ## Existing Tooling (USE THESE, don't re-implement)
 
-| Tool | Purpose |
+**Single entry point:** `python3 scripts/tool.py <command> [args]`
+
+| Command | Purpose |
 |---|---|
-| `python3 scripts/toollib.py add <n>` | Create new library skeleton |
-| `python3 scripts/toollib.py remove/rename/move/deps/export/info/test` | Library management |
-| `python3 scripts/toolsolution.py target/preset/toolchain/config/repo/test/upgrade-std` | Project orchestration |
-| `python3 scripts/build.py build/check/clean/deploy/extension` | Build automation |
-| `python3 scripts/install_deps.py` | Dependency management |
-| `cmake --preset <name>` | Build with preset |
-| `ctest --preset <name>` | Run tests |
+| `tool build check` | Configure + build + test + extension sync |
+| `tool build build --preset <n>` | Configure + compile |
+| `tool build clean [--all]` | Remove artifacts |
+| `tool build extension [--install] [--publish]` | Build .vsix |
+| `tool lib add <n> [--header-only\|--interface\|--template X]` | Create library |
+| `tool lib remove/rename/move/deps/export/info/test` | Library management |
+| `tool sol target/preset/toolchain/config/repo/test/upgrade-std/ci/doctor` | Orchestration |
+| `tool sol --lib <toollib args>` | Library ops via sol |
+| `tool tui` | Terminal UI |
+| `tool setup [--install] [--all]` | Dependency management |
+| `tool init --name MyProject` | Rename project |
+| `tool hooks` | Install pre-commit hooks |
+| `cmake --preset <n>` | Direct CMake build |
+| `ctest --preset <n>` | Direct CTest run |
+
+> **Internal modules** (`scripts/build.py`, `scripts/toollib.py`, `scripts/toolsolution.py`)
+> are implementation details. Use `tool.py` for all automation.
 
 ### Available presets (naming: `<compiler>-<type>-<link>-<arch>`)
 - Linux: `gcc-debug-static-x86_64`, `gcc-release-static-x86_64`, `clang-debug-static-x86_64`
@@ -31,8 +43,8 @@ with full automation tooling. Do not re-invent things that already exist here.
 2. **IMPACT** — New target? CMake change? Tests needed? Docs needed? Build impact?
 3. **PLAN** — Choose minimal safe change. Avoid unrelated edits.
 4. **IMPLEMENT** — Complete code only. No placeholders. Respect existing structure.
-5. **INTEGRATE** — Use `toollib.py` for new libs. Update CMake. Link deps. Add tests + README.
-6. **VALIDATE** — `python3 scripts/build.py check --no-sync` must pass.
+5. **INTEGRATE** — Use `tool lib add` for new libs. Update CMake. Link deps. Add tests + README.
+6. **VALIDATE** — `python3 scripts/tool.py build check` must pass.
 7. **OUTPUT** — Full, working result. No partial code.
 
 ## Forbidden Actions
@@ -42,7 +54,8 @@ with full automation tooling. Do not re-invent things that already exist here.
 - Disabling `CMAKE_EXPORT_COMPILE_COMMANDS`
 - Global CMake flags (always target-scoped)
 - Large blind refactors across multiple subsystems
-- Re-implementing what `toollib.py` or `toolsolution.py` already do
+- Re-implementing what `tool lib` or `tool sol` already do
+- Calling `toollib.py`, `toolsolution.py`, `build.py` directly (use `tool.py`)
 
 ## File Structure
 
@@ -52,14 +65,22 @@ libs/          Library targets — each has CMakeLists.txt + README.md + include
 tests/unit/    GoogleTest suites — one subdirectory per library
 cmake/         Build system modules + generated headers
   BuildInfo.cmake        Per-target git/compiler metadata → BuildInfo.h
-  FeatureFlags.cmake     All ENABLE_* options → FeatureFlags.h (dynamic, from PROJECT_ALL_OPTIONS)
+  FeatureFlags.cmake     All ENABLE_* options → FeatureFlags.h (dynamic)
   ProjectInfo.h          Single-include wrapper: BuildInfo + FeatureFlags + BuildInfoHelper
   BuildInfoHelper.h      BUILD_INFO_PRINT_ALL, BUILD_INFO_VERSION_LINE macros
   ProjectExport.cmake    find_package() support for libraries
   toolchains/            arm-none-eabi, linux-x86, template-custom-gnu
-scripts/       Automation scripts (toollib.py, toolsolution.py, build.py, ...)
+scripts/
+  tool.py                ← SINGLE ENTRY POINT
+  core/commands/         build.py, lib.py, sol.py (façades over implementation modules)
+  core/utils/common.py   Logger, CLIResult, GlobalConfig, run_proc
+  plugins/               setup.py, init.py, hooks.py, hello.py
+  build.py               Implementation (not for direct use)
+  toollib.py             Implementation (not for direct use)
+  toolsolution.py        Implementation (not for direct use)
+  tui.py                 Terminal UI (also callable via: tool tui)
 extension/     VS Code extension source and .vsix output
-docs/          PLANS.md (pending features), EMBEDDED.md
+docs/          PLANS.md, EMBEDDED.md
 external/      Third-party FetchContent deps (fetch_deps.cmake)
 ```
 
@@ -67,19 +88,22 @@ external/      Third-party FetchContent deps (fetch_deps.cmake)
 
 ```bash
 # Normal library
-python3 scripts/toollib.py add my_lib --deps core --link-app
+python3 scripts/tool.py lib add my_lib --deps core --link-app
 
 # Header-only
-python3 scripts/toollib.py add math_utils --header-only
+python3 scripts/tool.py lib add math_utils --header-only
 
 # Interface (compile defs / include propagation only)
-python3 scripts/toollib.py add feature_config --interface
+python3 scripts/tool.py lib add feature_config --interface
+
+# Pattern-based scaffold
+python3 scripts/tool.py lib add my_service --template singleton
 
 # With external dep
-python3 scripts/toollib.py deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
+python3 scripts/tool.py lib deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
 
 # Add find_package() support
-python3 scripts/toollib.py export my_lib
+python3 scripts/tool.py lib export my_lib
 ```
 
 ## Compile-time Build Info in C++
@@ -111,7 +135,7 @@ target_generate_build_info(my_lib NAMESPACE my_lib_info PROJECT_VERSION "2.0.0")
 
 ## Agent Status Responsibility
 
-- After completing work: run `python3 scripts/build.py check --no-sync`
+- After completing work: run `python3 scripts/tool.py build check`
 - Update `docs/PLANS.md`: mark completed tasks, add new discovered tasks
-- Check `python3 scripts/toolsolution.py doctor` passes
-- Check `python3 scripts/toollib.py doctor` passes
+- Check `python3 scripts/tool.py sol doctor` passes
+- Check `python3 scripts/tool.py lib doctor` passes

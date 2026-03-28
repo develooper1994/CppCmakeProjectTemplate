@@ -2,23 +2,29 @@
 """
 tui.py — Terminal User Interface for CppCmakeProjectTemplate tooling.
 
-Requires: pip install textual
+Requires: pip3 install textual --break-system-packages
 
 Usage:
-    python3 scripts/tui.py
+    python3 scripts/tui.py [--preset <preset>]
+    # or via tool dispatcher:
+    python3 scripts/tool.py tui [--preset <preset>]
 
-Provides a full-screen TUI that wraps:
-  - toollib.py  (library management)
-  - toolsolution.py (project orchestration)
-  - build.py (build / check / clean)
-All operations run CLI tools in a terminal panel — GUI is pure wrapper.
+Priority order for preset value:
+    interactive (widget change) > --preset CLI arg > session file > default
+
+Session is persisted to .tui_session.json in project root.
+All operations use DIRECT IMPORTS — no subprocess calls between Python modules.
 """
 
 from __future__ import annotations
 
-import subprocess
+import argparse
+import contextlib
+import io
+import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 try:
     from textual.app import App, ComposeResult
@@ -26,27 +32,31 @@ try:
     from textual.containers import Horizontal, Vertical, ScrollableContainer
     from textual.screen import Screen
     from textual.widgets import (
-        Button, Footer, Header, Input, Label, ListItem,
-        ListView, Log, Pretty, Select, Static, TabbedContent, TabPane,
+        Button, Footer, Header, Input, Label,
+        Select, Static, TabbedContent, TabPane,
     )
-    from textual.reactive import reactive
 except ImportError:
     print("Textual not installed. Run: pip3 install textual --break-system-packages")
     sys.exit(1)
 
-PROJECT_ROOT  = Path(__file__).resolve().parent.parent
-TOOLLIB       = Path(__file__).resolve().parent / "toollib.py"
-TOOLSOLUTION  = Path(__file__).resolve().parent / "toolsolution.py"
-BUILD         = Path(__file__).resolve().parent / "build.py"
-PYTHON        = sys.executable
-SESSION_FILE  = PROJECT_ROOT / ".tui_session.json"
+# ── Path bootstrap ────────────────────────────────────────────────────────────
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+import build     as _build    # scripts/build.py
+import toollib   as _lib      # scripts/toollib.py
+import toolsolution as _sol   # scripts/toolsolution.py
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SESSION_FILE = PROJECT_ROOT / ".tui_session.json"
+_DEFAULT_PRESET = "gcc-debug-static-x86_64"
 
 
-# ── Session / priority helpers ────────────────────────────────────────────────
-# Priority: interactive (GUI) > cli args > session file
+# ── Session helpers ───────────────────────────────────────────────────────────
+# Priority: interactive (widget change) > CLI --preset arg > session file > default
 
 def _load_session() -> dict:
-    """Load persisted session values (lowest priority)."""
     if SESSION_FILE.exists():
         try:
             return json.loads(SESSION_FILE.read_text(encoding="utf-8"))
@@ -56,49 +66,56 @@ def _load_session() -> dict:
 
 
 def _save_session(data: dict) -> None:
-    """Persist current session values."""
     try:
+        existing = _load_session()
+        existing.update(data)
         SESSION_FILE.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False),
+            json.dumps(existing, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
     except Exception:
         pass
 
 
-def _resolve_preset(cli_arg: str | None, interactive: str | None) -> str:
-    """Resolve preset with priority: interactive > cli_arg > session > default."""
-    if interactive and interactive != Select.NULL:
-        return str(interactive)
+def _initial_preset(cli_arg: str | None) -> str:
+    """Resolve initial preset: CLI arg > session > default."""
     if cli_arg:
         return cli_arg
-    session = _load_session()
-    if session.get("last_preset"):
-        return session["last_preset"]
-    return "gcc-debug-static-x86_64"
+    return _load_session().get("last_preset", _DEFAULT_PRESET)
 
 
-def run_tool(cmd: list[str]) -> str:
-    """Run a tool subprocess and return combined stdout+stderr."""
-    try:
-        result = subprocess.run(
-            cmd, cwd=PROJECT_ROOT,
-            capture_output=True, text=True, timeout=120,
-        )
-        out = result.stdout + result.stderr
-        return out.strip() if out.strip() else "(no output)"
-    except subprocess.TimeoutExpired:
-        return "❌ Timed out after 120s"
-    except Exception as e:
-        return f"❌ Error: {e}"
+# ── Direct-call helpers (no subprocess) ──────────────────────────────────────
+
+def _capture(fn, *args, **kwargs) -> str:
+    """Call fn(*args, **kwargs), capture stdout+stderr, return as string."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        try:
+            fn(*args, **kwargs)
+        except SystemExit:
+            pass
+        except Exception as e:
+            buf.write(f"\n❌ Exception: {e}\n")
+    out = buf.getvalue().strip()
+    # Strip ANSI codes for clean TUI display
+    import re
+    out = re.sub(r'\x1b\[[0-9;]*m', '', out)
+    return out if out else "(no output)"
 
 
-# ── Screens ───────────────────────────────────────────────────────────────────
+def _ns(**kwargs) -> SimpleNamespace:
+    """Build a SimpleNamespace (argparse.Namespace substitute)."""
+    ns = SimpleNamespace()
+    for k, v in kwargs.items():
+        setattr(ns, k, v)
+    return ns
+
+
+# ── Output screen ─────────────────────────────────────────────────────────────
 
 class OutputScreen(Screen):
-    """Full-screen output viewer for long commands."""
-
-    BINDINGS = [Binding("escape,q", "app.pop_screen", "Back")]
+    BINDINGS = [Binding("escape", "app.pop_screen", "Back"),
+                Binding("q",      "app.pop_screen", "Back")]
 
     def __init__(self, title: str, output: str) -> None:
         super().__init__()
@@ -107,7 +124,7 @@ class OutputScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield ScrollableContainer(Static(self._output, id="output"))
+        yield ScrollableContainer(Static(self._output, id="out"))
         yield Footer()
 
     def on_mount(self) -> None:
@@ -117,329 +134,303 @@ class OutputScreen(Screen):
 # ── Main App ──────────────────────────────────────────────────────────────────
 
 class CppTemplateTUI(App):
-    """CppCmakeProjectTemplate — Terminal UI"""
+    """CppCmakeProjectTemplate TUI — direct imports, no subprocess."""
 
     CSS = """
-    Screen {
-        background: $surface;
-    }
-    #sidebar {
-        width: 28;
-        border-right: solid $primary;
-        padding: 1;
-    }
-    #sidebar Button {
-        width: 100%;
-        margin-bottom: 1;
-    }
-    #main {
-        padding: 1 2;
-    }
+    Screen { background: $surface; }
+    #main  { padding: 1 2; }
     #result {
         border: solid $primary;
         height: 1fr;
         padding: 1;
         overflow-y: scroll;
     }
-    .section-title {
-        color: $accent;
-        text-style: bold;
-        margin-bottom: 1;
-    }
-    .row {
-        height: auto;
-        margin-bottom: 1;
-    }
-    Input {
-        margin-bottom: 1;
-    }
-    Select {
-        margin-bottom: 1;
-    }
-    #status-bar {
-        height: 1;
-        background: $primary;
-        color: $background;
-        padding: 0 1;
-    }
+    .section-title { color: $accent; text-style: bold; margin-bottom: 1; }
+    .row  { height: auto; margin-bottom: 1; }
+    Input  { margin-bottom: 1; }
+    Select { margin-bottom: 1; }
     """
 
     BINDINGS = [
-        Binding("q", "quit", "Quit"),
-        Binding("ctrl+l", "clear_output", "Clear output"),
+        Binding("q",      "quit",         "Quit"),
+        Binding("ctrl+l", "clear_output", "Clear"),
     ]
 
-    TITLE = "CppCmakeProjectTemplate TUI"
-    SUB_TITLE = "All operations delegate to CLI tools"
+    TITLE     = "CppCmakeProjectTemplate TUI"
+    SUB_TITLE = "interactive > cli args > session"
+
+    def __init__(self, initial_preset: str = _DEFAULT_PRESET) -> None:
+        super().__init__()
+        self._initial_preset = initial_preset
+
+    # ── Layout ────────────────────────────────────────────────────────────────
 
     def compose(self) -> ComposeResult:
         yield Header()
         with TabbedContent():
 
-            # ── Build tab ────────────────────────────────────────────────────
+            # Build tab
             with TabPane("🔨 Build", id="tab-build"):
                 with Vertical(id="main"):
                     yield Label("Build Operations", classes="section-title")
+                    yield Select(
+                        options=[
+                            ("gcc-debug-static-x86_64",     "gcc-debug-static-x86_64"),
+                            ("gcc-release-static-x86_64",   "gcc-release-static-x86_64"),
+                            ("clang-debug-static-x86_64",   "clang-debug-static-x86_64"),
+                            ("clang-release-static-x86_64", "clang-release-static-x86_64"),
+                            ("msvc-debug-static-x64",       "msvc-debug-static-x64"),
+                            ("msvc-release-static-x64",     "msvc-release-static-x64"),
+                        ],
+                        allow_blank=False,
+                        id="build-preset",
+                    )
                     with Horizontal(classes="row"):
-                        yield Select(
-                            options=[
-                                ("gcc-debug-static-x86_64",   "gcc-debug-static-x86_64"),
-                                ("gcc-release-static-x86_64", "gcc-release-static-x86_64"),
-                                ("clang-debug-static-x86_64", "clang-debug-static-x86_64"),
-                                ("clang-release-static-x86_64", "clang-release-static-x86_64"),
-                                ("msvc-debug-static-x64",     "msvc-debug-static-x64"),
-                                ("msvc-release-static-x64",   "msvc-release-static-x64"),
-                            ],
-                            allow_blank=False,
-                            id="build-preset",
-                        )
-                    with Horizontal(classes="row"):
-                        yield Button("▶ Build",        id="btn-build",     variant="primary")
-                        yield Button("✔ Check",        id="btn-check",     variant="success")
-                        yield Button("🗑 Clean",        id="btn-clean")
-                        yield Button("🗑 Clean All",   id="btn-clean-all")
-                        yield Button("📦 Extension",   id="btn-extension")
+                        yield Button("▶ Build",      id="btn-build",     variant="primary")
+                        yield Button("✔ Check",      id="btn-check",     variant="success")
+                        yield Button("🗑 Clean",     id="btn-clean")
+                        yield Button("🗑 Clean All", id="btn-clean-all")
+                        yield Button("📦 Extension", id="btn-extension")
                     yield Static("", id="result")
 
-            # ── Libraries tab ────────────────────────────────────────────────
+            # Libraries tab
             with TabPane("📚 Libraries", id="tab-libs"):
                 with Vertical(id="main"):
                     yield Label("Library Management", classes="section-title")
-
                     with Horizontal(classes="row"):
-                        yield Button("📋 List",   id="btn-lib-list",   variant="default")
-                        yield Button("🌳 Tree",   id="btn-lib-tree",   variant="default")
+                        yield Button("📋 List",   id="btn-lib-list")
+                        yield Button("🌳 Tree",   id="btn-lib-tree")
                         yield Button("🩺 Doctor", id="btn-lib-doctor", variant="warning")
 
                     yield Label("Add Library:")
-                    yield Input(placeholder="library name (lowercase_underscore)", id="lib-name")
+                    yield Input(placeholder="name (lowercase_underscore)", id="lib-name")
                     with Horizontal(classes="row"):
                         yield Select(
-                            options=[
-                                ("Normal",      "normal"),
-                                ("Header-only", "header-only"),
-                                ("Interface",   "interface"),
-                            ],
-                            id="lib-type",
-                            allow_blank=False,
+                            options=[("Normal","normal"),("Header-only","header-only"),
+                                     ("Interface","interface")],
+                            allow_blank=False, id="lib-type",
                         )
                         yield Select(
-                            options=[
-                                ("No template", ""),
-                                ("Singleton",   "singleton"),
-                                ("Pimpl",       "pimpl"),
-                                ("Observer",    "observer"),
-                                ("Factory",     "factory"),
-                            ],
-                            id="lib-template",
-                            allow_blank=False,
+                            options=[("No template",""),("Singleton","singleton"),
+                                     ("Pimpl","pimpl"),("Observer","observer"),("Factory","factory")],
+                            allow_blank=False, id="lib-template",
                         )
                     yield Input(placeholder="deps (comma-separated, optional)", id="lib-deps")
                     with Horizontal(classes="row"):
-                        yield Button("➕ Add",      id="btn-lib-add",      variant="primary")
-                        yield Button("🔍 Dry-run",  id="btn-lib-dry",      variant="default")
+                        yield Button("➕ Add",     id="btn-lib-add",    variant="primary")
+                        yield Button("🔍 Dry-run", id="btn-lib-dry")
 
                     yield Label("Remove Library:")
                     yield Input(placeholder="library name to remove", id="lib-remove-name")
                     with Horizontal(classes="row"):
-                        yield Button("🗑 Remove (detach)", id="btn-lib-remove")
+                        yield Button("🗑 Remove (detach)",  id="btn-lib-remove")
                         yield Button("💥 Remove + Delete", id="btn-lib-delete", variant="error")
 
                     yield Label("Export (find_package support):")
                     yield Input(placeholder="library name", id="lib-export-name")
                     yield Button("📤 Export", id="btn-lib-export", variant="success")
-
                     yield Static("", id="result")
 
-            # ── Project tab ──────────────────────────────────────────────────
+            # Project tab
             with TabPane("⚙ Project", id="tab-project"):
                 with Vertical(id="main"):
                     yield Label("Project Orchestration", classes="section-title")
-
                     with Horizontal(classes="row"):
-                        yield Button("📋 Target list", id="btn-target-list")
-                        yield Button("📋 Preset list", id="btn-preset-list")
-                        yield Button("🔧 Toolchain list", id="btn-tc-list")
-                        yield Button("🌐 Repo list", id="btn-repo-list")
-                        yield Button("📊 Versions", id="btn-repo-versions")
+                        yield Button("📋 Targets",    id="btn-target-list")
+                        yield Button("📋 Presets",    id="btn-preset-list")
+                        yield Button("🔧 Toolchains", id="btn-tc-list")
+                        yield Button("🌐 Repo",       id="btn-repo-list")
+                        yield Button("📊 Versions",   id="btn-repo-versions")
 
                     yield Label("C++ Standard (solution-wide):")
                     with Horizontal(classes="row"):
                         yield Select(
-                            options=[("C++11", "11"), ("C++14", "14"), ("C++17", "17"), ("C++20", "20"), ("C++23", "23"), ("C++26", "26")],
-                            allow_blank=False,
-                            id="std-select",
+                            options=[("C++14","14"),("C++17","17"),
+                                     ("C++20","20"),("C++23","23")],
+                            allow_blank=False, id="std-select",
                         )
                         yield Button("⬆ Upgrade Std", id="btn-upgrade-std", variant="primary")
 
-                    yield Label("Config key/value:")
+                    yield Label("Config key / value:")
                     with Horizontal(classes="row"):
                         yield Input(placeholder="key (e.g. ENABLE_ASAN)", id="cfg-key")
-                        yield Input(placeholder="value (e.g. ON)", id="cfg-val")
+                        yield Input(placeholder="value (e.g. ON)",        id="cfg-val")
                         yield Button("Set", id="btn-cfg-set", variant="primary")
 
                     with Horizontal(classes="row"):
-                        yield Button("🩺 Solution Doctor", id="btn-sol-doctor", variant="warning")
-                        yield Button("🚀 CI (current preset)", id="btn-ci",    variant="success")
-
+                        yield Button("🩺 Doctor", id="btn-sol-doctor", variant="warning")
+                        yield Button("🚀 CI",     id="btn-ci",         variant="success")
                     yield Static("", id="result")
 
-            # ── Info tab ─────────────────────────────────────────────────────
+            # Info tab
             with TabPane("ℹ Info", id="tab-info"):
                 with Vertical(id="main"):
-                    yield Label("Quick Info", classes="section-title")
+                    yield Label("Library Info & Tests", classes="section-title")
                     yield Input(placeholder="library name", id="info-lib-name")
                     with Horizontal(classes="row"):
-                        yield Button("🔍 Info",  id="btn-info-lib")
-                        yield Button("▶ Run Tests", id="btn-info-test", variant="success")
+                        yield Button("🔍 Info",       id="btn-info-lib")
+                        yield Button("▶ Run Tests",   id="btn-info-test", variant="success")
                     yield Static("", id="result")
 
         yield Footer()
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
+    # ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    def _show(self, output: str, title: str = "Output") -> None:
-        """Show output inline or push an output screen for long results."""
-        tab = self.focused
-        # Try to update inline Static
+    def on_mount(self) -> None:
         try:
-            result_widget = self.query_one("#result", Static)
-            result_widget.update(output)
+            sel   = self.query_one("#build-preset", Select)
+            valid = [v for _, v in sel._options]  # type: ignore[attr-defined]
+            if self._initial_preset in valid:
+                sel.value = self._initial_preset
         except Exception:
             pass
-        if len(output) > 1500:
-            self.push_screen(OutputScreen(title, output))
 
-    def _lib_name(self) -> str:
-        try:
-            return self.query_one("#lib-name", Input).value.strip()
-        except Exception:
-            return ""
+    # ── Session save on interactive change (highest priority) ─────────────────
 
-    def _build_preset(self) -> str:
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "build-preset" and event.value is not Select.NULL:
+            _save_session({"last_preset": str(event.value)})
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _preset(self) -> str:
         try:
             v = self.query_one("#build-preset", Select).value
-            return str(v) if v is not Select.NULL else "gcc-debug-static-x86_64"
+            if v is not Select.NULL:
+                return str(v)
         except Exception:
-            return "gcc-debug-static-x86_64"
+            pass
+        return self._initial_preset
 
-    # ── Button handlers ───────────────────────────────────────────────────────
+    def _show(self, output: str, title: str = "Output") -> None:
+        try:
+            self.query_one("#result", Static).update(output)
+        except Exception:
+            pass
+        if len(output) > 2000:
+            self.push_screen(OutputScreen(title, output))
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        bid = event.button.id
+    # ── Button handlers (all use direct imports) ───────────────────────────────
 
-        # Build tab
+    def on_button_pressed(self, event: Button.Pressed) -> None:  # noqa: C901
+        bid    = event.button.id
+        preset = self._preset()
+
+        # ── Build tab ─────────────────────────────────────────────────────────
         if bid == "btn-build":
-            preset = self._build_preset()
-            self._show(run_tool([PYTHON, str(BUILD), "build", "--preset", preset]), "Build")
+            out = _capture(_build.cmd_build,
+                           _ns(preset=preset))
+            self._show(out, "Build")
+
         elif bid == "btn-check":
-            preset = self._build_preset()
-            self._show(run_tool([PYTHON, str(BUILD), "check", "--no-sync", "--preset", preset]), "Check")
+            out = _capture(_build.cmd_check,
+                           _ns(preset=preset, no_sync=True))
+            self._show(out, "Check")
+
         elif bid == "btn-clean":
-            self._show(run_tool([PYTHON, str(BUILD), "clean"]), "Clean")
+            out = _capture(_build.cmd_clean, _ns(targets=[], all=False))
+            self._show(out, "Clean")
+
         elif bid == "btn-clean-all":
-            self._show(run_tool([PYTHON, str(BUILD), "clean", "--all"]), "Clean All")
+            out = _capture(_build.cmd_clean, _ns(targets=[], all=True))
+            self._show(out, "Clean All")
+
         elif bid == "btn-extension":
-            self._show(run_tool([PYTHON, str(BUILD), "extension"]), "Extension")
+            out = _capture(_build.cmd_extension,
+                           _ns(install=False, publish=False))
+            self._show(out, "Extension")
 
-        # Libs tab — inspect
+        # ── Libraries — inspect ───────────────────────────────────────────────
         elif bid == "btn-lib-list":
-            self._show(run_tool([PYTHON, str(TOOLLIB), "list"]), "Libraries")
+            self._show(_capture(_lib.cmd_list,   _ns()), "Libraries")
         elif bid == "btn-lib-tree":
-            self._show(run_tool([PYTHON, str(TOOLLIB), "tree"]), "Dependency Tree")
+            self._show(_capture(_lib.cmd_tree,   _ns()), "Dep Tree")
         elif bid == "btn-lib-doctor":
-            self._show(run_tool([PYTHON, str(TOOLLIB), "doctor"]), "Doctor")
+            self._show(_capture(_lib.cmd_doctor, _ns()), "Doctor")
 
-        # Libs tab — add
+        # ── Libraries — add ───────────────────────────────────────────────────
         elif bid in ("btn-lib-add", "btn-lib-dry"):
-            name = self._lib_name()
+            name = self.query_one("#lib-name", Input).value.strip()
             if not name:
                 self._show("⚠ Enter a library name first."); return
-            lib_type_w = self.query_one("#lib-type", Select)
-            template_w = self.query_one("#lib-template", Select)
-            deps_w     = self.query_one("#lib-deps", Input)
-            cmd = [PYTHON, str(TOOLLIB), "add", name]
-            lib_type = lib_type_w.value
-            if lib_type == "header-only":
-                cmd.append("--header-only")
-            elif lib_type == "interface":
-                cmd.append("--interface")
-            tmpl = template_w.value
-            if tmpl:
-                cmd += ["--template", tmpl]
-            deps = deps_w.value.strip()
-            if deps:
-                cmd += ["--deps", deps]
-            if bid == "btn-lib-dry":
-                cmd.append("--dry-run")
-            self._show(run_tool(cmd), f"Add {name}")
+            lib_type = self.query_one("#lib-type", Select).value
+            tmpl     = self.query_one("#lib-template", Select).value
+            deps     = self.query_one("#lib-deps", Input).value.strip()
+            dry      = (bid == "btn-lib-dry")
+            ns = _ns(
+                name=name,
+                version="1.0.0",
+                namespace=name,
+                deps=deps,
+                cxx_standard="",
+                link_app=False,
+                dry_run=dry,
+                header_only=(lib_type == "header-only"),
+                interface=(lib_type == "interface"),
+                template=tmpl or "",
+            )
+            self._show(_capture(_lib.cmd_add, ns), f"Add {name}")
 
-        # Libs tab — remove
+        # ── Libraries — remove ────────────────────────────────────────────────
         elif bid in ("btn-lib-remove", "btn-lib-delete"):
-            try:
-                name = self.query_one("#lib-remove-name", Input).value.strip()
-            except Exception:
-                name = ""
+            name = self.query_one("#lib-remove-name", Input).value.strip()
             if not name:
                 self._show("⚠ Enter a library name first."); return
-            cmd = [PYTHON, str(TOOLLIB), "remove", name]
-            if bid == "btn-lib-delete":
-                cmd.append("--delete")
-            self._show(run_tool(cmd), f"Remove {name}")
+            self._show(_capture(_lib.cmd_remove,
+                                _ns(name=name, delete=(bid=="btn-lib-delete"), dry_run=False)),
+                       f"Remove {name}")
 
-        # Libs tab — export
+        # ── Libraries — export ────────────────────────────────────────────────
         elif bid == "btn-lib-export":
-            try:
-                name = self.query_one("#lib-export-name", Input).value.strip()
-            except Exception:
-                name = ""
+            name = self.query_one("#lib-export-name", Input).value.strip()
             if not name:
                 self._show("⚠ Enter a library name first."); return
-            self._show(run_tool([PYTHON, str(TOOLLIB), "export", name]), f"Export {name}")
+            self._show(_capture(_lib.cmd_export, _ns(name=name, dry_run=False)),
+                       f"Export {name}")
 
-        # Project tab
+        # ── Project tab ───────────────────────────────────────────────────────
         elif bid == "btn-target-list":
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "target", "list"]), "Targets")
+            self._show(_capture(_sol.cmd_target_list, _ns()), "Targets")
         elif bid == "btn-preset-list":
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "preset", "list"]), "Presets")
+            self._show(_capture(_sol.cmd_preset_list, _ns()), "Presets")
         elif bid == "btn-tc-list":
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "toolchain", "list"]), "Toolchains")
+            self._show(_capture(_sol.cmd_toolchain_list, _ns()), "Toolchains")
         elif bid == "btn-repo-list":
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "repo", "list"]), "Repos")
+            self._show(_capture(_sol.cmd_repo_list, _ns()), "Repos")
         elif bid == "btn-repo-versions":
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "repo", "versions"]), "Versions")
+            self._show(_capture(_sol.cmd_repo_versions, _ns()), "Versions")
         elif bid == "btn-upgrade-std":
-            std = self.query_one("#std-select", Select).value
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "upgrade-std", "--std", std, "--dry-run"]), f"Upgrade C++{std}")
+            std = str(self.query_one("#std-select", Select).value)
+            self._show(_capture(_sol.cmd_upgrade_std,
+                                _ns(std=std, target=None, dry_run=True)),
+                       f"Upgrade C++{std}")
         elif bid == "btn-cfg-set":
             key = self.query_one("#cfg-key", Input).value.strip()
             val = self.query_one("#cfg-val", Input).value.strip()
             if not key or not val:
                 self._show("⚠ Enter key and value."); return
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "config", "set", key, val]), "Config Set")
+            self._show(_capture(_sol.cmd_config_set, _ns(key=key, value=val)), "Config")
         elif bid == "btn-sol-doctor":
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "doctor"]), "Doctor")
+            self._show(_capture(_sol.cmd_doctor, _ns()), "Doctor")
         elif bid == "btn-ci":
-            preset = self._build_preset()
-            self._show(run_tool([PYTHON, str(TOOLSOLUTION), "ci", "--preset-filter", preset.split("-")[0]]), "CI")
+            filt = preset.split("-")[0]
+            self._show(_capture(_sol.cmd_ci,
+                                _ns(preset_filter=filt, fail_fast=False)),
+                       "CI")
 
-        # Info tab
+        # ── Info tab ─────────────────────────────────────────────────────────
         elif bid == "btn-info-lib":
-            try:
-                name = self.query_one("#info-lib-name", Input).value.strip()
-            except Exception:
-                name = ""
+            name = self.query_one("#info-lib-name", Input).value.strip()
             if not name:
                 self._show("⚠ Enter a library name."); return
-            self._show(run_tool([PYTHON, str(TOOLLIB), "info", name]), f"Info: {name}")
+            self._show(_capture(_lib.cmd_info, _ns(name=name)), f"Info: {name}")
+
         elif bid == "btn-info-test":
-            try:
-                name = self.query_one("#info-lib-name", Input).value.strip()
-            except Exception:
-                name = ""
+            name = self.query_one("#info-lib-name", Input).value.strip()
             if not name:
                 self._show("⚠ Enter a library name."); return
-            self._show(run_tool([PYTHON, str(TOOLLIB), "test", name]), f"Test: {name}")
+            self._show(_capture(_lib.cmd_test, _ns(name=name, preset=preset)),
+                       f"Test: {name}")
 
     def action_clear_output(self) -> None:
         try:
@@ -448,9 +439,20 @@ class CppTemplateTUI(App):
             pass
 
 
-def main() -> None:
-    app = CppTemplateTUI()
-    app.run()
+# ── CLI entry point ───────────────────────────────────────────────────────────
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        prog="tui",
+        description="Terminal UI (interactive > cli > session > default)",
+    )
+    parser.add_argument(
+        "--preset", default=None,
+        help="Initial build preset (overrides session, overridden by interactive selection)",
+    )
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    initial = _initial_preset(args.preset)
+    CppTemplateTUI(initial_preset=initial).run()
 
 
 if __name__ == "__main__":
