@@ -14,6 +14,17 @@ This document lists the project's current capabilities, governance policies, and
 - **Standardized Results:** Commands return a `CLIResult` and support `--json` for automation.
 - **Clean Environment:** Legacy scripts consolidated into a single professional interface.
 
+### Recent Additions
+
+- **Shared Session Persistence:** `scripts/core/utils/common.py` now provides `load_session()`, `save_session()`, and `backup_session()` used by both `tool.py` and `tui.py` via a shared `.session.json` file.
+- **Verification Harness:** `scripts/verify_full.py` automates build/test/extension and library flows and logs results to `build_logs/verify.log` for reproducible verification.
+- **Python Environment Automation:** `scripts/setup_python_env.py` creates cross-platform virtual environments (`--recreate`, `--install`) and a CI workflow `.github/workflows/create_envs.yml` creates envs on Ubuntu/macOS/Windows.
+- **Extension Packaging Hardened:** Extension build flow hardened; `extension/package.json` includes a minimal `build` script and the packaging step reliably produces a `.vsix` under `extension/`.
+- **Versioning & Release:** Project version synchronized (bumped) and tag `v1.03` created and pushed; packaging and release steps were exercised in the verification run.
+- **Library Packaging Helpers:** `core.libpkg` refactored to a modular helper surface; `tool lib` commands use these helpers for create/export/remove flows.
+- **Cleanup & Consolidation:** Legacy shim files removed or consolidated under `scripts/core/`; helpful debug logs added under `build_logs/`.
+- **Logging & Performance:** Logger I/O path optimized and small helper functions cached to reduce repeated file reads.
+
 ### Build System
 
 - **Modern CMake (3.25+):** Target-based structure with no global flags.
