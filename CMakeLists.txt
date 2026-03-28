@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.25)
 # Project Information
 # -----------------------------------------------------------------------------
 project(CppCmakeProjectTemplate
-    VERSION 1.03
+    VERSION 1.0.3
     DESCRIPTION "Professional Modern C++ / CMake Project Template"
     LANGUAGES CXX
 )
