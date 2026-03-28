@@ -62,6 +62,13 @@ This document lists the project's current capabilities, governance policies, and
 - **Bootstrap (`tool setup`):** Automated installation of dependencies and Python environment.
 - **Rollback & Recovery:** Add state rollback for failed file operations.
 
+Progress updates:
+
+- **Jinja2 Migration:** Planned — migration to Jinja2 templates is scoped and scheduled; work not yet started.
+- **Packaging:** In-progress — extension packaging hardened and `.vsix` produced; next step is packaging the `tool` CLI as a pip-installable package and publishing to PyPI.
+- **Bootstrap (`tool setup`):** Done — added `scripts/setup_python_env.py` (cross-platform venv creation) and CI workflow `.github/workflows/create_envs.yml` to create environments on Ubuntu/macOS/Windows.
+- **Rollback & Recovery:** Partial — added `backup_session()` and safer session persistence; further atomic rollback for file mutations is planned.
+
 ### Phase 3: Test Strategy & Structured CI
 
 - **Comprehensive Testing:** Unit and fixture tests for CLI tooling.
