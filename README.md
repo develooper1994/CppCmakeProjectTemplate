@@ -425,7 +425,7 @@ python3 scripts/tool.py hello --name Mustafa
 python3 scripts/tool.py plugins hello --name Mustafa
 ```
 
-The TUI (`python3 scripts/tui.py` or `python3 scripts/tool.py tui`) will automatically discover plugins and render typed input widgets from `PLUGIN_META` (string/int -> text input, flag/bool -> checkbox).
+The TUI (`python3 scripts/tui.py`, `python3 -m scripts.tui`, or `python3 scripts/tool.py tui`) will automatically discover plugins and render typed input widgets from `PLUGIN_META` (string/int -> text input, flag/bool -> checkbox).
 
 If a plugin does not provide `PLUGIN_META`, the TUI will show a fallback free-text args field.
 
@@ -643,8 +643,11 @@ A full-screen terminal UI wrapping all tooling:
 # Install textual (one-time)
 pip3 install textual --break-system-packages
 
-# Launch TUI
+# Launch TUI (choose one)
 python3 scripts/tui.py
+python3 -m scripts.tui
+# or via dispatcher
+python3 scripts/tool.py tui
 ```
 
 Tabs: 🔨 Build / 📚 Libraries / ⚙ Project / ℹ Info — all operations delegate to CLI tools.
@@ -709,7 +712,7 @@ def main(argv):
 
 TUI Integration
 
-- Launch the TUI: `python3 scripts/tui.py` or `python3 scripts/tool.py tui`.
+- Launch the TUI: `python3 scripts/tui.py`, `python3 -m scripts.tui`, or `python3 scripts/tool.py tui`.
 - Plugins tab: the TUI calls `tool plugins list` and `tool plugins describe` to build a
     discoverable list, shows plugin descriptions, and provides quick-run buttons so you can
     invoke any plugin with a single keypress.
@@ -720,7 +723,7 @@ Example run:
 python3 scripts/tool.py plugins list
 python3 scripts/tool.py plugins describe hello --json
 python3 scripts/tool.py hello --name Mustafa
-# or via TUI: python3 scripts/tui.py -> Plugins -> select 'hello' -> Run Plugin
+# or via TUI: python3 scripts/tui.py (or python3 -m scripts.tui) -> Plugins -> select 'hello' -> Run Plugin
 ```
 
 Notes
