@@ -54,8 +54,13 @@ def _is_excluded(rel: str) -> bool:
 def _sync_templates() -> int:
     """Copy project files into extension templates directory, excluding dev files.
     Returns number of files copied."""
-    if not TEMPLATE_DIR.exists():
-        TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+    # Ensure a clean templates directory to avoid stale files from previous runs
+    if TEMPLATE_DIR.exists():
+        try:
+            shutil.rmtree(TEMPLATE_DIR)
+        except Exception:
+            pass
+    TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
     copied = 0
     for item in EXT_INCLUDE:
         src = PROJECT_ROOT / item
@@ -181,27 +186,65 @@ def _impl_cmd_extension(args) -> None:
         _sync_license()
     except Exception:
         Logger.warn("Template/version/license sync encountered an error (continuing)")
-    # npm build (best-effort)
-    if shutil.which("npm"):
+    # npm build (best-effort) — be tolerant if no `build` script exists
+    pkg_json = ext_dir / "package.json"
+    pkg_data = {}
+    if pkg_json.exists():
+        try:
+            pkg_data = json.loads(pkg_json.read_text(encoding="utf-8"))
+        except Exception:
+            pkg_data = {}
+
+    if pkg_json.exists() and shutil.which("npm"):
         try:
             run_proc(["npm", "ci"], cwd=ext_dir)
         except SystemExit:
             Logger.warn("npm ci failed (continuing)")
-        try:
-            run_proc(["npm", "run", "build"], cwd=ext_dir)
-        except SystemExit:
-            Logger.warn("npm run build failed (continuing)")
-    # package with vsce if available
+        scripts = pkg_data.get("scripts", {}) if isinstance(pkg_data, dict) else {}
+        if "build" in scripts:
+            try:
+                run_proc(["npm", "run", "build"], cwd=ext_dir)
+            except SystemExit:
+                Logger.warn("npm run build failed (continuing)")
+        else:
+            Logger.info("No npm build script defined; skipping `npm run build`.")
+
+    # Packaging: prefer system `vsce`, fallback to `npx vsce`, else skip
+    packaged = False
     if shutil.which("vsce"):
-        run_proc(["vsce", "package"], cwd=ext_dir)
+        try:
+            run_proc(["vsce", "package"], cwd=ext_dir)
+            packaged = True
+        except SystemExit:
+            Logger.warn("vsce packaging failed (continuing)")
+    elif shutil.which("npx"):
+        try:
+            run_proc(["npx", "vsce", "package", "--out", str(ext_dir)], cwd=ext_dir)
+            packaged = True
+        except SystemExit:
+            Logger.warn("npx vsce package failed (continuing)")
+    else:
+        Logger.warn("vsce not found and npx not available; skipping .vsix packaging")
+
+    if packaged:
         if getattr(args, "install", False):
             vsixs = list(ext_dir.glob("*.vsix"))
             if vsixs and shutil.which("code"):
-                run_proc(["code", "--install-extension", str(vsixs[0])], cwd=ext_dir)
+                try:
+                    run_proc(["code", "--install-extension", str(vsixs[0])], cwd=ext_dir)
+                except SystemExit:
+                    Logger.warn("code install-extension failed (continuing)")
         if getattr(args, "publish", False):
-            run_proc(["vsce", "publish"], cwd=ext_dir)
-    else:
-        Logger.warn("vsce not found; skipping .vsix packaging")
+            if shutil.which("vsce"):
+                try:
+                    run_proc(["vsce", "publish"], cwd=ext_dir)
+                except SystemExit:
+                    Logger.warn("vsce publish failed (continuing)")
+            elif shutil.which("npx"):
+                try:
+                    run_proc(["npx", "vsce", "publish"], cwd=ext_dir)
+                except SystemExit:
+                    Logger.warn("npx vsce publish failed (continuing)")
 
 
 # ── Facade wrappers that return CLIResult ────────────────────────────────────

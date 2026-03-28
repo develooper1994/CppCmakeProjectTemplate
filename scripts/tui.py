@@ -44,38 +44,17 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-import build     as _build    # scripts/build.py
-import toollib   as _lib      # scripts/toollib.py
-import toolsolution as _sol   # scripts/toolsolution.py
+from core.commands import build as _build
+from core.commands import lib as _lib
+from core.commands import sol as _sol
+from core.utils.common import load_session as _load_session, save_session as _save_session
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SESSION_FILE = PROJECT_ROOT / ".tui_session.json"
 _DEFAULT_PRESET = "gcc-debug-static-x86_64"
 
 
 # ── Session helpers ───────────────────────────────────────────────────────────
 # Priority: interactive (widget change) > CLI --preset arg > session file > default
-
-def _load_session() -> dict:
-    if SESSION_FILE.exists():
-        try:
-            return json.loads(SESSION_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return {}
-
-
-def _save_session(data: dict) -> None:
-    try:
-        existing = _load_session()
-        existing.update(data)
-        SESSION_FILE.write_text(
-            json.dumps(existing, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-    except Exception:
-        pass
-
 
 def _initial_preset(cli_arg: str | None) -> str:
     """Resolve initial preset: CLI arg > session > default."""
@@ -289,7 +268,9 @@ class CppTemplateTUI(App):
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id == "build-preset" and event.value is not Select.NULL:
-            _save_session({"last_preset": str(event.value)})
+            sess = _load_session() or {}
+            sess.update({"last_preset": str(event.value)})
+            _save_session(sess)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

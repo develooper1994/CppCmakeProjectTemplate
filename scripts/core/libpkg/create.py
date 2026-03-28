@@ -20,6 +20,7 @@ from .templates import (
 )
 from .tokens import apply_template_dir
 import shutil
+from datetime import datetime
 
 
 def create_library(
@@ -35,6 +36,16 @@ def create_library(
     dry_run: bool = False,
     root: Optional[Path] = None,
 ) -> None:
+    # Debug: write a marker to build_logs to trace invocation and parameters
+    try:
+        project_root = Path(root) if root is not None else Path(__file__).resolve().parents[4]
+        log_dir = project_root / "build_logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / "lib_create_debug.log", "a", encoding="utf-8") as _f:
+            _f.write(f"{datetime.now().isoformat()} create_library called name={name} template={template} dry_run={dry_run} root={root}\n")
+    except Exception:
+        pass
+
     deps = deps or []
     validate_name(name)
     p = paths_for(name, root)

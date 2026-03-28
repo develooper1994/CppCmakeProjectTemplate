@@ -129,6 +129,15 @@
       "problemMatcher": []
     },
     {
+      "label": "Project: Verify Full",
+      "type": "shell",
+      "command": "python3",
+      "args": [
+        "scripts/verify_full.py"
+      ],
+      "problemMatcher": []
+    },
+    {
       "label": "Project: Doctor (check health)",
       "type": "shell",
       "command": "python3",

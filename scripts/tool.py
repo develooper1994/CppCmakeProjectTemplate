@@ -18,7 +18,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from core.utils.common import Logger, GlobalConfig, CLIResult
+from core.utils.common import Logger, GlobalConfig, CLIResult, load_session, save_session
 
 # Core command to sub-package mapping
 CORE_COMMANDS = {
@@ -26,6 +26,7 @@ CORE_COMMANDS = {
     "lib":   "core.commands.lib",
     "sol":   "core.commands.sol",
     "tui":   "tui",  # scripts/tui.py
+    "session": "core.commands.session",
 }
 
 def discover_plugins():
@@ -54,26 +55,33 @@ def main():
             cmd_and_beyond = sys.argv[i+1:]
             break
         tool_args.append(arg)
-    
-    if not cmd_and_beyond:
-        args = parser.parse_args(tool_args)
-        if args.version:
-            print(f"Toolset v{GlobalConfig.VERSION}")
-            sys.exit(0)
-        print_main_help()
-        sys.exit(0)
-
-    # Parse tool globals
+    # Load session (fallback values) and parse tool globals
+    session = load_session() or {}
     args = parser.parse_args(tool_args)
     if args.help:
         print_main_help()
         sys.exit(0)
 
-    # Set Global State
-    GlobalConfig.VERBOSE = args.verbose
-    GlobalConfig.JSON    = args.json
-    GlobalConfig.YES     = args.yes
-    GlobalConfig.DRY_RUN = args.dry_run
+    # Detect which flags were provided on the CLI so we can give CLI precedence
+    provided = {a.split('=')[0] for a in tool_args}
+
+    GlobalConfig.VERBOSE = args.verbose if '--verbose' in provided else bool(session.get('verbose', args.verbose))
+    GlobalConfig.JSON    = args.json    if '--json'    in provided else bool(session.get('json', args.json))
+    GlobalConfig.YES     = args.yes     if '--yes'     in provided else bool(session.get('yes', args.yes))
+    GlobalConfig.DRY_RUN = args.dry_run if '--dry-run' in provided else bool(session.get('dry_run', args.dry_run))
+
+    # If no command was provided on CLI, fall back to session default_command when present
+    if not cmd_and_beyond:
+        if args.version:
+            print(f"Toolset v{GlobalConfig.VERSION}")
+            sys.exit(0)
+        default_cmd = session.get('default_command')
+        if default_cmd:
+            # default_command stored as a string like: "build check"
+            cmd_and_beyond = default_cmd.split()
+        else:
+            print_main_help()
+            sys.exit(0)
 
     command = cmd_and_beyond[0]
     remaining = cmd_and_beyond[1:]

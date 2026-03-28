@@ -1,0 +1,8 @@
+{
+  "last_preset": "gcc-debug-static-x86_64",
+  "verbose": false,
+  "json": false,
+  "yes": false,
+  "dry_run": false,
+  "default_command": "build check"
+}

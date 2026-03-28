@@ -21,7 +21,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from core.utils.common import Logger, GlobalConfig, CLIResult, run_proc, PROJECT_ROOT
-from core.utils.toollib import create_library
+from core.libpkg import create_library
 
 LIBS_DIR = PROJECT_ROOT / "libs"
 
@@ -61,20 +61,43 @@ def _impl_cmd_add(args) -> None:
     deps = []
     if getattr(args, "deps", ""):
         deps = [d.strip() for d in args.deps.split(",") if d.strip()]
+    # Debug logging: record arguments and any exception to build_logs/lib_add_debug.log
+    log_path = PROJECT_ROOT / "build_logs" / "lib_add_debug.log"
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(log_path, "a", encoding="utf-8") as _f:
+            _f.write(f"Calling create_library name={name} template={getattr(args, 'template', '')}\n")
+    except Exception:
+        pass
 
-    create_library(
-        name=name,
-        version=getattr(args, "version", "1.0.0"),
-        namespace=getattr(args, "namespace", None),
-        deps=deps,
-        header_only=getattr(args, "header_only", False),
-        interface=getattr(args, "interface", False),
-        template=getattr(args, "template", ""),
-        cxx_standard=getattr(args, "cxx_standard", ""),
-        link_app=getattr(args, "link_app", False),
-        dry_run=getattr(args, "dry_run", False),
-        root=PROJECT_ROOT,
-    )
+    try:
+        create_library(
+            name=name,
+            version=getattr(args, "version", "1.0.0"),
+            namespace=getattr(args, "namespace", None),
+            deps=deps,
+            header_only=getattr(args, "header_only", False),
+            interface=getattr(args, "interface", False),
+            template=getattr(args, "template", ""),
+            cxx_standard=getattr(args, "cxx_standard", ""),
+            link_app=getattr(args, "link_app", False),
+            dry_run=getattr(args, "dry_run", False),
+            root=PROJECT_ROOT,
+        )
+        try:
+            with open(log_path, "a", encoding="utf-8") as _f:
+                _f.write("create_library succeeded\n")
+        except Exception:
+            pass
+    except Exception as e:
+        import traceback
+        try:
+            with open(log_path, "a", encoding="utf-8") as _f:
+                _f.write("Exception during create_library:\n")
+                _f.write(traceback.format_exc() + "\n")
+        except Exception:
+            pass
+        raise
 
 
 def _impl_cmd_remove(args) -> None:

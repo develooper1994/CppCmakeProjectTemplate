@@ -9,6 +9,7 @@ import json
 import re
 import subprocess
 import sys
+import shutil
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
@@ -132,3 +133,56 @@ def get_project_name(root: Path = PROJECT_ROOT) -> str:
     cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8") if (root / "CMakeLists.txt").exists() else ""
     m = re.search(r'project\s*\(\s*(\S+)', cmake, re.IGNORECASE)
     return m.group(1) if m else "CppProject"
+
+
+# Session persistence helpers (shared between tool and TUI)
+SESSION_FILE: Path = PROJECT_ROOT / ".session.json"
+
+def load_session() -> dict:
+    """Load session data from the shared session file.
+
+    Returns an empty dict when no session file exists or parsing fails.
+    """
+    try:
+        # Backwards compatibility: prefer .session.json, fall back to .tui_session.json
+        alt = PROJECT_ROOT / ".tui_session.json"
+        target = SESSION_FILE if SESSION_FILE.exists() else (alt if alt.exists() else None)
+        if not target:
+            return {}
+        return json.loads(target.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_session(data: dict) -> None:
+    """Save the given session dict to the shared session file.
+
+    This overwrites the file atomically.
+    """
+    try:
+        SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SESSION_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    except Exception:
+        pass
+    # Also write legacy TUI session file for compatibility
+    try:
+        alt = PROJECT_ROOT / ".tui_session.json"
+        alt.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+
+def backup_session() -> Path | None:
+    """Create a timestamped backup of the current session file.
+
+    Returns the backup path or None when no session file existed.
+    """
+    try:
+        if not SESSION_FILE.exists():
+            return None
+        ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+        bak = SESSION_FILE.with_name(SESSION_FILE.name + f".{ts}.bak")
+        shutil.copy2(SESSION_FILE, bak)
+        return bak
+    except Exception:
+        return None
