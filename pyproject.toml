@@ -35,10 +35,17 @@ requires-python = ">=3.10"
 authors = [
   { name = "develooper1994" }
 ]
-dependencies = []
+dependencies = [
+  "Jinja2>=3.1",
+  "rich>=13.0",
+]
 
 [project.scripts]
 tool = "scripts.tool:main"
+
+[tool.pytest.ini_options]
+testpaths = ["scripts"]
+norecursedirs = ["extension/templates", "build", ".venv", "__pycache__"]
 
 [tool.setuptools.packages.find]
 where = ["scripts"]

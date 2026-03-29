@@ -69,6 +69,8 @@ extension/LICENSE
 # Python virtual environments
 .venv/
 venv/
+.venv_pkg/
+venv_pkg/
 env/
 ENV/
 .mypy/

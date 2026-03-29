@@ -55,7 +55,6 @@ This document lists the project's current capabilities, governance policies, and
 - **Migration & Cleanup:** ✅ DONE (legacy scripts consolidated)
 - **Refactoring & Core Migration:** ✅ DONE (command logic moved under `core/commands`)
 
-
 ### Phase 2: Distribution & Template Engine (Status & progress)
 
 - **Jinja2 Migration:** Partial — a Jinja2-based POC was implemented and integrated for the `libpkg` scaffolding subsystem. Many templates were added under `scripts/core/libpkg/templates/`, and code paths in `scripts/core/libpkg` were updated to prefer Jinja rendering while preserving the f-string fallback when Jinja2 is not available.
@@ -124,3 +123,7 @@ Recommendations (longer-term):
 1. **Keep Template Logic Minimal:** Keep template files small; implement complex logic in Python.
 2. **Atomic Operations:** Ensure file mutations support rollback.
 3. **Static Analysis Integration:** Integrate `clang-tidy --fix` into the `check` command to improve quality.
+
+## Long work
+
+Herşey tamamlandıktan sonra scriptler cmake ve c++ dosyaları olmadan sadece python dosyaları kalacak. CMakeLists.txt ve .cpp/.h dosyaları tamamen scriptler tarafından oluşturulacak. Böylece proje yapısı tamamen scriptlere programatik olarak tanımlanmış ve yönetiliyor olacak. Bu, projenin esnekliğini artıracak ve manuel müdahaleyi azaltacaktır.
