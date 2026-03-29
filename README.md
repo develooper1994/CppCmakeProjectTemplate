@@ -22,8 +22,6 @@ The full project README has been split into focused topic pages inside the `docs
 - **Starting a New Project:** [docs/STARTING_PROJECT.md](docs/STARTING_PROJECT.md)
 - **CI / Quality Guards:** [docs/CI.md](docs/CI.md)
 
-Project plans: [docs/PLANS.md](docs/PLANS.md)
-
 If you'd like these pages further split (for example `docs/BUILDING.md` → `docs/VS_CODE.md`, `docs/PRESETS.md`), tell me which area to subdivide next.
 
 This repository's full documentation was long; the complete README has been moved to the `docs/README_FULL.md` file. The short quick-start is below — for all details, examples and the full reference, see the full document.
