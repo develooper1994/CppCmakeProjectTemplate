@@ -108,7 +108,7 @@ async function toollibUI() {
             if (!name) return;
 
             const version = await vscode.window.showInputBox({
-                prompt: 'Version', value: '1.0.0',
+                prompt: 'Version', value: '1.0.5',
             });
 
             const depsRaw = await vscode.window.showInputBox({
@@ -120,7 +120,7 @@ async function toollibUI() {
             });
 
             argStr = name;
-            if (version && version !== '1.0.0') argStr += ` --version ${version}`;
+            if (version && version !== '1.0.5') argStr += ` --version ${version}`;
             if (depsRaw && depsRaw.trim()) argStr += ` --deps ${depsRaw.trim()}`;
             if (linkPick === 'yes') argStr += ' --link-app';
             break;

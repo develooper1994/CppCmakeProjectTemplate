@@ -66,7 +66,7 @@ def _impl_cmd_list(args) -> None:
 def _impl_cmd_tree(args) -> None:
     _ensure_libs()
     libs = sorted([p.name for p in LIBS_DIR.iterdir() if p.is_dir()])
-    
+
     def print_deps(name: str, visited: set[str], indent: int = 0):
         if name in visited:
             print("  " * indent + f"└─ {name} (circular!)")
@@ -95,7 +95,7 @@ def _impl_cmd_tree(args) -> None:
 def _impl_cmd_doctor(args) -> None:
     _ensure_libs()
     problems = 0
-    
+
     # 1. Check existing directories
     for d in LIBS_DIR.iterdir():
         if d.is_dir():
@@ -110,7 +110,7 @@ def _impl_cmd_doctor(args) -> None:
                 content = cm.read_text(encoding="utf-8") if cm.exists() else ""
                 if "INTERFACE" not in content:
                     print(f"⚠️ {name}: Missing standard include structure")
-            
+
             deps = _get_lib_deps(name)
             for dep in deps:
                 if "::" not in dep and not (LIBS_DIR / dep).exists() and dep not in ("GTest::gtest_main", "GTest::gtest"):
@@ -153,7 +153,7 @@ def _impl_cmd_add(args) -> None:
 
     create_library(
         name=name,
-        version=getattr(args, "version", "1.0.0"),
+        version=getattr(args, "version", GlobalConfig.VERSION),
         namespace=getattr(args, "namespace", None),
         deps=deps,
         header_only=getattr(args, "header_only", False),
@@ -274,23 +274,23 @@ def _impl_cmd_info(args) -> None:
     if not lib_dir.exists():
         print("Not found:", name)
         return
-    
+
     print(f"Library: {name}")
     print(f"Path: {lib_dir.relative_to(PROJECT_ROOT)}")
-    
+
     cm = lib_dir / "CMakeLists.txt"
     if cm.exists():
         content = cm.read_text(encoding="utf-8")
         ver_m = re.search(r'project\s*\(.*VERSION\s+([\d.]+)', content, re.IGNORECASE)
         if ver_m:
             print(f"Version: {ver_m.group(1)}")
-    
+
     deps = _get_lib_deps(name)
     if deps:
         print(f"Dependencies: {', '.join(deps)}")
     else:
         print("Dependencies: None")
-        
+
     print("\nFiles:")
     for p in sorted(lib_dir.rglob("*")):
         if p.is_file():
@@ -438,7 +438,7 @@ def build_parser() -> argparse.ArgumentParser:
     # add
     p = sub.add_parser("add", help="Create a new library skeleton")
     p.add_argument("name")
-    p.add_argument("--version",   default="1.0.0")
+    p.add_argument("--version",   default=GlobalConfig.VERSION)
     p.add_argument("--namespace", default=None)
     p.add_argument("--deps",      default="")
     p.add_argument("--cxx-standard", default="", dest="cxx_standard")

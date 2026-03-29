@@ -9,11 +9,11 @@ Include `ProjectInfo.h` as a single-header convenience wrapper:
 // Print everything (build info + git + feature flags)
 BUILD_INFO_PRINT_ALL(std::cout, main_app_info);
 
-// Short version line: "CppCmakeProjectTemplate v1.0.0 (main@abc1234)"
+// Short version line: "CppCmakeProjectTemplate v1.0.5 (main@abc1234)"
 std::string ver = BUILD_INFO_VERSION_LINE(main_app_info);
 
 // Access individual fields
-std::cout << main_app_info::project_version << "\n";  // "1.0.0"
+std::cout << main_app_info::project_version << "\n";  // "1.0.5"
 std::cout << main_app_info::git_branch      << "\n";  // "main"
 std::cout << main_app_info::compiler_id     << "\n";  // "GNU"
 
@@ -34,7 +34,7 @@ Each library has its **own independent version**:
 
 // dummy_lib version — independent from the solution version
 std::cout << dummy_lib_info::project_version;  // "2.5.0"
-std::cout << main_app_info::project_version;   // "1.0.0"
+std::cout << main_app_info::project_version;   // "1.0.5"
 ```
 
 | C++ Symbol | Source | Notes |

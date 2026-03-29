@@ -21,7 +21,7 @@ class GlobalConfig:
     YES: bool = False
     JSON: bool = False
     DRY_RUN: bool = False
-    VERSION: str = "1.0.4"
+    VERSION: str = "1.0.5"
 
 @dataclass
 class CLIResult:

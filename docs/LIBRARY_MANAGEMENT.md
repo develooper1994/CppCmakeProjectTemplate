@@ -45,6 +45,23 @@ python3 scripts/tool.py lib doctor
 
 Append `--dry-run` to any command to preview changes without applying them.
 
+## Rename / Move / Remove (behavior details)
+
+- **`rename`**
+  - Updates source files, headers, and CMake target references atomically (uses the repository `Transaction` helper for backup and rollback).
+  - Supports `--dry-run` to preview changes. Programmatic calls (tests/scripts) bypass interactive prompts.
+
+- **`move`**
+  - Moves the library directory under `libs/` and its test directory under `tests/unit/`.
+  - Updates `libs/CMakeLists.txt` and `tests/unit/CMakeLists.txt` registrations to the new paths.
+  - If the destination basename differs from the original library name, the tool can perform token replacement inside moved files and update CMake target references so targets remain consistent.
+  - Use `--dry-run` to preview the changes before applying them; supply `--yes` to skip interactive confirmation when invoking the command non-interactively.
+
+- **`remove`**
+  - By default detaches the library from CMake registration; with `--delete` it deletes files from disk.
+  - After deletion, empty parent directories under `libs/` and `tests/unit/` are pruned to avoid orphaned folders.
+  - The CLI prompts for destructive `--delete` actions unless `--yes` is supplied; use `--dry-run` to preview first.
+
 Each library gets its own independent version via `target_generate_build_info`:
 
 ```cmake
