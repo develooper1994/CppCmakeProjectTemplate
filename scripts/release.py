@@ -90,6 +90,22 @@ def update_files(v: Version, dry_run: bool = False) -> None:
         if n:
             changes.append((ext_js, new_txt))
 
+    # Filter out files that are git-ignored (e.g. package-lock.json). We can't `git add` ignored files.
+    if changes:
+        filtered: list[tuple[_Path, str]] = []
+        for p, txt in changes:
+            try:
+                # git check-ignore returns 0 if the path is ignored
+                res = subprocess.run(["git", "check-ignore", "-q", str(p)], cwd=PROJECT_ROOT)
+                if res.returncode == 0:
+                    Logger.warn(f"Skipping {p} because it's git-ignored")
+                else:
+                    filtered.append((p, txt))
+            except Exception:
+                # If git is not available or check fails, keep the file to avoid silent drops
+                filtered.append((p, txt))
+        changes = filtered
+
     if not changes:
         Logger.info("No file updates necessary (other files already in sync).")
         return
