@@ -294,17 +294,23 @@ def remove_library(name: str, delete: bool = False, dry_run: bool = False, root:
     libs_cmake  = project_root / "libs" / "CMakeLists.txt"
     tests_cmake = project_root / "tests" / "unit" / "CMakeLists.txt"
 
-    if not p.lib_dir.exists() and not delete:
-        pass
-    elif not p.lib_dir.exists():
-        raise FileNotFoundError(f"Library '{name}' directory not found")
+    # We allow removal even if lib_dir is missing, to cleanup tests/unit or CMake entries
+    exists = p.lib_dir.exists() or p.tests_dir.exists()
+    
+    if not exists and not delete:
+        # Check if it exists in CMake at least
+        in_libs = False
+        if libs_cmake.exists():
+            in_libs = re.search(rf"^\s*add_subdirectory\(\s*{re.escape(name)}\s*\)", libs_cmake.read_text(encoding="utf-8"), re.MULTILINE) is not None
+        if not in_libs:
+            raise FileNotFoundError(f"Library '{name}' not found in filesystem or CMakeLists.txt")
 
     if dry_run:
         print(f"[dry-run] unregister {name} from libs/CMakeLists.txt")
         print(f"[dry-run] unregister {name} from tests/unit/CMakeLists.txt")
         if delete:
-            print(f"[dry-run] delete libs/{name}/")
-            print(f"[dry-run] delete tests/unit/{name}/")
+            if p.lib_dir.exists(): print(f"[dry-run] delete libs/{name}/")
+            if p.tests_dir.exists(): print(f"[dry-run] delete tests/unit/{name}/")
         return
 
     with Transaction(project_root) as txn:
@@ -315,9 +321,9 @@ def remove_library(name: str, delete: bool = False, dry_run: bool = False, root:
         if delete:
             if p.lib_dir.exists(): txn.safe_remove(p.lib_dir)
             if p.tests_dir.exists(): txn.safe_remove(p.tests_dir)
-            print(f"✅ Deleted: libs/{name}/ and tests/unit/{name}/")
+            print(f"✅ Deleted files for {name}")
         else:
-            print(f"✅ Detached: {name} (files kept, CMake entries removed)")
+            print(f"✅ Detached {name} (CMake entries removed)")
 
 
 def rename_library(old: str, new: str, dry_run: bool = False, root: Optional[Path] = None) -> None:

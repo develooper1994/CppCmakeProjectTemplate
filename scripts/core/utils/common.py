@@ -21,7 +21,7 @@ class GlobalConfig:
     YES: bool = False
     JSON: bool = False
     DRY_RUN: bool = False
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.0.4"
 
 @dataclass
 class CLIResult:
@@ -250,17 +250,63 @@ def save_session(data: dict) -> None:
     # Do not write a separate TUI session file; prefer the shared `SESSION_FILE` only.
 
 
-def backup_session() -> Path | None:
-    """Create a timestamped backup of the current session file.
+def find_missing_binaries(binaries: dict[str, str]) -> dict[str, str]:
+    """Check for existence of binaries. Returns dict of missing {bin: pkg_name}."""
+    missing = {}
+    for bin_name, pkg in binaries.items():
+        if shutil.which(bin_name) is None:
+            missing[bin_name] = pkg
+    return missing
 
-    Returns the backup path or None when no session file existed.
-    """
+
+def create_venv(env_dir: Path, recreate: bool = False) -> Path:
+    """Create a virtual environment. Returns path to its Python executable."""
+    import venv
+    env_dir = env_dir.resolve()
+    if env_dir.exists():
+        if recreate:
+            Logger.info(f"Removing existing venv at {env_dir}")
+            shutil.rmtree(env_dir)
+        else:
+            Logger.info(f"Virtualenv already exists at {env_dir}")
+            return _get_venv_python(env_dir)
+
+    Logger.info(f"Creating venv at {env_dir}")
+    builder = venv.EnvBuilder(with_pip=True)
+    builder.create(str(env_dir))
+
+    py = _get_venv_python(env_dir)
+    if not py.exists():
+        raise FileNotFoundError(f"Python not found in created venv: {py}")
+
+    # Upgrade pip
     try:
-        if not SESSION_FILE.exists():
-            return None
-        ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-        bak = SESSION_FILE.with_name(SESSION_FILE.name + f".{ts}.bak")
-        shutil.copy2(SESSION_FILE, bak)
-        return bak
+        run_proc([str(py), "-m", "pip", "install", "--upgrade", "pip", "wheel", "setuptools"], check=False)
     except Exception:
-        return None
+        pass
+
+    return py
+
+
+def _get_venv_python(env_dir: Path) -> Path:
+    import platform
+    if platform.system() == "Windows":
+        return env_dir / "Scripts" / "python.exe"
+    return env_dir / "bin" / "python"
+
+
+def install_python_requirements(py_exe: Path, req_file: Path) -> None:
+    if not req_file.exists():
+        Logger.warn(f"No {req_file.name} found; skipping install")
+        return
+    Logger.info(f"Installing requirements from {req_file.name}")
+    run_proc([str(py_exe), "-m", "pip", "install", "-r", str(req_file)])
+
+
+def print_venv_activation(env_dir: Path) -> None:
+    import platform
+    if platform.system() == "Windows":
+        print(f"To activate (PowerShell): {env_dir / 'Scripts' / 'Activate.ps1'}")
+        print(f"To activate (cmd): {env_dir / 'Scripts' / 'activate.bat'}")
+    else:
+        print(f"To activate: source {env_dir / 'bin' / 'activate'}")

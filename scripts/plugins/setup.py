@@ -2,79 +2,73 @@
 """
 plugins/setup.py — Dependency checker/installer plugin.
 
-Usage: tool setup [--install] [--all]
-Delegates to scripts/install_deps.py — no subprocess.
+Usage: tool setup [--install] [--all] [--env [DIR]] [--install-env] [--recreate]
 """
 from __future__ import annotations
+
+import argparse
+from pathlib import Path
+from core.utils.common import (
+    Logger,
+    PROJECT_ROOT,
+    find_missing_binaries,
+    create_venv,
+    install_python_requirements,
+    print_venv_activation,
+)
 
 PLUGIN_META = {
     "name": "setup",
     "description": "Check and optionally install system and Python dependencies for the project.",
-    "args": [
-        {"name": "install", "help": "Run installation of detected missing packages", "type": "flag", "required": False},
-        {"name": "all", "help": "Install all optional dependencies as well", "type": "flag", "required": False},
-    ],
 }
 
-import sys
-from pathlib import Path
+MANDATORY_SYS = {
+    "cmake": "cmake",
+    "ninja": "ninja-build",
+    "git": "git",
+    "python3": "python3",
+}
 
-_SCRIPTS = Path(__file__).resolve().parent.parent
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
-
-import install_deps as _impl  # scripts/install_deps.py
+OPTIONAL_SYS = {
+    "lcov": "lcov",
+    "doxygen": "doxygen",
+    "clang": "clang",
+    "cppcheck": "cppcheck",
+}
 
 
 def main(argv: list[str]) -> None:
-    """Support both dependency checks and Python venv bootstrap.
+    parser = argparse.ArgumentParser(prog="tool setup")
+    parser.add_argument("--install", action="store_true", help="(informational) show installation command")
+    parser.add_argument("--all", action="store_true", help="Include optional packages in the check")
+    parser.add_argument("--env", nargs="?", const=".venv", default=None, help="Create Python venv (optional dir, default: .venv)")
+    parser.add_argument("--install-env", action="store_true", help="Install requirements-dev.txt into created venv")
+    parser.add_argument("--recreate", action="store_true", help="Recreate venv if it exists")
+    args = parser.parse_args(argv)
 
-    - No `--env`: delegate to `install_deps.main()` (existing behavior).
-    - With `--env [DIR]`: create a venv in DIR (default `.venv`).
-      Use `--install-env` to also install `requirements-dev.txt` into it.
-    """
-    import argparse
-    old_argv = sys.argv
-    try:
-        parser = argparse.ArgumentParser(prog="tool setup")
-        parser.add_argument("--install", action="store_true", help="(informational) show installation command")
-        parser.add_argument("--all", action="store_true", help="Include optional packages in the check")
-        parser.add_argument("--env", nargs="?", const=".venv", default=None, help="Create Python venv (optional dir, default: .venv)")
-        parser.add_argument("--install-env", action="store_true", help="Install requirements-dev.txt into created venv")
-        parser.add_argument("--recreate", action="store_true", help="Recreate venv if it exists")
-        args = parser.parse_args(argv)
+    # 1. System Dependencies
+    missing = find_missing_binaries(MANDATORY_SYS)
+    if args.all:
+        missing.update(find_missing_binaries(OPTIONAL_SYS))
 
-        if args.env is not None:
-            # Lazy import the venv helper to avoid adding extra deps at module import time
-            try:
-                import setup_python_env as _env  # scripts/setup_python_env.py
-            except Exception:
-                # Fallback: reuse the script's CLI parsing
-                sys_argv = ["setup_python_env"]
-                if args.env:
-                    sys_argv += ["--env", args.env]
-                if args.install_env:
-                    sys_argv += ["--install"]
-                if args.recreate:
-                    sys_argv += ["--recreate"]
-                sys.argv = sys_argv
-                try:
-                    # run as script
-                    from setup_python_env import main as _env_main
+    if not missing:
+        Logger.success("All system dependencies appear to be installed.")
+    else:
+        Logger.warn("Missing system dependencies detected:")
+        for k, v in missing.items():
+            print(f" - {k}  (package: {v})")
+        
+        pkgs = " ".join(sorted(set(missing.values())))
+        cmd = f"sudo apt install -y {pkgs}"
+        if args.install:
+            print(f"\nSuggested command to install on Debian/Ubuntu:\n{cmd}")
+        else:
+            print("\nRun with --install to show install command.")
 
-                    _env_main()
-                finally:
-                    sys.argv = old_argv
-                return
-
-            py = _env.create_venv(Path(args.env), recreate=args.recreate)
-            if args.install_env:
-                _env.install_requirements(py, Path("requirements-dev.txt"))
-            _env.print_activation(Path(args.env))
-            return
-
-        # Default: delegate to install_deps
-        sys.argv = ["tool setup"] + (["--install"] if args.install else []) + (["--all"] if args.all else [])
-        _impl.main()
-    finally:
-        sys.argv = old_argv
+    # 2. Python Venv
+    if args.env is not None:
+        env_path = PROJECT_ROOT / args.env
+        py_exe = create_venv(env_path, recreate=args.recreate)
+        if args.install_env:
+            install_python_requirements(py_exe, PROJECT_ROOT / "requirements-dev.txt")
+        print_venv_activation(env_path)

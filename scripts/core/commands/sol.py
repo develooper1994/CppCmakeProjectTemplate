@@ -475,6 +475,91 @@ def _impl_cmd_target_add(args) -> None:
     print(f"✅ Created apps/{name}/")
 
 
+def _impl_cmd_check_extra(args) -> None:
+    import shutil
+    Logger.info("Running extra repository checks (ruff, mypy, cppcheck)...")
+    
+    overall_ok = True
+    
+    # 1. Ruff
+    if shutil.which("ruff"):
+        print("-- ruff (python linter) --")
+        targets = ["scripts", "tests", "extension/src"]
+        found = [t for t in targets if (PROJECT_ROOT / t).exists()]
+        if found:
+            rc = run_proc(["ruff", "check"] + found, check=False)
+            if rc != 0: overall_ok = False
+    else:
+        Logger.warn("ruff not installed; skip. (pip install ruff)")
+
+    # 2. Mypy
+    if shutil.which("mypy"):
+        print("\n-- mypy (type checks) --")
+        rc = run_proc(["mypy", "scripts", "--ignore-missing-imports"], check=False)
+        if rc != 0: overall_ok = False
+    else:
+        Logger.warn("mypy not installed; skip. (pip install mypy)")
+
+    # 3. Cppcheck
+    if shutil.which("cppcheck"):
+        print("\n-- cppcheck (C++ static analysis) --")
+        if (PROJECT_ROOT / "libs").exists():
+            rc = run_proc(["cppcheck", "--enable=warning,style,portability", "--quiet", str(PROJECT_ROOT / "libs")], check=False)
+            if rc != 0: overall_ok = False
+    else:
+        Logger.warn("cppcheck not installed; skip. (sudo apt install cppcheck)")
+
+    if not overall_ok:
+        Logger.error("One or more extra checks failed.")
+        sys.exit(1)
+    Logger.success("All installed extra checks passed.")
+
+
+def _impl_cmd_init_skeleton(args) -> None:
+    from core.utils.fileops import Transaction
+    from core.utils.common import get_project_version, get_project_name
+    try:
+        from core.libpkg.jinja_helpers import render_template_file
+    except ImportError:
+        Logger.error("Jinja2 required for init-skeleton")
+        return
+
+    name = getattr(args, "name", None) or get_project_name()
+    version = getattr(args, "version", None) or get_project_version()
+    dry = getattr(args, "dry_run", False)
+
+    Logger.info(f"Regenerating project skeleton for '{name}' v{version}...")
+
+    # Root context
+    ctx = {
+        "project_name": name,
+        "version": version,
+        "description": "Professional Modern C++ / CMake Project Template",
+        "author": "develooper1994",
+        "contact": "https://github.com/develooper1994",
+    }
+
+    if dry:
+        print("[dry-run] Would regenerate root CMakeLists.txt and subdir CMakeLists.txt")
+        return
+
+    with Transaction(PROJECT_ROOT) as txn:
+        # 1. Root CMakeLists.txt
+        txn.safe_write_text(PROJECT_ROOT / "CMakeLists.txt", render_template_file("root_cmakelists.jinja2", **ctx))
+
+        # 2. Subdir CMakeLists.txt
+        for dname in ["libs", "apps", "tests/unit"]:
+            dpath = PROJECT_ROOT / dname
+            if not dpath.exists():
+                txn.safe_mkdir(dpath, parents=True)
+            
+            subs = sorted([p.name for p in dpath.iterdir() if p.is_dir() and (p / "CMakeLists.txt").exists()])
+            content = render_template_file("subdir_cmakelists.jinja2", dir_name=dname, subdirectories=subs)
+            txn.safe_write_text(dpath / "CMakeLists.txt", content)
+
+    Logger.success("Project skeleton regenerated.")
+
+
 def _impl_cmd_doctor(args) -> None:
     print("toolsolution doctor: running basic sanity checks")
     try:
@@ -572,6 +657,14 @@ def cmd_repo_sync(args):
 
 def cmd_repo_versions(args):
     return _wrap(_impl_cmd_repo_versions, args)
+
+
+def cmd_check_extra(args):
+    return _wrap(_impl_cmd_check_extra, args)
+
+
+def cmd_init_skeleton(args):
+    return _wrap(_impl_cmd_init_skeleton, args)
 
 
 def cmd_ci(args):
@@ -677,6 +770,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--preset-filter", default="", dest="preset_filter")
     p.add_argument("--fail-fast",     action="store_true", dest="fail_fast")
     p.set_defaults(func=cmd_ci)
+
+    # check-extra
+    sub.add_parser("check-extra", help="Run ruff, mypy, cppcheck").set_defaults(func=cmd_check_extra)
+
+    # init-skeleton
+    p = sub.add_parser("init-skeleton", help="Regenerate project CMake structure from templates")
+    p.add_argument("--name", help="New project name")
+    p.add_argument("--version", help="New project version")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_init_skeleton)
 
     # doctor
     sub.add_parser("doctor", help="Full project health check").set_defaults(func=cmd_doctor)

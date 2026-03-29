@@ -45,7 +45,6 @@ EXT_INCLUDE = [
 
 EXT_EXCLUDE = {
     "build", "build_logs", "__pycache__", ".cache", "extension",
-    "scripts/build.py", "scripts/toollib.py", "scripts/toolsolution.py", "scripts/common.py",
 }
 
 

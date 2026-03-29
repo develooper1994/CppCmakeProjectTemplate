@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 3.25)
 # -----------------------------------------------------------------------------
 # Project Information
 # -----------------------------------------------------------------------------
-project(CppCmakeProjectTemplate
-    VERSION 1.0.4
-    DESCRIPTION "Professional Modern C++ / CMake Project Template"
+project({{ project_name }}
+    VERSION {{ version }}
+    DESCRIPTION "{{ description }}"
     LANGUAGES CXX)
 
 # -----------------------------------------------------------------------------
@@ -70,8 +70,8 @@ endif()
 # -----------------------------------------------------------------------------
 # Packaging (CPack)
 # -----------------------------------------------------------------------------
-set(CPACK_PACKAGE_VENDOR "develooper1994")
-set(CPACK_PACKAGE_CONTACT "https://github.com/develooper1994")
+set(CPACK_PACKAGE_VENDOR "{{ author }}")
+set(CPACK_PACKAGE_CONTACT "{{ contact }}")
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
 
