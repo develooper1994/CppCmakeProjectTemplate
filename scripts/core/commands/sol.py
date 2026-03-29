@@ -21,6 +21,7 @@ from core.utils.common import (
     GlobalConfig,
     CLIResult,
     run_proc,
+    run_capture,
     PROJECT_ROOT,
     json_read_cached,
     json_cache_clear,
@@ -320,10 +321,11 @@ def _impl_cmd_repo_versions(args) -> None:
         url = d.get("url")
         print(f"Versions for {name} ({url}):")
         try:
-            out = subprocess.check_output(["git", "ls-remote", "--tags", url], stderr=subprocess.DEVNULL).decode()
-            tags = [l.split('\t')[1] for l in out.splitlines() if '\trefs/tags/' in l]
-            for t in tags[:10]:
-                print(" -", t)
+            out, rc = run_capture(["git", "ls-remote", "--tags", url], cwd=PROJECT_ROOT)
+            if rc == 0 and out:
+                tags = [l.split('\t')[1] for l in out.splitlines() if '\trefs/tags/' in l]
+                for t in tags[:10]:
+                    print(" -", t)
         except Exception:
             print("  (failed to list remote tags)")
 

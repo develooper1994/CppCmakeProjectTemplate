@@ -17,8 +17,19 @@ import json
 import os
 import re
 import sys
-import subprocess
 from pathlib import Path
+import subprocess
+
+# Ensure scripts/ is on sys.path so `core.*` imports work whether the module
+# is executed directly or imported as `scripts.publish_vsix`.
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+try:
+    from .core.utils.common import run_capture
+except Exception:
+    from core.utils.common import run_capture
+
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
@@ -43,11 +54,13 @@ def get_token() -> str | None:
         return t
     # Try to extract from remote URL
     try:
-        out = subprocess.check_output(["git", "config", "--get", "remote.origin.url"], stderr=subprocess.DEVNULL)
-        url = out.decode().strip()
-        m = re.match(r"https://([^@]+)@github.com/([^/]+)/([^/.]+)(?:.git)?", url)
-        if m:
-            return m.group(1)
+        repo = Path(__file__).resolve().parents[1]
+        out, rc = run_capture(["git", "config", "--get", "remote.origin.url"], cwd=repo)
+        if rc == 0 and out:
+            url = out.strip()
+            m = re.match(r"https://([^@]+)@github.com/([^/]+)/([^/.]+)(?:.git)?", url)
+            if m:
+                return m.group(1)
     except Exception:
         pass
     return None
@@ -91,13 +104,16 @@ def upload_asset(upload_url_template: str, filepath: Path, token: str) -> dict:
 
 def parse_owner_repo() -> tuple[str, str]:
     try:
-        out = subprocess.check_output(["git", "config", "--get", "remote.origin.url"], stderr=subprocess.DEVNULL).decode().strip()
-        m = re.match(r"https://[^@]+@github.com/([^/]+)/([^/.]+)(?:.git)?", out)
-        if m:
-            return m.group(1), m.group(2)
-        m2 = re.match(r"https://github.com/([^/]+)/([^/.]+)(?:.git)?", out)
-        if m2:
-            return m2.group(1), m2.group(2)
+        repo = Path(__file__).resolve().parents[1]
+        out, rc = run_capture(["git", "config", "--get", "remote.origin.url"], cwd=repo)
+        if rc == 0 and out:
+            url = out.strip()
+            m = re.match(r"https://[^@]+@github.com/([^/]+)/([^/.]+)(?:.git)?", url)
+            if m:
+                return m.group(1), m.group(2)
+            m2 = re.match(r"https://github.com/([^/]+)/([^/.]+)(?:.git)?", url)
+            if m2:
+                return m2.group(1), m2.group(2)
     except Exception:
         pass
     raise SystemExit("Could not determine owner/repo from git remote URL")

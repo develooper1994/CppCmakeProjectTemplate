@@ -11,16 +11,20 @@ from __future__ import annotations
 
 import argparse
 import platform
-import subprocess
 import sys
 import shutil
 import venv
 from pathlib import Path
+try:
+    from .core.utils.common import run_proc
+except Exception:
+    from core.utils.common import run_proc
 
 
 def _run(cmd: list[str]) -> None:
     print("Running:", " ".join(cmd))
-    subprocess.check_call(cmd)
+    # Use centralized run_proc for consistent behavior and logging
+    run_proc(cmd)
 
 
 def _env_python(env_dir: Path) -> Path:

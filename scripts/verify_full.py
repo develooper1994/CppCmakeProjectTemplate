@@ -5,23 +5,36 @@ Stops on first failure and writes logs to build_logs/verify.log
 """
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 import sys
+# Ensure scripts/ is on sys.path so `core.*` imports work when the module
+# is imported as a package or executed directly.
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+try:
+    from .core.utils.common import run_capture
+except Exception:
+    from core.utils.common import run_capture
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG = ROOT / "build_logs" / "verify.log"
 LOG.parent.mkdir(parents=True, exist_ok=True)
 
+
 def run(cmd, cwd=ROOT):
     with open(LOG, "a", encoding="utf-8") as f:
         f.write("\n$ " + " ".join(cmd) + "\n")
         try:
-            res = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            f.write(res.stdout)
-            if res.returncode != 0:
-                f.write(f"\n[ERROR] Command failed with exit {res.returncode}\n")
-                return res.returncode
+            out, rc = run_capture(cmd, cwd=cwd, strip_ansi=False)
+            # Preserve a trailing newline similar to subprocess output
+            try:
+                f.write(out + "\n")
+            except Exception:
+                f.write(str(out) + "\n")
+            if rc != 0:
+                f.write(f"\n[ERROR] Command failed with exit {rc}\n")
+                return rc
             return 0
         except Exception as e:
             f.write(f"\n[EXCEPTION] {e}\n")

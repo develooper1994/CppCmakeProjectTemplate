@@ -13,7 +13,7 @@ import shutil
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import NoReturn, Any
+from typing import NoReturn, Any, Tuple
 from functools import lru_cache
 
 class GlobalConfig:
@@ -96,6 +96,32 @@ def run_proc(cmd: list[str], check: bool = True, cwd: Path = PROJECT_ROOT) -> in
         sys.exit(result.returncode)
     return result.returncode
 
+
+def run_capture(cmd: list[str], cwd: Path = PROJECT_ROOT, *, strip_ansi: bool = False, text: bool = True) -> Tuple[str, int]:
+    """Run a command and return (stdout, returncode).
+
+    - `cmd` is a list of command parts (same as subprocess.run).
+    - `cwd` defaults to the repository root as determined by `PROJECT_ROOT`.
+    - `strip_ansi` will remove common ANSI color/escape sequences.
+    - `text` controls whether to run in text mode (True by default).
+    """
+    try:
+        Logger.debug(f"run_capture: {' '.join(str(c) for c in cmd)}")
+        proc = subprocess.run(
+            cmd,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=text,
+            check=False,
+        )
+        out = proc.stdout or ""
+        if strip_ansi:
+            out = re.sub(r'\x1b\[[0-9;]*m', '', out)
+        return out.strip(), proc.returncode
+    except Exception as e:  # pragma: no cover - best-effort wrapper
+        return f"Exception invoking command: {e}", 1
+
 def fail(msg: str, code: int = 1) -> NoReturn:
     CLIResult(success=False, code=code, message=msg).exit()
 
@@ -124,10 +150,10 @@ def get_project_version(root: Path = PROJECT_ROOT) -> str:
         if m:
             return m.group(1)
     try:
-        tag = subprocess.check_output([
-            "git", "describe", "--tags", "--abbrev=0"
-        ], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
-        return re.sub(r'^v', '', tag)
+        out, rc = run_capture(["git", "describe", "--tags", "--abbrev=0"], cwd=root)
+        if rc == 0 and out:
+            tag = out.strip()
+            return re.sub(r'^v', '', tag)
     except Exception:
         pass
     return "0.0.0"
