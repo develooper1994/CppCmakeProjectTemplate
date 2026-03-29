@@ -16,13 +16,19 @@ preferences:
   prefer_cli: "python3 scripts/tool.py --json --yes"
   conservative_modularization: true
   ask_before_large_changes: true
+  require_pr_approval: true
 allow_tools:
   - "file_edit"
   - "run_commands"
   - "read_repo_files"
+  - "create_prs"
+  - "open_issues"
 deny_tools:
   - "push_to_remote"
   - "create_prs_without_approval"
+  - "force_push"
+  - "auto_merge_prs"
+  - "modify_github_actions"
 hooks:
   pre_load:
     - "AGENTS.md"
