@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.25)
 # -----------------------------------------------------------------------------
 # Read base version from repository `VERSION` file if present. The file may
 # contain a build metadata suffix (e.g. 1.2.3+45); we only use the three-part
-# base version for CMake's `project(... VERSION ...)` invocation.
+# base version for CMake's `project(... VERSION 1.0.6)` invocation.
 file(READ "${CMAKE_SOURCE_DIR}/VERSION" _cmake_version_content OPTIONAL)
 if(DEFINED _cmake_version_content)
     string(STRIP "${_cmake_version_content}" _cmake_version_content)
