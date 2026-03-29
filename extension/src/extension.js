@@ -108,7 +108,7 @@ async function toollibUI() {
             if (!name) return;
 
             const version = await vscode.window.showInputBox({
-                prompt: 'Version', value: '1.0.5',
+                prompt: 'Version', value: GlobalConfig?.VERSION || '1.0.5',
             });
 
             const depsRaw = await vscode.window.showInputBox({
