@@ -64,7 +64,7 @@ This document lists the project's current capabilities, governance policies, and
 
 ### Phase 3: Test Strategy & Structured CI (Status & progress)
 
-- **Comprehensive Testing:** In-progress — Library management commands (`rename`, `move`, `remove`) now feature safer transactional logic and automated project-wide CMake reference updates.
+- **Comprehensive Testing:** In-progress — Library management commands (`rename`, `move`, `remove`) now feature safer transactional logic and automated project-wide CMake reference updates. The `move` command now also moves the library's tests directory (`tests/unit/<name>`) and updates `tests/unit/CMakeLists.txt`; when the destination's basename differs from the original library name, the tool will perform token replacement inside moved files and update CMake target references to keep the project consistent.
 - **Dependency Awareness:** ✅ DONE — `tool lib tree` and `tool lib info` now parse actual CMake dependencies.
 - **Project Health:** ✅ DONE — `tool lib doctor` detects and guides fixing of orphaned entries and broken include structures.
 - **Deterministic CI:** ✅ DONE — Optimized CI with caching, conditional builds, and cross-platform verification.

@@ -17,6 +17,8 @@ python3 scripts/tool.py lib rename old_name new_name
 # Move to a subdirectory
 python3 scripts/tool.py lib move renderer graphics/renderer
 
+Note: As of v1.0.0+, `tool lib move` now also moves the library's tests directory (`tests/unit/<name>`), updates the `tests/unit/CMakeLists.txt` registration to the new path, and — when the destination basename differs from the original library name — performs in-place token replacement inside moved library and test files and updates CMake target references. Use `--dry-run` to preview the actions before applying them.
+
 # Edit dependencies of an existing library
 python3 scripts/tool.py lib deps renderer --add math --remove old_dep
 

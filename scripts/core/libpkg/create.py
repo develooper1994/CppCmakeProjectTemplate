@@ -114,7 +114,7 @@ def _cmake_rename_subdirectory(cmake_path: Path, old: str, new: str) -> bool:
     )
     if new_content == content:
         return False
-    
+
     txn = None
     try:
         import inspect
@@ -164,13 +164,13 @@ def _remove_cmake_references(target: str, root: Path, txn: Optional[Transaction]
         if p.is_file():
             content = p.read_text(encoding="utf-8")
             # Remove the target from target_link_libraries
-            new_content = re.sub(rf"(target_link_libraries\([^)]*)\b{re.escape(target)}\b([^)]*\))", 
-                                 lambda m: m.group(1) + m.group(2).replace("  ", " ").strip(), 
+            new_content = re.sub(rf"(target_link_libraries\([^)]*)\b{re.escape(target)}\b([^)]*\))",
+                                 lambda m: m.group(1) + m.group(2).replace("  ", " ").strip(),
                                  content)
             # Cleanup double spaces or spaces before closing parenthesis
             new_content = re.sub(r'\s+\)', ')', new_content)
             new_content = re.sub(r'\(\s+', '(', new_content)
-            
+
             if new_content != content:
                 if txn:
                     txn.safe_write_text(p, new_content)
@@ -296,7 +296,7 @@ def remove_library(name: str, delete: bool = False, dry_run: bool = False, root:
 
     # We allow removal even if lib_dir is missing, to cleanup tests/unit or CMake entries
     exists = p.lib_dir.exists() or p.tests_dir.exists()
-    
+
     if not exists and not delete:
         # Check if it exists in CMake at least
         in_libs = False
@@ -379,16 +379,52 @@ def move_library(name: str, dest: str, dry_run: bool = False, root: Optional[Pat
         raise FileExistsError(f"Destination '{dest}' already exists")
 
     libs_cmake = project_root / "libs" / "CMakeLists.txt"
+    tests_cmake = project_root / "tests" / "unit" / "CMakeLists.txt"
+    new_tests_dir = project_root / "tests" / "unit" / dest
+    dest_name = Path(dest).name
+
+    # If dest basename differs from the original name, validate it as a safe library name
+    if dest_name != name:
+        validate_name(dest_name)
+
+    has_tests = p.tests_dir.exists()
 
     if dry_run:
         print(f"[dry-run] move libs/{name} → libs/{dest}")
+        if has_tests:
+            print(f"[dry-run] move tests/unit/{name} → tests/unit/{dest}")
         return
 
     with Transaction(project_root) as txn:
+        # ensure parent for new lib path
         if not new_dir.parent.exists():
             txn.safe_mkdir(new_dir.parent, parents=True, exist_ok=True)
+
+        # move library directory
         txn.safe_rename(p.lib_dir, new_dir)
+
+        # move tests dir if present
+        if has_tests:
+            if new_tests_dir.exists():
+                raise FileExistsError(f"Destination tests directory '{new_tests_dir}' already exists")
+            if not new_tests_dir.parent.exists():
+                txn.safe_mkdir(new_tests_dir.parent, parents=True, exist_ok=True)
+            txn.safe_rename(p.tests_dir, new_tests_dir)
+            # update tests CMake registration
+            _cmake_remove_subdirectory(tests_cmake, name)
+            _cmake_add_subdirectory(tests_cmake, dest)
+
+        # update libs CMake registration
         _cmake_remove_subdirectory(libs_cmake, name)
         _cmake_add_subdirectory(libs_cmake, dest)
 
+        # If the final name changed (e.g. move to 'sub/newname'), update tokens and CMake references
+        if dest_name != name:
+            _replace_tokens_in_tree(new_dir, name, dest_name)
+            if has_tests and new_tests_dir.exists():
+                _replace_tokens_in_tree(new_tests_dir, name, dest_name)
+            _update_cmake_references(name, dest_name, project_root, txn)
+
     print(f"✅ Moved: libs/{name} → libs/{dest}")
+    if has_tests:
+        print(f"✅ Moved tests: tests/unit/{name} → tests/unit/{dest}")
