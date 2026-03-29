@@ -10,17 +10,14 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Optional
-
-_SCRIPTS = __file__
 from pathlib import Path
 import sys
+
 _SCRIPTS = Path(__file__).resolve().parent.parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from core.utils.common import (
-    Logger,
     GlobalConfig,
     CLIResult,
     load_session,
@@ -83,9 +80,16 @@ def _wrap(fn, args) -> CLIResult:
         return CLIResult(success=(e.code == 0), code=e.code or 1)
 
 
-def cmd_save(args): return _wrap(_impl_cmd_save, args)
-def cmd_load(args): return _wrap(_impl_cmd_load, args)
-def cmd_set(args):  return _wrap(_impl_cmd_set, args)
+def cmd_save(args):
+    return _wrap(_impl_cmd_save, args)
+
+
+def cmd_load(args):
+    return _wrap(_impl_cmd_load, args)
+
+
+def cmd_set(args):
+    return _wrap(_impl_cmd_set, args)
 
 
 def build_parser() -> argparse.ArgumentParser:

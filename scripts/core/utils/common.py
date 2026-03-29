@@ -40,8 +40,10 @@ class CLIResult:
             print(json.dumps(asdict(self), indent=2, ensure_ascii=False))
         else:
             if self.message:
-                if self.success: Logger.success(self.message)
-                else: Logger.error(self.message)
+                if self.success:
+                    Logger.success(self.message)
+                else:
+                    Logger.error(self.message)
         sys.exit(self.code)
 
 class Logger:
@@ -54,7 +56,8 @@ class Logger:
 
     @staticmethod
     def _log(level: str, msg: str, color: str = ""):
-        if GlobalConfig.JSON: return
+        if GlobalConfig.JSON:
+            return
         prefix = f"[{level}]"
         print(f"{color}{prefix:<8} {msg}{Logger.RESET}")
         try:
@@ -66,23 +69,35 @@ class Logger:
             pass
 
     @staticmethod
-    def info(msg: str): Logger._log("INFO", msg, Logger.BLUE)
+    def info(msg: str):
+        Logger._log("INFO", msg, Logger.BLUE)
+
     @staticmethod
-    def success(msg: str): Logger._log("SUCCESS", msg, Logger.GREEN)
+    def success(msg: str):
+        Logger._log("SUCCESS", msg, Logger.GREEN)
+
     @staticmethod
-    def warn(msg: str): Logger._log("WARN", msg, Logger.YELLOW)
+    def warn(msg: str):
+        Logger._log("WARN", msg, Logger.YELLOW)
+
     @staticmethod
-    def error(msg: str): Logger._log("ERROR", msg, Logger.RED)
+    def error(msg: str):
+        Logger._log("ERROR", msg, Logger.RED)
+
     @staticmethod
     def debug(msg: str):
-        if GlobalConfig.VERBOSE: Logger._log("DEBUG", msg, Logger.BOLD)
+        if GlobalConfig.VERBOSE:
+            Logger._log("DEBUG", msg, Logger.BOLD)
 
 def find_project_root(start: Path) -> Path:
     p = start.resolve()
-    if p.is_file(): p = p.parent
+    if p.is_file():
+        p = p.parent
     while True:
-        if (p / "libs").is_dir() and (p / "scripts").is_dir(): return p
-        if p.parent == p: raise RuntimeError("Project root not found.")
+        if (p / "libs").is_dir() and (p / "scripts").is_dir():
+            return p
+        if p.parent == p:
+            raise RuntimeError("Project root not found.")
         p = p.parent
 
 PROJECT_ROOT: Path = find_project_root(Path(__file__).resolve())
@@ -123,19 +138,24 @@ def run_capture(cmd: list[str], cwd: Path = PROJECT_ROOT, *, strip_ansi: bool = 
         return f"Exception invoking command: {e}", 1
 
 def fail(msg: str, code: int = 1) -> NoReturn:
+    # Use CLIResult to format/print the error, then explicitly raise
+    # SystemExit so static analyzers understand this function does not return.
     CLIResult(success=False, code=code, message=msg).exit()
+    raise SystemExit(code)
 
 def header(title: str, subtitle: str | None = None) -> None:
     print(f"{Logger.BOLD}{'=' * 52}{Logger.RESET}")
     print(f"  {Logger.BOLD}{title}{Logger.RESET}")
-    if subtitle: print(f"  {subtitle}")
+    if subtitle:
+        print(f"  {subtitle}")
     print(f"  Root: {PROJECT_ROOT}")
     print(f"{Logger.BOLD}{'=' * 52}{Logger.RESET}")
 
 @lru_cache(maxsize=None)
 def list_presets() -> list[str]:
     presets_file = PROJECT_ROOT / "CMakePresets.json"
-    if not presets_file.exists(): return []
+    if not presets_file.exists():
+        return []
     data = json.loads(presets_file.read_text(encoding="utf-8"))
     return [p["name"] for p in data.get("configurePresets", []) if not p.get("hidden", False)]
 

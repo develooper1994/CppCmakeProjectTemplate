@@ -13,14 +13,13 @@ import shutil
 import re
 import sys
 from pathlib import Path
-from typing import Optional
 
 # ── Path bootstrap ────────────────────────────────────────────────────────────
 _SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from core.utils.common import Logger, GlobalConfig, CLIResult, run_proc, PROJECT_ROOT
+from core.utils.common import CLIResult, run_proc, PROJECT_ROOT
 from core.libpkg import create_library
 
 LIBS_DIR = PROJECT_ROOT / "libs"
@@ -89,7 +88,7 @@ def _impl_cmd_add(args) -> None:
                 _f.write("create_library succeeded\n")
         except Exception:
             pass
-    except Exception as e:
+    except Exception:
         import traceback
         try:
             with open(log_path, "a", encoding="utf-8") as _f:
@@ -152,7 +151,7 @@ def _impl_cmd_deps(args) -> None:
         return
     if getattr(args, "remove", ""):
         if deps_file.exists():
-            lines = [l for l in deps_file.read_text(encoding="utf-8").splitlines() if l.strip() != args.remove]
+            lines = [line for line in deps_file.read_text(encoding="utf-8").splitlines() if line.strip() != args.remove]
             deps_file.write_text("\n".join(lines), encoding="utf-8")
         print("Removed dependency", args.remove)
         return
@@ -271,17 +270,48 @@ def _wrap(fn, args) -> CLIResult:
         return CLIResult(success=(e.code == 0), code=e.code or 1)
 
 
-def cmd_list(args):     return _wrap(_impl_cmd_list,   args)
-def cmd_tree(args):     return _wrap(_impl_cmd_tree,   args)
-def cmd_doctor(args):   return _wrap(_impl_cmd_doctor, args)
-def cmd_add(args):      return _wrap(_impl_cmd_add,    args)
-def cmd_remove(args):   return _wrap(_impl_cmd_remove, args)
-def cmd_rename(args):   return _wrap(_impl_cmd_rename, args)
-def cmd_move(args):     return _wrap(_impl_cmd_move,   args)
-def cmd_deps(args):     return _wrap(_impl_cmd_deps,   args)
-def cmd_info(args):     return _wrap(_impl_cmd_info,   args)
-def cmd_test(args):     return _wrap(_impl_cmd_test,   args)
-def cmd_export(args):   return _wrap(_impl_cmd_export, args)
+def cmd_list(args):
+    return _wrap(_impl_cmd_list, args)
+
+
+def cmd_tree(args):
+    return _wrap(_impl_cmd_tree, args)
+
+
+def cmd_doctor(args):
+    return _wrap(_impl_cmd_doctor, args)
+
+
+def cmd_add(args):
+    return _wrap(_impl_cmd_add, args)
+
+
+def cmd_remove(args):
+    return _wrap(_impl_cmd_remove, args)
+
+
+def cmd_rename(args):
+    return _wrap(_impl_cmd_rename, args)
+
+
+def cmd_move(args):
+    return _wrap(_impl_cmd_move, args)
+
+
+def cmd_deps(args):
+    return _wrap(_impl_cmd_deps, args)
+
+
+def cmd_info(args):
+    return _wrap(_impl_cmd_info, args)
+
+
+def cmd_test(args):
+    return _wrap(_impl_cmd_test, args)
+
+
+def cmd_export(args):
+    return _wrap(_impl_cmd_export, args)
 
 
 # ── Parser (mirrors previous build_parser) ─────────────────────────────────

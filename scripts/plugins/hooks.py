@@ -24,4 +24,11 @@ import setup_hooks as _impl  # scripts/setup_hooks.py
 
 
 def main(argv: list[str]) -> None:
-    _impl.main()
+    # Forward the plugin argv to the delegated script's argparse by
+    # temporarily replacing sys.argv (similar to plugins/setup.py).
+    old_argv = sys.argv
+    sys.argv = ["tool hooks"] + argv
+    try:
+        _impl.main()
+    finally:
+        sys.argv = old_argv

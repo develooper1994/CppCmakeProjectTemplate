@@ -18,17 +18,13 @@ import os
 import re
 import sys
 from pathlib import Path
-import subprocess
 
 # Ensure scripts/ is on sys.path so `core.*` imports work whether the module
 # is executed directly or imported as `scripts.publish_vsix`.
 _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
-try:
-    from .core.utils.common import run_capture
-except Exception:
-    from core.utils.common import run_capture
+from core.utils.common import run_capture
 
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError

@@ -18,7 +18,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from core.utils.common import Logger, GlobalConfig, CLIResult, load_session, save_session
+from core.utils.common import Logger, GlobalConfig, load_session
 
 # Core command to sub-package mapping
 CORE_COMMANDS = {

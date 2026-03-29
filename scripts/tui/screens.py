@@ -6,8 +6,6 @@ Moved from top-level `scripts/tui_screens.py` into the package.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 try:
     from textual.screen import Screen

@@ -8,16 +8,16 @@ package. Uses package-relative helpers.
 from __future__ import annotations
 
 import re
-from typing import List, Tuple, Any
+from typing import List
 
 try:
-    from textual.widgets import Input, Select, Label, Checkbox, Static, Button
+    from textual.widgets import Input, Select, Label, Checkbox, Button
     from textual.containers import Vertical
 except Exception:
     # When textual is missing the TUI won't run; propagate a clear error
     raise
 
-from .helpers import read_presets, plugins_list, plugins_describe, run_tool_cmd
+from .helpers import read_presets, plugins_list, run_tool_cmd
 
 
 def populate_build_presets(select_widget: Select) -> None:

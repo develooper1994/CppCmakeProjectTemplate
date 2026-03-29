@@ -28,7 +28,7 @@ from core.utils.common import (
     json_read_cached,
     json_cache_clear,
 )
-from core.utils.common import get_project_version, get_project_name
+from core.utils.common import get_project_version
 import json
 
 DEFAULT_PRESET = "gcc-debug-static-x86_64"

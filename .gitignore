@@ -65,3 +65,13 @@ __pycache__/
 # Extension generated files (copied from repo root during build)
 extension/README.md
 extension/LICENSE
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+.mypy/
+mypy/
+.ruff/
+ruff/

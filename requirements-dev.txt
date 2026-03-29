@@ -1,6 +1,13 @@
-; Development requirements (optional)
-# Optional TUI: uncomment or install manually when you want to run the textual TUI
-# textual>=0.28.0
+# Development requirements (optional)
+# Optional TUI: install when you want to run the textual TUI
+textual>=0.28.0
+
 # Linting / formatting
 ruff>=0.11.0
 pytest>=7.0
+
+# Type checking
+mypy>=1.0
+
+# Packaging / tooling
+conan>=2.0

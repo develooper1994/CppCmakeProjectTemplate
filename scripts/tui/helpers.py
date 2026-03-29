@@ -87,7 +87,7 @@ def plugins_list() -> List[str]:
 
     out2, rc2 = run_tool_cmd(["plugins", "list"])
     if rc2 == 0 and out2:
-        return [l.strip() for l in out2.splitlines() if l.strip() and not l.startswith("(")]
+        return [line.strip() for line in out2.splitlines() if line.strip() and not line.startswith("(")]
     return []
 
 

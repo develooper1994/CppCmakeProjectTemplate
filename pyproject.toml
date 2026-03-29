@@ -1,0 +1,23 @@
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+# Ignore imports-not-at-top pattern used by scripts that modify sys.path at runtime
+ignore = ["E402"]
+
+# Exclude common build / virtualenv / cache directories
+exclude = [
+  "build",
+  "build/**",
+  ".venv",
+  ".venv/**",
+  "build_logs",
+  "build_logs/**",
+  "extension/templates",
+  "extension/*.vsix",
+  "__pycache__",
+  "**/__pycache__",
+]
+
+[tool.ruff.per-file-ignores]
+# Allow some TUI files or generated code to keep imports flexible
+"scripts/tui/*" = ["E402"]

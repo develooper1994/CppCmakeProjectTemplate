@@ -4,16 +4,13 @@ Moved from top-level `scripts/tui_ui.py` into the `scripts.tui` package.
 """
 from __future__ import annotations
 
-import json
 import sys
 import re
-from pathlib import Path
 
 try:
     from textual.app import App, ComposeResult
     from textual.binding import Binding
     from textual.containers import Horizontal, Vertical, ScrollableContainer
-    from textual.screen import Screen
     from textual.widgets import (
         Button, Footer, Header, Input, Label,
         Select, Static, TabbedContent, TabPane, Checkbox,
@@ -24,7 +21,7 @@ except ImportError:
 
 # Package-local imports (prefer relative imports to avoid circular fallbacks)
 from .helpers import run_tool_cmd, read_presets, plugins_list, plugins_describe, DEFAULT_PRESET
-from .widgets import populate_build_presets, PluginPanel, LibraryPanel, ProjectPanel, InfoPanel
+from .widgets import PluginPanel, LibraryPanel, ProjectPanel, InfoPanel
 from .screens import OutputScreen
 
 
@@ -57,6 +54,12 @@ class CppTemplateTUI(App):
 
     TITLE     = "CppCmakeProjectTemplate TUI"
     SUB_TITLE = "interactive > cli args > session"
+    # Optional panel widgets — may be None when textual isn't available or
+    # in environments where panels cannot be constructed during import.
+    _plugin_panel: PluginPanel | None
+    _library_panel: LibraryPanel | None
+    _project_panel: ProjectPanel | None
+    _info_panel: InfoPanel | None
 
     def __init__(self, initial_preset: str = DEFAULT_PRESET) -> None:
         super().__init__()
@@ -528,7 +531,8 @@ class CppTemplateTUI(App):
                 else:
                     name = self.query_one("#lib-name", Input).value.strip()
                     if not name:
-                        self._show("⚠ Enter a library name first."); return
+                        self._show("⚠ Enter a library name first.")
+                        return
                     lib_type = self.query_one("#lib-type", Select).value
                     tmpl     = self.query_one("#lib-template", Select).value
                     deps     = self.query_one("#lib-deps", Input).value.strip()
@@ -560,7 +564,8 @@ class CppTemplateTUI(App):
                 else:
                     name = self.query_one("#lib-remove-name", Input).value.strip()
                     if not name:
-                        self._show("⚠ Enter a library name first."); return
+                        self._show("⚠ Enter a library name first.")
+                        return
                     args = ["lib", "remove", name]
                     if delete:
                         args += ["--delete"]
@@ -580,7 +585,8 @@ class CppTemplateTUI(App):
                 else:
                     name = self.query_one("#lib-export-name", Input).value.strip()
                     if not name:
-                        self._show("⚠ Enter a library name."); return
+                        self._show("⚠ Enter a library name.")
+                        return
                     out, rc = _run_tool_cmd(["lib", "export", name])
                 self._show(out, f"Export {name}")
             except Exception as e:
@@ -659,7 +665,8 @@ class CppTemplateTUI(App):
                     key = self.query_one("#cfg-key", Input).value.strip()
                     val = self.query_one("#cfg-val", Input).value.strip()
                     if not key or not val:
-                        self._show("⚠ Enter key and value."); return
+                        self._show("⚠ Enter key and value.")
+                        return
                     out, rc = _run_tool_cmd(["sol", "config", "set", key, val])
                 self._show(out, "Config")
             except Exception as e:
@@ -697,7 +704,8 @@ class CppTemplateTUI(App):
                 else:
                     name = self.query_one("#info-lib-name", Input).value.strip()
                     if not name:
-                        self._show("⚠ Enter a library name."); return
+                        self._show("⚠ Enter a library name.")
+                        return
                     out, rc = _run_tool_cmd(["lib", "info", name])
                 self._show(out, f"Info: {name}")
             except Exception as e:
@@ -714,7 +722,8 @@ class CppTemplateTUI(App):
                 else:
                     name = self.query_one("#info-lib-name", Input).value.strip()
                     if not name:
-                        self._show("⚠ Enter a library name."); return
+                        self._show("⚠ Enter a library name.")
+                        return
                     out, rc = _run_tool_cmd(["lib", "test", name, "--preset", preset])
                 self._show(out, f"Test: {name}")
             except Exception as e:

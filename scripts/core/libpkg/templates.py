@@ -81,8 +81,10 @@ def lib_source_pimpl(name: str, namespace: Optional[str]) -> str:
     ns_open = f"namespace {namespace} {{\n\n" if namespace else ""
     ns_close = f"\n}} // namespace {namespace}\n" if namespace else ""
     return (
-        inc +
-        f"struct {cls}::Impl {{\n    // implementation details\n}};\n\n{cls}::{cls}() : pImpl(new Impl()) {{}}\n{cls}::~{cls}() {{ delete pImpl; }}\nvoid {cls}::do_work() {{ /* TODO */ }}\n"
+        inc
+        + ns_open
+        + f"struct {cls}::Impl {{\n    // implementation details\n}};\n\n{cls}::{cls}() : pImpl(new Impl()) {{}}\n{cls}::~{cls}() {{ delete pImpl; }}\nvoid {cls}::do_work() {{ /* TODO */ }}\n"
+        + ns_close
     )
 
 
@@ -114,7 +116,7 @@ def lib_header_observer(name: str, namespace: Optional[str]) -> str:
         )
     else:
         return (
-            f"#pragma once\n\nclass Observer {{ public: virtual ~Observer() = default; virtual void notify() = 0; }};\nclass Subject {{ public: void add(Observer*) {{}} void notify_all() {{}} }};\n"
+            "#pragma once\n\nclass Observer { public: virtual ~Observer() = default; virtual void notify() = 0; };\nclass Subject { public: void add(Observer*) {} void notify_all() {} };\n"
         )
 
 

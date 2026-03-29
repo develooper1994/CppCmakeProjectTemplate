@@ -11,14 +11,10 @@ from __future__ import annotations
 
 import argparse
 import platform
-import sys
 import shutil
 import venv
 from pathlib import Path
-try:
-    from .core.utils.common import run_proc
-except Exception:
-    from core.utils.common import run_proc
+from core.utils.common import run_proc
 
 
 def _run(cmd: list[str]) -> None:

@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
 
 # ── Path bootstrap ────────────────────────────────────────────────────────────
 _SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
@@ -18,7 +17,6 @@ if str(_SCRIPTS) not in sys.path:
 
 from core.utils.common import (
     Logger,
-    GlobalConfig,
     CLIResult,
     run_proc,
     run_capture,
@@ -27,9 +25,7 @@ from core.utils.common import (
     json_cache_clear,
 )
 import json
-import shutil
 import re
-import subprocess
 from functools import lru_cache
 
 TOOLCHAINS_DIR = PROJECT_ROOT / "cmake" / "toolchains"
@@ -87,8 +83,8 @@ def _impl_cmd_target_list(args) -> None:
     for a in apps:
         print(" -", a)
     print("Libraries:")
-    for l in libs:
-        print(" -", l)
+    for lib in libs:
+        print(" -", lib)
 
 
 def _impl_cmd_target_build(args) -> None:
@@ -323,7 +319,7 @@ def _impl_cmd_repo_versions(args) -> None:
         try:
             out, rc = run_capture(["git", "ls-remote", "--tags", url], cwd=PROJECT_ROOT)
             if rc == 0 and out:
-                tags = [l.split('\t')[1] for l in out.splitlines() if '\trefs/tags/' in l]
+                tags = [line.split('\t')[1] for line in out.splitlines() if '\trefs/tags/' in line]
                 for t in tags[:10]:
                     print(" -", t)
         except Exception:
@@ -358,25 +354,80 @@ def _wrap(fn, args) -> CLIResult:
         return CLIResult(success=(e.code == 0), code=e.code or 1)
 
 
-def cmd_target_list(args):    return _wrap(_impl_cmd_target_list,    args)
-def cmd_target_build(args):   return _wrap(_impl_cmd_target_build,   args)
-def cmd_preset_list(args):    return _wrap(_impl_cmd_preset_list,    args)
-def cmd_preset_add(args):     return _wrap(_impl_cmd_preset_add,     args)
-def cmd_preset_remove(args):  return _wrap(_impl_cmd_preset_remove,  args)
-def cmd_toolchain_list(args): return _wrap(_impl_cmd_toolchain_list, args)
-def cmd_toolchain_add(args):  return _wrap(_impl_cmd_toolchain_add,  args)
-def cmd_toolchain_remove(args): return _wrap(_impl_cmd_toolchain_remove, args)
-def cmd_config_get(args):     return _wrap(_impl_cmd_config_get,     args)
-def cmd_config_set(args):     return _wrap(_impl_cmd_config_set,     args)
-def cmd_doctor(args):         return _wrap(_impl_cmd_doctor,         args)
-def cmd_test_run(args):       return _wrap(_impl_cmd_test_run,       args)
-def cmd_upgrade_std(args):    return _wrap(_impl_cmd_upgrade_std,    args)
-def cmd_repo_list(args):      return _wrap(_impl_cmd_repo_list,      args)
-def cmd_repo_add_submodule(args): return _wrap(_impl_cmd_repo_add_submodule, args)
-def cmd_repo_add_fetch(args): return _wrap(_impl_cmd_repo_add_fetch, args)
-def cmd_repo_sync(args):      return _wrap(_impl_cmd_repo_sync,      args)
-def cmd_repo_versions(args):  return _wrap(_impl_cmd_repo_versions,  args)
-def cmd_ci(args):             return _wrap(_impl_cmd_ci,             args)
+def cmd_target_list(args):
+    return _wrap(_impl_cmd_target_list, args)
+
+
+def cmd_target_build(args):
+    return _wrap(_impl_cmd_target_build, args)
+
+
+def cmd_preset_list(args):
+    return _wrap(_impl_cmd_preset_list, args)
+
+
+def cmd_preset_add(args):
+    return _wrap(_impl_cmd_preset_add, args)
+
+
+def cmd_preset_remove(args):
+    return _wrap(_impl_cmd_preset_remove, args)
+
+
+def cmd_toolchain_list(args):
+    return _wrap(_impl_cmd_toolchain_list, args)
+
+
+def cmd_toolchain_add(args):
+    return _wrap(_impl_cmd_toolchain_add, args)
+
+
+def cmd_toolchain_remove(args):
+    return _wrap(_impl_cmd_toolchain_remove, args)
+
+
+def cmd_config_get(args):
+    return _wrap(_impl_cmd_config_get, args)
+
+
+def cmd_config_set(args):
+    return _wrap(_impl_cmd_config_set, args)
+
+
+def cmd_doctor(args):
+    return _wrap(_impl_cmd_doctor, args)
+
+
+def cmd_test_run(args):
+    return _wrap(_impl_cmd_test_run, args)
+
+
+def cmd_upgrade_std(args):
+    return _wrap(_impl_cmd_upgrade_std, args)
+
+
+def cmd_repo_list(args):
+    return _wrap(_impl_cmd_repo_list, args)
+
+
+def cmd_repo_add_submodule(args):
+    return _wrap(_impl_cmd_repo_add_submodule, args)
+
+
+def cmd_repo_add_fetch(args):
+    return _wrap(_impl_cmd_repo_add_fetch, args)
+
+
+def cmd_repo_sync(args):
+    return _wrap(_impl_cmd_repo_sync, args)
+
+
+def cmd_repo_versions(args):
+    return _wrap(_impl_cmd_repo_versions, args)
+
+
+def cmd_ci(args):
+    return _wrap(_impl_cmd_ci, args)
 
 
 def build_parser() -> argparse.ArgumentParser:

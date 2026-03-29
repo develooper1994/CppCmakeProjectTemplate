@@ -19,7 +19,7 @@ _SCRIPTS = Path(__file__).resolve().parent.parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from core.utils.common import Logger, CLIResult, GlobalConfig
+from core.utils.common import CLIResult
 import pkgutil
 
 
@@ -99,6 +99,9 @@ def validate_plugin_meta(meta: dict) -> dict:
     raw_args = meta.get("args", []) or []
     validated = []
     for a in raw_args:
+        # `arg_name` may be assigned from a str or from a dict lookup; declare
+        # as Optional[str] to keep type-checkers happy across branches.
+        arg_name: str | None = None
         if isinstance(a, str):
             arg_name = a
             arg_help = ""

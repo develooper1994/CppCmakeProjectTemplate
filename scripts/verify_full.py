@@ -12,10 +12,7 @@ import sys
 _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
-try:
-    from .core.utils.common import run_capture
-except Exception:
-    from core.utils.common import run_capture
+from core.utils.common import run_capture
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG = ROOT / "build_logs" / "verify.log"

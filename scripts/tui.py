@@ -21,11 +21,10 @@ _PROJECT = _SCRIPTS.parent
 if str(_PROJECT) not in sys.path:
     sys.path.insert(0, str(_PROJECT))
 
-# Prefer the new package API for the TUI helpers.
-try:
-    from scripts.tui import initial_preset as _initial_preset_helper
-except Exception:
-    from scripts.tui.helpers import initial_preset as _initial_preset_helper
+# Import the helper from the package submodule to avoid importing this
+# launcher module (`scripts/tui.py`) as `scripts.tui` which causes
+# circular/self imports when executed directly.
+from scripts.tui.helpers import initial_preset as _initial_preset_helper
 
 
 def _initial_preset(cli_arg: str | None) -> str:
@@ -45,10 +44,9 @@ def main(argv: list[str] | None = None) -> None:
     initial = _initial_preset(args.preset)
 
     # Lazy import the heavy UI implementation only when running the app.
-    try:
-        from scripts.tui import CppTemplateTUI
-    except Exception:
-        from scripts.tui.ui import CppTemplateTUI
+    # Import the UI class from the package submodule to avoid accidental
+    # self-import of this launcher module.
+    from scripts.tui.ui import CppTemplateTUI
 
     CppTemplateTUI(initial_preset=initial).run()
 
