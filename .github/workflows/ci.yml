@@ -24,7 +24,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-dev.txt', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install Python dev dependencies
         run: |
@@ -50,10 +52,19 @@ jobs:
           filters: |
             cpp:
               - 'CMakeLists.txt'
+              - 'CMakePresets.json'
+              - 'cmake/**'
               - 'libs/**'
               - 'apps/**'
-              - 'cmake/**'
+              - 'include/**'
               - 'src/**'
+              - '**/*.c'
+              - '**/*.cpp'
+              - '**/*.cxx'
+              - '**/*.h'
+              - '**/*.hpp'
+              - 'vcpkg.json'
+              - 'conanfile.py'
 
   cpp-build:
     name: C/C++ Build & Tests
@@ -73,13 +84,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-dev.txt', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt') }}
+          key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json', 'libs/**', 'apps/**', 'cmake/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
 
       - name: Build and run C++ tests + extension
         env:
@@ -98,6 +113,8 @@ on:
 jobs:
   # ── Linux / GCC ─────────────────────────────────────────────────────────────
   build-linux-gcc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -132,6 +149,8 @@ jobs:
 
   # ── Linux / Clang ────────────────────────────────────────────────────────────
   build-linux-clang:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -166,6 +185,8 @@ jobs:
 
   # ── Windows / MSVC ───────────────────────────────────────────────────────────
   build-windows:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -199,6 +220,8 @@ jobs:
 
   # ── macOS / AppleClang ───────────────────────────────────────────────────────
   build-macos:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
