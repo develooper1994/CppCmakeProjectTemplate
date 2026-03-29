@@ -85,7 +85,20 @@ def _cmake_remove_subdirectory(cmake_path: Path, name: str) -> bool:
     )
     if new_content == content:
         return False
-    cmake_path.write_text(new_content, encoding="utf-8")
+    # Check for Transaction in caller context
+    txn = None
+    try:
+        import inspect
+        frame = inspect.currentframe().f_back
+        if frame is not None and "txn" in frame.f_locals:
+            txn = frame.f_locals.get("txn")
+    except Exception:
+        pass
+
+    if txn:
+        txn.safe_write_text(cmake_path, new_content)
+    else:
+        cmake_path.write_text(new_content, encoding="utf-8")
     return True
 
 
@@ -101,7 +114,20 @@ def _cmake_rename_subdirectory(cmake_path: Path, old: str, new: str) -> bool:
     )
     if new_content == content:
         return False
-    cmake_path.write_text(new_content, encoding="utf-8")
+    
+    txn = None
+    try:
+        import inspect
+        frame = inspect.currentframe().f_back
+        if frame is not None and "txn" in frame.f_locals:
+            txn = frame.f_locals.get("txn")
+    except Exception:
+        pass
+
+    if txn:
+        txn.safe_write_text(cmake_path, new_content)
+    else:
+        cmake_path.write_text(new_content, encoding="utf-8")
     return True
 
 
@@ -116,6 +142,40 @@ def _replace_tokens_in_tree(root: Path, old: str, new: str) -> None:
                     p.write_text(content.replace(old, new), encoding="utf-8")
             except Exception:
                 pass
+
+
+def _update_cmake_references(old: str, new: str, root: Path, txn: Optional[Transaction] = None) -> None:
+    """Update target_link_libraries references from 'old' to 'new' in all CMakeLists.txt."""
+    for p in root.rglob("CMakeLists.txt"):
+        if p.is_file():
+            content = p.read_text(encoding="utf-8")
+            # Match target_link_libraries and replace the dependency
+            new_content = re.sub(rf"\b{re.escape(old)}\b", new, content)
+            if new_content != content:
+                if txn:
+                    txn.safe_write_text(p, new_content)
+                else:
+                    p.write_text(new_content, encoding="utf-8")
+
+
+def _remove_cmake_references(target: str, root: Path, txn: Optional[Transaction] = None) -> None:
+    """Remove references to 'target' from all target_link_libraries in CMakeLists.txt."""
+    for p in root.rglob("CMakeLists.txt"):
+        if p.is_file():
+            content = p.read_text(encoding="utf-8")
+            # Remove the target from target_link_libraries
+            new_content = re.sub(rf"(target_link_libraries\([^)]*)\b{re.escape(target)}\b([^)]*\))", 
+                                 lambda m: m.group(1) + m.group(2).replace("  ", " ").strip(), 
+                                 content)
+            # Cleanup double spaces or spaces before closing parenthesis
+            new_content = re.sub(r'\s+\)', ')', new_content)
+            new_content = re.sub(r'\(\s+', '(', new_content)
+            
+            if new_content != content:
+                if txn:
+                    txn.safe_write_text(p, new_content)
+                else:
+                    p.write_text(new_content, encoding="utf-8")
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
@@ -141,7 +201,6 @@ def create_library(
     libs_cmake  = project_root / "libs" / "CMakeLists.txt"
     tests_cmake = project_root / "tests" / "unit" / "CMakeLists.txt"
 
-    # External template dir (e.g. from Jinja/extension templates)
     if template and template not in ("singleton", "pimpl", "observer", "factory"):
         template_dir = project_root / "extension" / "templates" / "libs" / template
         if template_dir.exists() and template_dir.is_dir():
@@ -163,22 +222,16 @@ def create_library(
         print("[dry-run] register in tests/unit/CMakeLists.txt")
         return
 
-    # Use Transaction to ensure atomic create/rollback on failure
     ns = namespace or name
     with Transaction(project_root) as txn:
-        # Create directory structure
         txn.safe_mkdir(p.lib_dir, parents=True, exist_ok=False)
         if not interface:
             txn.safe_mkdir(p.include_subdir, parents=True, exist_ok=True)
         if not (header_only or interface):
             txn.safe_mkdir(p.src_dir, parents=True, exist_ok=True)
 
-        # Write files
         if header_only or interface:
-            txn.safe_write_text(
-                p.cmake,
-                lib_cmakelists_header_only(name, version, ns, deps, cxx_standard),
-            )
+            txn.safe_write_text(p.cmake, lib_cmakelists_header_only(name, version, ns, deps, cxx_standard))
             if not interface:
                 txn.safe_write_text(p.header_file, lib_header(name, ns))
         else:
@@ -205,7 +258,6 @@ def create_library(
         else:
             txn.safe_write_text(p.readme, f"# {name}\n\nGenerated library: {name}\n")
 
-        # Tests
         if not interface:
             txn.safe_mkdir(p.tests_dir, parents=True, exist_ok=True)
             tests_cmake_lib = p.tests_dir / "CMakeLists.txt"
@@ -213,32 +265,23 @@ def create_library(
                 txn.safe_write_text(tests_cmake_lib, _render_template_file("tests_cmake.jinja2", name=name))
                 txn.safe_write_text(p.tests_dir / f"{name}_test.cpp", _render_template_file("test_cpp.jinja2", name=name))
             else:
-                txn.safe_write_text(
-                    tests_cmake_lib,
-                    (
-                        f"add_executable({name}_tests {name}_test.cpp)\n"
-                        f"target_link_libraries({name}_tests PRIVATE {name} GTest::gtest_main)\n"
-                        f"add_test(NAME {name}_tests COMMAND {name}_tests)\n"
-                    ),
-                )
-                txn.safe_write_text(
-                    p.tests_dir / f"{name}_test.cpp",
-                    f"#include <gtest/gtest.h>\n\nTEST({name}_Test, Placeholder) {{ EXPECT_TRUE(true); }}\n",
-                )
+                txn.safe_write_text(tests_cmake_lib, (
+                    f"add_executable({name}_tests {name}_test.cpp)\n"
+                    f"target_link_libraries({name}_tests PRIVATE {name} GTest::gtest_main)\n"
+                    f"add_test(NAME {name}_tests COMMAND {name}_tests)\n"
+                ))
+                txn.safe_write_text(p.tests_dir / f"{name}_test.cpp",
+                    f"#include <gtest/gtest.h>\n\nTEST({name}_Test, Placeholder) {{ EXPECT_TRUE(true); }}\n")
 
-        # Register in CMakeLists.txt files (always) — _cmake_add_subdirectory will detect txn and write transactionally
         _cmake_add_subdirectory(libs_cmake, name)
         if not interface:
             _cmake_add_subdirectory(tests_cmake, name)
 
-        print(f"✅ libs/{name}/")
-        if not interface:
-            print(f"✅ tests/unit/{name}/")
-        print("✅ Registered in libs/CMakeLists.txt")
-        if not interface:
-            print("✅ Registered in tests/unit/CMakeLists.txt")
-        if deps:
-            print(f"🔗 deps: {', '.join(deps)}")
+    print(f"✅ libs/{name}/")
+    if not interface: print(f"✅ tests/unit/{name}/")
+    print("✅ Registered in libs/CMakeLists.txt")
+    if not interface: print("✅ Registered in tests/unit/CMakeLists.txt")
+    if deps: print(f"🔗 deps: {', '.join(deps)}")
 
 
 def remove_library(name: str, delete: bool = False, dry_run: bool = False, root: Optional[Path] = None) -> None:
@@ -251,8 +294,10 @@ def remove_library(name: str, delete: bool = False, dry_run: bool = False, root:
     libs_cmake  = project_root / "libs" / "CMakeLists.txt"
     tests_cmake = project_root / "tests" / "unit" / "CMakeLists.txt"
 
-    if not p.lib_dir.exists():
-        raise FileNotFoundError(f"Library '{name}' not found")
+    if not p.lib_dir.exists() and not delete:
+        pass
+    elif not p.lib_dir.exists():
+        raise FileNotFoundError(f"Library '{name}' directory not found")
 
     if dry_run:
         print(f"[dry-run] unregister {name} from libs/CMakeLists.txt")
@@ -262,17 +307,17 @@ def remove_library(name: str, delete: bool = False, dry_run: bool = False, root:
             print(f"[dry-run] delete tests/unit/{name}/")
         return
 
-    _cmake_remove_subdirectory(libs_cmake, name)
-    _cmake_remove_subdirectory(tests_cmake, name)
+    with Transaction(project_root) as txn:
+        _cmake_remove_subdirectory(libs_cmake, name)
+        _cmake_remove_subdirectory(tests_cmake, name)
+        _remove_cmake_references(name, project_root, txn)
 
-    if delete:
-        if p.lib_dir.exists():
-            shutil.rmtree(p.lib_dir)
-        if p.tests_dir.exists():
-            shutil.rmtree(p.tests_dir)
-        print(f"✅ Deleted: libs/{name}/ and tests/unit/{name}/")
-    else:
-        print(f"✅ Detached: {name} (files kept, CMake entries removed)")
+        if delete:
+            if p.lib_dir.exists(): txn.safe_remove(p.lib_dir)
+            if p.tests_dir.exists(): txn.safe_remove(p.tests_dir)
+            print(f"✅ Deleted: libs/{name}/ and tests/unit/{name}/")
+        else:
+            print(f"✅ Detached: {name} (files kept, CMake entries removed)")
 
 
 def rename_library(old: str, new: str, dry_run: bool = False, root: Optional[Path] = None) -> None:
@@ -298,19 +343,18 @@ def rename_library(old: str, new: str, dry_run: bool = False, root: Optional[Pat
         print("[dry-run] update CMake references")
         return
 
-    # Move directories
-    p_old.lib_dir.rename(p_new.lib_dir)
-    if p_old.tests_dir.exists():
-        p_old.tests_dir.rename(p_new.tests_dir)
+    with Transaction(project_root) as txn:
+        txn.safe_rename(p_old.lib_dir, p_new.lib_dir)
+        if p_old.tests_dir.exists():
+            txn.safe_rename(p_old.tests_dir, p_new.tests_dir)
 
-    # Update all token references within moved dirs
-    _replace_tokens_in_tree(p_new.lib_dir, old, new)
-    if p_new.tests_dir.exists():
-        _replace_tokens_in_tree(p_new.tests_dir, old, new)
+        _replace_tokens_in_tree(p_new.lib_dir, old, new)
+        if p_new.tests_dir.exists():
+            _replace_tokens_in_tree(p_new.tests_dir, old, new)
 
-    # Update CMakeLists.txt registrations
-    _cmake_rename_subdirectory(libs_cmake, old, new)
-    _cmake_rename_subdirectory(tests_cmake, old, new)
+        _cmake_rename_subdirectory(libs_cmake, old, new)
+        _cmake_rename_subdirectory(tests_cmake, old, new)
+        _update_cmake_references(old, new, project_root, txn)
 
     print(f"✅ Renamed: {old} → {new}")
 
@@ -334,9 +378,11 @@ def move_library(name: str, dest: str, dry_run: bool = False, root: Optional[Pat
         print(f"[dry-run] move libs/{name} → libs/{dest}")
         return
 
-    new_dir.parent.mkdir(parents=True, exist_ok=True)
-    p.lib_dir.rename(new_dir)
-    _cmake_remove_subdirectory(libs_cmake, name)
-    # Re-register with new relative path
-    _cmake_add_subdirectory(libs_cmake, dest)
+    with Transaction(project_root) as txn:
+        if not new_dir.parent.exists():
+            txn.safe_mkdir(new_dir.parent, parents=True, exist_ok=True)
+        txn.safe_rename(p.lib_dir, new_dir)
+        _cmake_remove_subdirectory(libs_cmake, name)
+        _cmake_add_subdirectory(libs_cmake, dest)
+
     print(f"✅ Moved: libs/{name} → libs/{dest}")

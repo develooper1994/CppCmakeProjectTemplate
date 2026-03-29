@@ -7,8 +7,7 @@ target_generate_build_info(main_app NAMESPACE main_app_info)
 target_link_libraries(main_app
     PRIVATE
         dummy_lib
-        project_feature_flags
-)
+        project_feature_flags)
 
 # Apply project-wide warnings
 set_project_warnings(main_app)
@@ -21,5 +20,4 @@ add_embedded_binary_outputs(main_app)
 
 # Install rules
 install(TARGETS main_app
-    EXPORT main_app_Targets
-)
+    EXPORT main_app_Targets)

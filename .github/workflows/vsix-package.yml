@@ -1,0 +1,44 @@
+name: VSIX Package
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  build-vsix:
+    name: Build and upload VSIX
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Sync extension templates
+        run: python3 scripts/tool.py build extension
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Package VSIX
+        run: |
+          cd extension
+          if [ -f package-lock.json ]; then npm ci; fi
+          npx --yes vsce package --out cpp-cmake-scaffolder-${{ github.sha }}.vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpp-cmake-scaffolder-vsix
+          path: extension/*.vsix

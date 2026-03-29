@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch: {}
 
 jobs:
@@ -28,13 +28,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install Python dev dependencies
+      - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
       - name: Run Python tests
         run: python3 -m pytest -q
+
+      - name: Template smoke-run (dry-run)
+        run: |
+          # Ensure templates can be rendered in dry-run mode
+          python3 scripts/tool.py --dry-run lib add toy --template singleton
 
   detect-changes:
     name: Detect C/C++ Changes
@@ -67,7 +72,7 @@ jobs:
               - 'conanfile.py'
 
   cpp-build:
-    name: C/C++ Build & Tests
+    name: C/C++ Build & Tests (Full Verification)
     needs: [python-tests, detect-changes]
     if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
@@ -96,24 +101,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ccache-
 
-      - name: Build and run C++ tests + extension
+      - name: Build and run C++ tests + verification
         env:
-          CCACHE_DIR: ${{ runner.temp }}/ccache
+          CCACHE_DIR: ~/.ccache
           CCACHE_MAXSIZE: 1G
         run: |
-          python3 scripts/tool.py build check
-name: CI
+          python3 scripts/tool.py build check --no-sync
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-
-jobs:
   # ── Linux / GCC ─────────────────────────────────────────────────────────────
   build-linux-gcc:
-    needs: detect-changes
+    needs: [python-tests, detect-changes]
     if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     strategy:
@@ -124,7 +121,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0        # full history for git describe
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |
@@ -149,7 +146,7 @@ jobs:
 
   # ── Linux / Clang ────────────────────────────────────────────────────────────
   build-linux-clang:
-    needs: detect-changes
+    needs: [python-tests, detect-changes]
     if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     strategy:
@@ -185,7 +182,7 @@ jobs:
 
   # ── Windows / MSVC ───────────────────────────────────────────────────────────
   build-windows:
-    needs: detect-changes
+    needs: [python-tests, detect-changes]
     if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: windows-latest
     strategy:
@@ -220,7 +217,7 @@ jobs:
 
   # ── macOS / AppleClang ───────────────────────────────────────────────────────
   build-macos:
-    needs: detect-changes
+    needs: [python-tests, detect-changes]
     if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: macos-latest
     steps:

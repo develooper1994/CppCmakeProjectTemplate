@@ -27,8 +27,7 @@ add_library(dummy_lib)
 # This proves libraries can have independent versioning
 target_generate_build_info(dummy_lib 
     NAMESPACE dummy_lib_info 
-    PROJECT_VERSION "2.5.0"
-)
+    PROJECT_VERSION "2.5.0")
 
 target_sources(dummy_lib 
     PRIVATE 
@@ -36,22 +35,19 @@ target_sources(dummy_lib
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
-        FILES include/dummy_lib/greet.h
-)
+        FILES include/dummy_lib/greet.h)
 
 # Generate export header for Windows/DLL support
 # Place it in the binary directory to keep source clean
 generate_export_header(dummy_lib
     BASE_NAME DUMMY_LIB
-    EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/dummy_lib/dummy_lib_export.h"
-)
+    EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/dummy_lib/dummy_lib_export.h")
 
 target_include_directories(dummy_lib 
     PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated> # Build tree includes
-        $<INSTALL_INTERFACE:include>
-)
+        $<INSTALL_INTERFACE:include>)
 
 # Professional visibility settings (Hidden by default)
 # CXX_STANDARD can be overridden per-library via DUMMY_LIB_CXX_STANDARD cache var.
@@ -61,13 +57,11 @@ if(DUMMY_LIB_CXX_STANDARD AND NOT DUMMY_LIB_CXX_STANDARD STREQUAL "")
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS        OFF
         CXX_VISIBILITY_PRESET hidden
-        VISIBILITY_INLINES_HIDDEN 1
-    )
+        VISIBILITY_INLINES_HIDDEN 1)
 else()
     set_target_properties(dummy_lib PROPERTIES
         CXX_VISIBILITY_PRESET hidden
-        VISIBILITY_INLINES_HIDDEN 1
-    )
+        VISIBILITY_INLINES_HIDDEN 1)
 endif()
 
 if(ENABLE_COVERAGE)
@@ -86,5 +80,4 @@ endif()
 # Install rules
 install(TARGETS dummy_lib
     EXPORT dummy_lib_Targets
-    FILE_SET HEADERS
-)
+    FILE_SET HEADERS)

@@ -55,38 +55,20 @@ This document lists the project's current capabilities, governance policies, and
 - **Migration & Cleanup:** ✅ DONE (legacy scripts consolidated)
 - **Refactoring & Core Migration:** ✅ DONE (command logic moved under `core/commands`)
 
-### Phase 2: Distribution & Template Engine (Status & progress)
+### Phase 2: Distribution & Template Engine — Completed
 
-- **Jinja2 Migration:** Partial — a Jinja2-based POC was implemented and integrated for the `libpkg` scaffolding subsystem. Many templates were added under `scripts/core/libpkg/templates/`, and code paths in `scripts/core/libpkg` were updated to prefer Jinja rendering while preserving the f-string fallback when Jinja2 is not available.
-- **Packaging:** In-progress — extension packaging was hardened and a `.vsix` was produced; the `tool` CLI packaging metadata was added to `pyproject.toml`. Next step: publish `tool` as a pip package (PyPI) after tests and dependency pinning.
-- **Bootstrap (`tool setup`):** Done — `scripts/setup_python_env.py` and `scripts/plugins/setup.py` were extended to support venv bootstrap and dependency installation.
-- **Rollback & Recovery:** Done (core) — a `Transaction` helper for atomic file operations was implemented at `scripts/core/utils/fileops.py`, integrated into `create_library`, and covered by unit and edge-case tests.
+- **Jinja2 Migration:** ✅ DONE — Integrated for `libpkg` and `sol` subsystems with fallback behavior.
+- **Packaging:** ✅ DONE — Extension packaging hardened; `tool` metadata added to `pyproject.toml`.
+- **Bootstrap (`tool setup`):** ✅ DONE — Venv bootstrap and dependency installation supported.
+- **Rollback & Recovery:** ✅ DONE — Robust `Transaction` helper integrated project-wide for atomic file operations.
 
-Recent work (committed):
+### Phase 3: Test Strategy & Structured CI (Status & progress)
 
-- Added Jinja2 helper and many `.jinja2` templates for library scaffolding (`scripts/core/libpkg/templates/`) with fallback behavior.
-- Implemented transactional file-ops helper `Transaction` and integrated it into `create_library` for atomic writes and rollback.
-- Added comprehensive unit tests for `Transaction` (normal and edge-case scenarios) and template integration tests; tests run locally: `17 passed`.
-- Optimized CI workflow: caching for `pip` and `ccache`, improved cache keys, `paths-filter` to detect C/C++ changes, and conditional matrix builds so heavy C++ builds run only when relevant files change. Changes were committed and pushed on branch `ci/optimize-cache-and-tests`.
-
-Recommended next steps (short-term):
-
-- Perform a repository-wide sweep to identify remaining f-string template usages and convert only the file-generation paths that benefit from Jinja2 (leave runtime/log messages as f-strings).
-- Add unit tests for `create_library` failure modes (simulate mid-write exceptions) and expand Transaction tests for cross-device rename with real move semantics where possible.
-- Finalize `pyproject.toml` packaging metadata, pin runtime dependencies, and publish the `tool` CLI to PyPI (use a test PyPI release first).
-- Integrate the Python tests into the project CI as a required check and enable PR gating for the optimized CI workflow.
-
-Recommendations (longer-term):
-
-- Add cache keys tied to lockfiles (if you adopt Poetry/Pipfile) or lockfile hashes for reproducible pip caches.
-- Use `gh` or automation to create the PR from the `ci/optimize-cache-and-tests` branch (branch already pushed).
-- Add CI matrix caching for prebuilt dependencies (vcpkg/Conan) and consider incremental build artifacts between jobs.
-
-### Phase 3: Test Strategy & Structured CI
-
-- **Comprehensive Testing:** Unit and fixture tests for CLI tooling.
-- **Deterministic CI:** Frozen environments for reproducible builds.
-- **Template Smoke Tests:** Automated template validation across compilers.
+- **Comprehensive Testing:** In-progress — Library management commands (`rename`, `move`, `remove`) now feature safer transactional logic and automated project-wide CMake reference updates.
+- **Dependency Awareness:** ✅ DONE — `tool lib tree` and `tool lib info` now parse actual CMake dependencies.
+- **Project Health:** ✅ DONE — `tool lib doctor` detects and guides fixing of orphaned entries and broken include structures.
+- **Deterministic CI:** ✅ DONE — Optimized CI with caching, conditional builds, and cross-platform verification.
+- **App Scaffolding:** In-progress — `tool sol target add` implemented for automated app creation.
 
 ### Phase 4: Safety, Hardening & Sanitizers
 
@@ -124,6 +106,11 @@ Recommendations (longer-term):
 2. **Atomic Operations:** Ensure file mutations support rollback.
 3. **Static Analysis Integration:** Integrate `clang-tidy --fix` into the `check` command to improve quality.
 
-## Long work
+## Long-Term Vision
 
-Herşey tamamlandıktan sonra scriptler cmake ve c++ dosyaları olmadan sadece python dosyaları kalacak. CMakeLists.txt ve .cpp/.h dosyaları tamamen scriptler tarafından oluşturulacak. Böylece proje yapısı tamamen scriptlere programatik olarak tanımlanmış ve yönetiliyor olacak. Bu, projenin esnekliğini artıracak ve manuel müdahaleyi azaltacaktır.
+Once everything is completed, only Python scripts will remain; there will be no pre-existing CMake or C++ source files. All CMakeLists.txt and .cpp / .h files will be generated entirely by the scripts. In this way, the project structure will be programmatically defined and managed by the scripts, increasing flexibility while minimizing manual intervention.
+
+### Final Goal: Cargo + Cookiecutter + Bazel + IaC (Infrastructure as Code) Pattern
+
+The entire C++ project structure should be generated by scripts,
+and those scripts should manage the full lifecycle of the project.

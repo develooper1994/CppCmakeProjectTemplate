@@ -20,7 +20,12 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from core.utils.common import CLIResult, run_proc, PROJECT_ROOT
-from core.libpkg import create_library
+from core.libpkg import (
+    create_library,
+    remove_library,
+    rename_library,
+    move_library,
+)
 try:
     from core.libpkg.jinja_helpers import render_template_file as _render_template_file
     _USE_JINJA_LIBCMD = True
@@ -35,29 +40,108 @@ def _ensure_libs() -> None:
     LIBS_DIR.mkdir(exist_ok=True)
 
 
+def _get_lib_deps(name: str) -> list[str]:
+    """Parse CMakeLists.txt to find target_link_libraries."""
+    cm = LIBS_DIR / name / "CMakeLists.txt"
+    if not cm.exists():
+        return []
+    content = cm.read_text(encoding="utf-8")
+    # Simple regex for target_link_libraries(...)
+    match = re.search(r'target_link_libraries\(\s*\w+\s+(?:PUBLIC|PRIVATE|INTERFACE)\s+([^)]+)\)', content, re.DOTALL)
+    if not match:
+        return []
+    raw_deps = match.group(1).split()
+    # Filter out standard keywords and empty strings
+    return [d for d in raw_deps if d not in ("PUBLIC", "PRIVATE", "INTERFACE") and d.strip()]
+
+
 def _impl_cmd_list(args) -> None:
     _ensure_libs()
     for d in sorted([p.name for p in LIBS_DIR.iterdir() if p.is_dir()]):
-        print(d)
+        deps = _get_lib_deps(d)
+        dep_str = f" -> ({', '.join(deps)})" if deps else ""
+        print(f"{d}{dep_str}")
 
 
 def _impl_cmd_tree(args) -> None:
     _ensure_libs()
-    for p in sorted([p for p in LIBS_DIR.iterdir() if p.is_dir()]):
-        print(p.name)
-        for child in sorted(p.rglob("*")):
-            if child.is_file():
-                print("  -", child.relative_to(p))
+    libs = sorted([p.name for p in LIBS_DIR.iterdir() if p.is_dir()])
+    
+    def print_deps(name: str, visited: set[str], indent: int = 0):
+        if name in visited:
+            print("  " * indent + f"└─ {name} (circular!)")
+            return
+        visited.add(name)
+        deps = _get_lib_deps(name)
+        prefix = "  " * indent + ("└─ " if indent > 0 else "")
+        print(f"{prefix}{name}")
+        for d in deps:
+            if (LIBS_DIR / d).exists():
+                print_deps(d, visited.copy(), indent + 1)
+            else:
+                print("  " * (indent + 1) + f"└─ {d} (external)")
+
+    for lib in libs:
+        # Check if any other lib depends on this one. If so, don't show as root.
+        is_root = True
+        for other in libs:
+            if lib in _get_lib_deps(other):
+                is_root = False
+                break
+        if is_root:
+            print_deps(lib, set())
 
 
 def _impl_cmd_doctor(args) -> None:
     _ensure_libs()
-    problems = False
-    if not any(LIBS_DIR.iterdir()):
-        print("Warning: libs/ is empty")
-        problems = True
-    if not problems:
-        print("toollib doctor: OK")
+    problems = 0
+    
+    # 1. Check existing directories
+    for d in LIBS_DIR.iterdir():
+        if d.is_dir():
+            name = d.name
+            cm = d / "CMakeLists.txt"
+            if not cm.exists():
+                print(f"❌ {name}: Missing CMakeLists.txt")
+                problems += 1
+            inc = d / "include" / name
+            if not inc.exists() and not (d / "include").exists():
+                # check if it is header-only interface
+                content = cm.read_text(encoding="utf-8") if cm.exists() else ""
+                if "INTERFACE" not in content:
+                    print(f"⚠️ {name}: Missing standard include structure")
+            
+            deps = _get_lib_deps(name)
+            for dep in deps:
+                if "::" not in dep and not (LIBS_DIR / dep).exists() and dep not in ("GTest::gtest_main", "GTest::gtest"):
+                    print(f"⚠️ {name}: Depends on '{dep}' which is not in libs/ and not namespaced")
+
+    # 2. Check for orphaned add_subdirectory in libs/CMakeLists.txt
+    libs_cm = PROJECT_ROOT / "libs" / "CMakeLists.txt"
+    if libs_cm.exists():
+        content = libs_cm.read_text(encoding="utf-8")
+        matches = re.findall(r'add_subdirectory\(\s*([^)]+)\s*\)', content)
+        for sub in matches:
+            sub = sub.strip()
+            if not (PROJECT_ROOT / "libs" / sub).exists():
+                print(f"❌ Orphaned entry in libs/CMakeLists.txt: add_subdirectory({sub})")
+                problems += 1
+
+    # 3. Check for orphaned add_subdirectory in tests/unit/CMakeLists.txt
+    tests_cm = PROJECT_ROOT / "tests" / "unit" / "CMakeLists.txt"
+    if tests_cm.exists():
+        content = tests_cm.read_text(encoding="utf-8")
+        matches = re.findall(r'add_subdirectory\(\s*([^)]+)\s*\)', content)
+        for sub in matches:
+            sub = sub.strip()
+            if not (PROJECT_ROOT / "libs" / sub).exists():
+                print(f"❌ Orphaned entry in tests/unit/CMakeLists.txt: add_subdirectory({sub})")
+                problems += 1
+
+    if problems == 0:
+        print("✅ toollib doctor: All libraries look healthy")
+    else:
+        print(f"\nFound {problems} problems. Use 'tool lib remove <name>' to detach orphaned entries.")
 
 
 def _impl_cmd_add(args) -> None:
@@ -66,81 +150,68 @@ def _impl_cmd_add(args) -> None:
     deps = []
     if getattr(args, "deps", ""):
         deps = [d.strip() for d in args.deps.split(",") if d.strip()]
-    # Debug logging: record arguments and any exception to build_logs/lib_add_debug.log
-    log_path = PROJECT_ROOT / "build_logs" / "lib_add_debug.log"
-    try:
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(log_path, "a", encoding="utf-8") as _f:
-            _f.write(f"Calling create_library name={name} template={getattr(args, 'template', '')}\n")
-    except Exception:
-        pass
 
-    try:
-        create_library(
-            name=name,
-            version=getattr(args, "version", "1.0.0"),
-            namespace=getattr(args, "namespace", None),
-            deps=deps,
-            header_only=getattr(args, "header_only", False),
-            interface=getattr(args, "interface", False),
-            template=getattr(args, "template", ""),
-            cxx_standard=getattr(args, "cxx_standard", ""),
-            link_app=getattr(args, "link_app", False),
-            dry_run=getattr(args, "dry_run", False),
-            root=PROJECT_ROOT,
-        )
-        try:
-            with open(log_path, "a", encoding="utf-8") as _f:
-                _f.write("create_library succeeded\n")
-        except Exception:
-            pass
-    except Exception:
-        import traceback
-        try:
-            with open(log_path, "a", encoding="utf-8") as _f:
-                _f.write("Exception during create_library:\n")
-                _f.write(traceback.format_exc() + "\n")
-        except Exception:
-            pass
-        raise
+    create_library(
+        name=name,
+        version=getattr(args, "version", "1.0.0"),
+        namespace=getattr(args, "namespace", None),
+        deps=deps,
+        header_only=getattr(args, "header_only", False),
+        interface=getattr(args, "interface", False),
+        template=getattr(args, "template", ""),
+        cxx_standard=getattr(args, "cxx_standard", ""),
+        link_app=getattr(args, "link_app", False),
+        dry_run=getattr(args, "dry_run", False),
+        root=PROJECT_ROOT,
+    )
 
 
 def _impl_cmd_remove(args) -> None:
     name = args.name
-    lib_dir = LIBS_DIR / name
-    if not lib_dir.exists():
+    delete = getattr(args, "delete", False)
+    dry = getattr(args, "dry_run", False)
+    try:
+        remove_library(name=name, delete=delete, dry_run=dry, root=PROJECT_ROOT)
+    except FileNotFoundError:
         print("Not found:", name)
         return
-    if getattr(args, "delete", False):
-        shutil.rmtree(lib_dir)
-        print("Deleted library", name)
-    else:
-        print("Detach not implemented; use --delete to remove files")
+    except ValueError as e:
+        print(str(e))
+        return
 
 
 def _impl_cmd_rename(args) -> None:
     old = args.old
     new = args.new
-    src = LIBS_DIR / old
-    dst = LIBS_DIR / new
-    if not src.exists():
+    dry = getattr(args, "dry_run", False)
+    try:
+        rename_library(old=old, new=new, dry_run=dry, root=PROJECT_ROOT)
+    except FileNotFoundError:
         print("Not found:", old)
         return
-    src.rename(dst)
-    print(f"Renamed {old} -> {new}")
+    except FileExistsError:
+        print("Destination exists:", new)
+        return
+    except ValueError as e:
+        print(str(e))
+        return
 
 
 def _impl_cmd_move(args) -> None:
     name = args.name
     dest = args.dest
-    src = LIBS_DIR / name
-    dst = LIBS_DIR / dest
-    if not src.exists():
+    dry = getattr(args, "dry_run", False)
+    try:
+        move_library(name=name, dest=dest, dry_run=dry, root=PROJECT_ROOT)
+    except FileNotFoundError:
         print("Not found:", name)
         return
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    src.rename(dst)
-    print(f"Moved {name} -> {dest}")
+    except FileExistsError:
+        print("Destination exists:", dest)
+        return
+    except ValueError as e:
+        print(str(e))
+        return
 
 
 def _impl_cmd_deps(args) -> None:
@@ -203,8 +274,27 @@ def _impl_cmd_info(args) -> None:
     if not lib_dir.exists():
         print("Not found:", name)
         return
+    
+    print(f"Library: {name}")
+    print(f"Path: {lib_dir.relative_to(PROJECT_ROOT)}")
+    
+    cm = lib_dir / "CMakeLists.txt"
+    if cm.exists():
+        content = cm.read_text(encoding="utf-8")
+        ver_m = re.search(r'project\s*\(.*VERSION\s+([\d.]+)', content, re.IGNORECASE)
+        if ver_m:
+            print(f"Version: {ver_m.group(1)}")
+    
+    deps = _get_lib_deps(name)
+    if deps:
+        print(f"Dependencies: {', '.join(deps)}")
+    else:
+        print("Dependencies: None")
+        
+    print("\nFiles:")
     for p in sorted(lib_dir.rglob("*")):
-        print(p.relative_to(lib_dir))
+        if p.is_file():
+            print(f"  - {p.relative_to(lib_dir)}")
 
 
 def _impl_cmd_test(args) -> None:

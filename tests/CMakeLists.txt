@@ -5,13 +5,11 @@ include(FetchContent)
 
 # ── GoogleTest ───────────────────────────────────────────────────────────────
 if(ENABLE_GTEST)
-    FetchContent_Declare(
-        googletest
+    FetchContent_Declare(googletest
         URL      https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
         URL_HASH SHA256=7b42b4d6ed48810c5362c265a17faebe90dc2373c885e5216439d37927f02926
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-        SYSTEM
-    )
+        SYSTEM)
     # gtest_force_shared_crt is already set in ProjectConfigs.cmake for MSVC
     FetchContent_MakeAvailable(googletest)
     message(STATUS "Test framework: GoogleTest")
@@ -19,12 +17,10 @@ endif()
 
 # ── Catch2 ───────────────────────────────────────────────────────────────────
 if(ENABLE_CATCH2)
-    FetchContent_Declare(
-        Catch2
+    FetchContent_Declare(Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
         GIT_TAG        v3.5.3
-        SYSTEM
-    )
+        SYSTEM)
     FetchContent_MakeAvailable(Catch2)
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
     message(STATUS "Test framework: Catch2")

@@ -6,8 +6,7 @@ cmake_minimum_required(VERSION 3.25)
 project(CppCmakeProjectTemplate
     VERSION 1.0.4
     DESCRIPTION "Professional Modern C++ / CMake Project Template"
-    LANGUAGES CXX
-)
+    LANGUAGES CXX)
 
 # -----------------------------------------------------------------------------
 # Prevent In-Source Builds
@@ -71,8 +70,7 @@ generate_feature_flags()
 add_library(project_feature_flags INTERFACE)
 target_include_directories(project_feature_flags INTERFACE
     $<BUILD_INTERFACE:${FEATURE_FLAGS_INCLUDE_DIR}>
-    $<INSTALL_INTERFACE:include>
-)
+    $<INSTALL_INTERFACE:include>)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
     message(STATUS "Embedded System Detected: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -96,8 +94,7 @@ if(DOXYGEN_FOUND)
         COMMAND ${DOXYGEN_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
         COMMENT "Generating API documentation with Doxygen"
-        VERBATIM
-    )
+        VERBATIM)
 endif()
 # Avoid using global defines; prefer target-based.
 # However, we can set some project-wide defaults here if needed.

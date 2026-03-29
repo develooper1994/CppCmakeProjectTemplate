@@ -14,8 +14,7 @@ target_generate_build_info(gui_app NAMESPACE gui_app_info)
 target_link_libraries(gui_app
     PRIVATE
         dummy_lib
-        ${QT_LIBRARIES}
-)
+        ${QT_LIBRARIES})
 
 if(ENABLE_QML)
     target_compile_definitions(gui_app PRIVATE ENABLE_QML_SUPPORT)
@@ -30,9 +29,7 @@ enable_sanitizers(gui_app)
 # Hide console window on Windows for GUI app
 set_target_properties(gui_app PROPERTIES
     WIN32_EXECUTABLE ON
-    MACOSX_BUNDLE ON
-)
+    MACOSX_BUNDLE ON)
 
 install(TARGETS gui_app
-    EXPORT gui_app_Targets
-)
+    EXPORT gui_app_Targets)

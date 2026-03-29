@@ -23,6 +23,7 @@ from core.utils.common import (
     PROJECT_ROOT,
     json_read_cached,
     json_cache_clear,
+    GlobalConfig,
 )
 import json
 import re
@@ -225,11 +226,46 @@ def _generate_custom_gnu(name: str, prefix: str, cpu: str, fpu: str) -> str:
 
 def _impl_cmd_config_get(args) -> None:
     key = getattr(args, "key", None)
-    print(f"config get {key}: not implemented in this implementation")
+    if not key:
+        # List all
+        print(f"VERBOSE: {GlobalConfig.VERBOSE}")
+        print(f"YES: {GlobalConfig.YES}")
+        print(f"JSON: {GlobalConfig.JSON}")
+        print(f"DRY_RUN: {GlobalConfig.DRY_RUN}")
+        print(f"VERSION: {GlobalConfig.VERSION}")
+        return
+    
+    key_upper = key.upper()
+    if hasattr(GlobalConfig, key_upper):
+        print(f"{key_upper}: {getattr(GlobalConfig, key_upper)}")
+    else:
+        print(f"Unknown config key: {key}")
 
 
 def _impl_cmd_config_set(args) -> None:
-    print("config set: not implemented in this implementation")
+    key = getattr(args, "key")
+    value = getattr(args, "value")
+    key_upper = key.upper()
+    
+    if not hasattr(GlobalConfig, key_upper):
+        print(f"Unknown config key: {key}")
+        return
+    
+    # Try to convert value to appropriate type
+    current = getattr(GlobalConfig, key_upper)
+    if isinstance(current, bool):
+        new_val = value.lower() in ("true", "1", "yes", "on")
+    elif isinstance(current, (int, float)):
+        try:
+            new_val = type(current)(value)
+        except ValueError:
+            print(f"Invalid value type for {key_upper}")
+            return
+    else:
+        new_val = value
+        
+    setattr(GlobalConfig, key_upper, new_val)
+    print(f"Set {key_upper} = {new_val} (Runtime only, persistent config not implemented yet)")
 
 
 def _impl_cmd_test_run(args) -> None:
@@ -242,7 +278,32 @@ def _impl_cmd_test_run(args) -> None:
 
 
 def _impl_cmd_upgrade_std(args) -> None:
-    print("upgrade-std: not implemented in this implementation")
+    std = getattr(args, "std")
+    target = getattr(args, "target", None)
+    dry = getattr(args, "dry_run", False)
+    
+    if target:
+        # Upgrade only one library
+        target_cm = PROJECT_ROOT / "libs" / target / "CMakeLists.txt"
+        if not target_cm.exists():
+            print(f"Library '{target}' not found")
+            return
+        files = [target_cm]
+    else:
+        # Upgrade project-wide (libs and apps)
+        files = list(PROJECT_ROOT.rglob("CMakeLists.txt"))
+
+    for cm in files:
+        if cm.is_file():
+            content = cm.read_text(encoding="utf-8")
+            # Look for CXX_STANDARD
+            new_content = re.sub(r'(CXX_STANDARD\s+)\d+', rf'\g<1>{std}', content)
+            if new_content != content:
+                if dry:
+                    print(f"[dry-run] Would upgrade {cm.relative_to(PROJECT_ROOT)} to C++{std}")
+                else:
+                    cm.write_text(new_content, encoding="utf-8")
+                    print(f"✅ Upgraded {cm.relative_to(PROJECT_ROOT)} to C++{std}")
 
 
 def _impl_cmd_repo_list(args) -> None:
@@ -336,8 +397,82 @@ def _impl_cmd_repo_versions(args) -> None:
 
 
 def _impl_cmd_ci(args) -> None:
-    print("ci simulation: running basic build+test")
-    run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "build", "check"])
+    preset_filter = getattr(args, "preset_filter", "")
+    fail_fast = getattr(args, "fail_fast", False)
+    
+    print(f"CI simulation: running build+test (filter: '{preset_filter}')")
+    
+    presets_data = load_presets()
+    configs = presets_data.get("configurePresets", [])
+    
+    to_run = []
+    for cfg in configs:
+        name = cfg.get("name", "")
+        if preset_filter in name:
+            to_run.append(name)
+            
+    if not to_run:
+        print(f"No presets match filter '{preset_filter}'")
+        return
+
+    for pname in to_run:
+        print(f"\n--- Running CI for preset: {pname} ---")
+        try:
+            # Run build check for this preset
+            run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "build", "--preset", pname, "check", "--no-sync"])
+        except SystemExit as e:
+            if e.code != 0:
+                print(f"❌ CI failed for preset: {pname}")
+                if fail_fast:
+                    raise
+            continue
+    print("\n✅ CI simulation finished")
+
+
+def _impl_cmd_target_add(args) -> None:
+    name = getattr(args, "name")
+    dry = getattr(args, "dry_run", False)
+    
+    app_dir = PROJECT_ROOT / "apps" / name
+    if app_dir.exists():
+        print(f"App '{name}' already exists")
+        return
+        
+    if dry:
+        print(f"[dry-run] Would create apps/{name}/")
+        print(f"[dry-run] Would register in apps/CMakeLists.txt")
+        return
+        
+    from core.utils.fileops import Transaction
+    with Transaction(PROJECT_ROOT) as txn:
+        txn.safe_mkdir(app_dir / "src", parents=True, exist_ok=True)
+        
+        # Write CMakeLists.txt
+        cm_content = (
+            f"cmake_minimum_required(VERSION 3.25)\n"
+            f"project({name} VERSION 1.0.0 LANGUAGES CXX)\n\n"
+            f"add_executable({name} src/main.cpp)\n"
+            f"target_link_libraries({name} PRIVATE dummy_lib)\n"
+        )
+        txn.safe_write_text(app_dir / "CMakeLists.txt", cm_content)
+        
+        # Write main.cpp
+        cpp_content = (
+            f"#include <iostream>\n"
+            f"#include \"dummy_lib/greet.h\"\n\n"
+            f"int main() {{\n"
+            f"    std::cout << \"Hello from {name}!\" << std::endl;\n"
+            f"    std::cout << \"Library says: \" << dummy_lib::get_greeting() << std::endl;\n"
+            f"    return 0;\n"
+            f"}}\n"
+        )
+        txn.safe_write_text(app_dir / "src" / "main.cpp", cpp_content)
+        
+        # Register in apps/CMakeLists.txt
+        from core.libpkg.create import _cmake_add_subdirectory
+        _cmake_add_subdirectory(PROJECT_ROOT / "apps" / "CMakeLists.txt", name)
+        
+    print(f"✅ Created apps/{name}/")
 
 
 def _impl_cmd_doctor(args) -> None:
@@ -369,6 +504,10 @@ def cmd_target_list(args):
 
 def cmd_target_build(args):
     return _wrap(_impl_cmd_target_build, args)
+
+
+def cmd_target_add(args):
+    return _wrap(_impl_cmd_target_add, args)
 
 
 def cmd_preset_list(args):
@@ -454,6 +593,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name")
     p.add_argument("--preset", default=None)
     p.set_defaults(func=cmd_target_build)
+    p = tgt_sub.add_parser("add")
+    p.add_argument("name")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_target_add)
 
     # preset
     pre = sub.add_parser("preset", help="Manage CMake presets")

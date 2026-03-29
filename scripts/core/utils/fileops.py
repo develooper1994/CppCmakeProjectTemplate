@@ -47,14 +47,25 @@ class Transaction:
         p = self._abs(p)
         if not p.exists():
             return None
+        
+        # NEVER backup the .tool directory or anything inside it
+        if ".tool" in p.parts:
+            return None
+
         key = str(p.resolve())
         if key in self._backed:
             return self.backup_dir / self._rel(p)
+        
         dest = self.backup_dir / self._rel(p)
+        if dest.exists():
+            # If it already exists in backup, we already have it
+            self._backed.add(key)
+            return dest
+
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
             if p.is_dir():
-                shutil.copytree(p, dest)
+                shutil.copytree(p, dest, dirs_exist_ok=True)
             else:
                 shutil.copy2(p, dest)
             self._backed.add(key)
