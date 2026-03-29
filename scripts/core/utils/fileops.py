@@ -141,10 +141,10 @@ class Transaction:
                             p.unlink()
                 elif op["op"] == "created_dir":
                     p = Path(op["path"])
-                    # only remove if empty
+                    # remove directory created during transaction; use rmtree to ensure cleanup
                     try:
-                        if p.exists() and not any(p.iterdir()):
-                            p.rmdir()
+                        if p.exists():
+                            shutil.rmtree(p)
                     except Exception:
                         pass
                 elif op["op"] in ("modified", "deleted"):

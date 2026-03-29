@@ -163,82 +163,82 @@ def create_library(
         print("[dry-run] register in tests/unit/CMakeLists.txt")
         return
 
-    # ── Create directory structure ─────────────────────────────────────────
-    p.lib_dir.mkdir(parents=True, exist_ok=False)
-    if not interface:
-        p.include_subdir.mkdir(parents=True)
-    if not (header_only or interface):
-        p.src_dir.mkdir(parents=True)
-
-    # ── Write files ───────────────────────────────────────────────────────
+    # Use Transaction to ensure atomic create/rollback on failure
     ns = namespace or name
-    if header_only or interface:
-        p.cmake.write_text(
-            lib_cmakelists_header_only(name, version, ns, deps, cxx_standard),
-            encoding="utf-8",
-        )
+    with Transaction(project_root) as txn:
+        # Create directory structure
+        txn.safe_mkdir(p.lib_dir, parents=True, exist_ok=False)
         if not interface:
-            p.header_file.write_text(lib_header(name, ns), encoding="utf-8")
-    else:
-        _tmpl = template or ""
-        if _tmpl == "singleton":
-            p.header_file.write_text(lib_header_singleton(name, ns), encoding="utf-8")
-            p.source_file.write_text(lib_source_singleton(name, ns), encoding="utf-8")
-        elif _tmpl == "pimpl":
-            p.header_file.write_text(lib_header_pimpl(name, ns), encoding="utf-8")
-            p.source_file.write_text(lib_source_pimpl(name, ns), encoding="utf-8")
-        elif _tmpl == "factory":
-            p.header_file.write_text(lib_header_factory(name, ns), encoding="utf-8")
-            p.source_file.write_text(lib_source_factory(name, ns), encoding="utf-8")
-        elif _tmpl == "observer":
-            p.header_file.write_text(lib_header_observer(name, ns), encoding="utf-8")
-            p.source_file.write_text(lib_source_observer(name, ns), encoding="utf-8")
+            txn.safe_mkdir(p.include_subdir, parents=True, exist_ok=True)
+        if not (header_only or interface):
+            txn.safe_mkdir(p.src_dir, parents=True, exist_ok=True)
+
+        # Write files
+        if header_only or interface:
+            txn.safe_write_text(
+                p.cmake,
+                lib_cmakelists_header_only(name, version, ns, deps, cxx_standard),
+            )
+            if not interface:
+                txn.safe_write_text(p.header_file, lib_header(name, ns))
         else:
-            p.header_file.write_text(lib_header(name, ns), encoding="utf-8")
-            p.source_file.write_text(lib_source(name, ns), encoding="utf-8")
-        p.cmake.write_text(
-            lib_cmakelists(name, version, ns, deps, cxx_standard),
-            encoding="utf-8",
-        )
+            _tmpl = template or ""
+            if _tmpl == "singleton":
+                txn.safe_write_text(p.header_file, lib_header_singleton(name, ns))
+                txn.safe_write_text(p.source_file, lib_source_singleton(name, ns))
+            elif _tmpl == "pimpl":
+                txn.safe_write_text(p.header_file, lib_header_pimpl(name, ns))
+                txn.safe_write_text(p.source_file, lib_source_pimpl(name, ns))
+            elif _tmpl == "factory":
+                txn.safe_write_text(p.header_file, lib_header_factory(name, ns))
+                txn.safe_write_text(p.source_file, lib_source_factory(name, ns))
+            elif _tmpl == "observer":
+                txn.safe_write_text(p.header_file, lib_header_observer(name, ns))
+                txn.safe_write_text(p.source_file, lib_source_observer(name, ns))
+            else:
+                txn.safe_write_text(p.header_file, lib_header(name, ns))
+                txn.safe_write_text(p.source_file, lib_source(name, ns))
+            txn.safe_write_text(p.cmake, lib_cmakelists(name, version, ns, deps, cxx_standard))
 
-    if _USE_JINJA_CREATE:
-        p.readme.write_text(_render_template_file("readme.jinja2", name=name), encoding="utf-8")
-    else:
-        p.readme.write_text(f"# {name}\n\nGenerated library: {name}\n", encoding="utf-8")
-
-    # ── Tests ──────────────────────────────────────────────────────────────
-    if not interface:
-        p.tests_dir.mkdir(parents=True, exist_ok=True)
-        tests_cmake_lib = p.tests_dir / "CMakeLists.txt"
         if _USE_JINJA_CREATE:
-            tests_cmake_lib.write_text(_render_template_file("tests_cmake.jinja2", name=name), encoding="utf-8")
-            (p.tests_dir / f"{name}_test.cpp").write_text(_render_template_file("test_cpp.jinja2", name=name), encoding="utf-8")
+            txn.safe_write_text(p.readme, _render_template_file("readme.jinja2", name=name))
         else:
-            tests_cmake_lib.write_text(
-                f"add_executable({name}_tests {name}_test.cpp)\n"
-                f"target_link_libraries({name}_tests PRIVATE {name} GTest::gtest_main)\n"
-                f"add_test(NAME {name}_tests COMMAND {name}_tests)\n",
-                encoding="utf-8",
-            )
-            (p.tests_dir / f"{name}_test.cpp").write_text(
-                f"#include <gtest/gtest.h>\n\n"
-                f"TEST({name}_Test, Placeholder) {{ EXPECT_TRUE(true); }}\n",
-                encoding="utf-8",
-            )
+            txn.safe_write_text(p.readme, f"# {name}\n\nGenerated library: {name}\n")
 
-    # ── Register in CMakeLists.txt files (always) ─────────────────────────
-    _cmake_add_subdirectory(libs_cmake, name)
-    if not interface:
-        _cmake_add_subdirectory(tests_cmake, name)
+        # Tests
+        if not interface:
+            txn.safe_mkdir(p.tests_dir, parents=True, exist_ok=True)
+            tests_cmake_lib = p.tests_dir / "CMakeLists.txt"
+            if _USE_JINJA_CREATE:
+                txn.safe_write_text(tests_cmake_lib, _render_template_file("tests_cmake.jinja2", name=name))
+                txn.safe_write_text(p.tests_dir / f"{name}_test.cpp", _render_template_file("test_cpp.jinja2", name=name))
+            else:
+                txn.safe_write_text(
+                    tests_cmake_lib,
+                    (
+                        f"add_executable({name}_tests {name}_test.cpp)\n"
+                        f"target_link_libraries({name}_tests PRIVATE {name} GTest::gtest_main)\n"
+                        f"add_test(NAME {name}_tests COMMAND {name}_tests)\n"
+                    ),
+                )
+                txn.safe_write_text(
+                    p.tests_dir / f"{name}_test.cpp",
+                    f"#include <gtest/gtest.h>\n\nTEST({name}_Test, Placeholder) {{ EXPECT_TRUE(true); }}\n",
+                )
 
-    print(f"✅ libs/{name}/")
-    if not interface:
-        print(f"✅ tests/unit/{name}/")
-    print("✅ Registered in libs/CMakeLists.txt")
-    if not interface:
-        print("✅ Registered in tests/unit/CMakeLists.txt")
-    if deps:
-        print(f"🔗 deps: {', '.join(deps)}")
+        # Register in CMakeLists.txt files (always) — _cmake_add_subdirectory will detect txn and write transactionally
+        _cmake_add_subdirectory(libs_cmake, name)
+        if not interface:
+            _cmake_add_subdirectory(tests_cmake, name)
+
+        print(f"✅ libs/{name}/")
+        if not interface:
+            print(f"✅ tests/unit/{name}/")
+        print("✅ Registered in libs/CMakeLists.txt")
+        if not interface:
+            print("✅ Registered in tests/unit/CMakeLists.txt")
+        if deps:
+            print(f"🔗 deps: {', '.join(deps)}")
 
 
 def remove_library(name: str, delete: bool = False, dry_run: bool = False, root: Optional[Path] = None) -> None:
