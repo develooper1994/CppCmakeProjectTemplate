@@ -21,3 +21,27 @@ exclude = [
 [tool.ruff.per-file-ignores]
 # Allow some TUI files or generated code to keep imports flexible
 "scripts/tui/*" = ["E402"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cppcmake-tool"
+version = "1.0.3"
+description = "CLI for CppCmakeProjectTemplate"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "develooper1994" }
+]
+dependencies = []
+
+[project.scripts]
+tool = "scripts.tool:main"
+
+[tool.setuptools.packages.find]
+where = ["scripts"]
+
+[tool.setuptools.package-dir]
+"" = "scripts"

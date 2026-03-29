@@ -5,6 +5,13 @@ from typing import Optional
 
 from .paths import paths_for
 
+try:
+    from .jinja_helpers import render_template_file as _render_template_file
+    _USE_JINJA_EXPORT = True
+except Exception:
+    _render_template_file = None
+    _USE_JINJA_EXPORT = False
+
 
 def create_export_snippet(name: str, root: Optional[Path] = None, dry_run: bool = False) -> Path:
     """Create install/export helper files for a library.
@@ -34,11 +41,14 @@ def create_export_snippet(name: str, root: Optional[Path] = None, dry_run: bool 
             dest_template.write_text(src_template.read_text(encoding="utf-8"), encoding="utf-8")
 
     install_file = p.lib_dir / "install.cmake"
-    content = (
-        f"# Auto-generated install/export for {name}\n"
-        "include(\"${PROJECT_SOURCE_DIR}/cmake/ProjectExport.cmake\")\n\n"
-        f"install_project_library({name} {name})\n"
-    )
+    if _USE_JINJA_EXPORT:
+        content = _render_template_file("export_install.jinja2", name=name)
+    else:
+        content = (
+            f"# Auto-generated install/export for {name}\n"
+            "include(\"${PROJECT_SOURCE_DIR}/cmake/ProjectExport.cmake\")\n\n"
+            f"install_project_library({name} {name})\n"
+        )
 
     if dry_run:
         print("Dry-run: would create:", install_file)

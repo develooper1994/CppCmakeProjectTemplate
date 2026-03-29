@@ -27,6 +27,12 @@ from core.utils.common import (
 import json
 import re
 from functools import lru_cache
+try:
+    from core.libpkg.jinja_helpers import render_template_file as _render_template_file
+    _USE_JINJA_SOL = True
+except Exception:
+    _render_template_file = None
+    _USE_JINJA_SOL = False
 
 TOOLCHAINS_DIR = PROJECT_ROOT / "cmake" / "toolchains"
 PRESETS_FILE = PROJECT_ROOT / "CMakePresets.json"
@@ -206,6 +212,9 @@ def _impl_cmd_toolchain_remove(args) -> None:
 
 
 def _generate_custom_gnu(name: str, prefix: str, cpu: str, fpu: str) -> str:
+    if _USE_JINJA_SOL:
+        return _render_template_file("custom_gnu_toolchain.jinja2", name=name, prefix=prefix, cpu=cpu, fpu=fpu)
+
     return (
         f"# Custom GNU toolchain generated for {name}\n"
         f"set(CMAKE_SYSTEM_NAME Linux)\n"

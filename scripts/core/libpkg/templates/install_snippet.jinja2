@@ -1,0 +1,9 @@
+# Install/export snippet for {{ name }}
+install(TARGETS {{ name }}
+    EXPORT {{ name }}Targets
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
+install(EXPORT {{ name }}Targets FILE {{ name }}Targets.cmake NAMESPACE {{ name }}:: DESTINATION lib/cmake/{{ name }})

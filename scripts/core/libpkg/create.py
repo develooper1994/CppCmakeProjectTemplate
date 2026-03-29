@@ -21,6 +21,14 @@ from .templates import (
     lib_source_observer,
 )
 from .tokens import apply_template_dir
+from core.utils.fileops import Transaction
+
+try:
+    from .jinja_helpers import render_template_file as _render_template_file
+    _USE_JINJA_CREATE = True
+except Exception:
+    _render_template_file = None
+    _USE_JINJA_CREATE = False
 
 
 PROTECTED_LIBS = {"dummy_lib"}
@@ -31,14 +39,36 @@ PROTECTED_LIBS = {"dummy_lib"}
 def _cmake_add_subdirectory(cmake_path: Path, name: str) -> bool:
     """Append add_subdirectory(name) if not already present. Returns True if added."""
     entry = f"add_subdirectory({name})"
+    # Optional transactional write: callers may pass a Transaction via kwargs
+    txn = None
+    # inspect caller locals for a Transaction (conservative; common call sites pass txn parameter)
+    try:
+        import inspect
+        frame = inspect.currentframe().f_back
+        if frame is not None and "txn" in frame.f_locals:
+            txn = frame.f_locals.get("txn")
+    except Exception:
+        txn = None
+
     if cmake_path.exists():
         content = cmake_path.read_text(encoding="utf-8")
         if re.search(rf"^\s*add_subdirectory\(\s*{re.escape(name)}\s*\)", content, re.MULTILINE):
             return False  # already present
-        cmake_path.write_text(content.rstrip() + f"\n{entry}\n", encoding="utf-8")
+        new_content = content.rstrip() + f"\n{entry}\n"
+        if txn:
+            txn.safe_write_text(cmake_path, new_content)
+        else:
+            cmake_path.write_text(new_content, encoding="utf-8")
     else:
-        cmake_path.parent.mkdir(parents=True, exist_ok=True)
-        cmake_path.write_text(f"{entry}\n", encoding="utf-8")
+        if cmake_path.parent.exists() is False:
+            if txn:
+                txn.safe_mkdir(cmake_path.parent, parents=True, exist_ok=True)
+            else:
+                cmake_path.parent.mkdir(parents=True, exist_ok=True)
+        if txn:
+            txn.safe_write_text(cmake_path, f"{entry}\n")
+        else:
+            cmake_path.write_text(f"{entry}\n", encoding="utf-8")
     return True
 
 
@@ -171,23 +201,30 @@ def create_library(
             encoding="utf-8",
         )
 
-    p.readme.write_text(f"# {name}\n\nGenerated library: {name}\n", encoding="utf-8")
+    if _USE_JINJA_CREATE:
+        p.readme.write_text(_render_template_file("readme.jinja2", name=name), encoding="utf-8")
+    else:
+        p.readme.write_text(f"# {name}\n\nGenerated library: {name}\n", encoding="utf-8")
 
     # ── Tests ──────────────────────────────────────────────────────────────
     if not interface:
         p.tests_dir.mkdir(parents=True, exist_ok=True)
         tests_cmake_lib = p.tests_dir / "CMakeLists.txt"
-        tests_cmake_lib.write_text(
-            f"add_executable({name}_tests {name}_test.cpp)\n"
-            f"target_link_libraries({name}_tests PRIVATE {name} GTest::gtest_main)\n"
-            f"add_test(NAME {name}_tests COMMAND {name}_tests)\n",
-            encoding="utf-8",
-        )
-        (p.tests_dir / f"{name}_test.cpp").write_text(
-            f"#include <gtest/gtest.h>\n\n"
-            f"TEST({name}_Test, Placeholder) {{ EXPECT_TRUE(true); }}\n",
-            encoding="utf-8",
-        )
+        if _USE_JINJA_CREATE:
+            tests_cmake_lib.write_text(_render_template_file("tests_cmake.jinja2", name=name), encoding="utf-8")
+            (p.tests_dir / f"{name}_test.cpp").write_text(_render_template_file("test_cpp.jinja2", name=name), encoding="utf-8")
+        else:
+            tests_cmake_lib.write_text(
+                f"add_executable({name}_tests {name}_test.cpp)\n"
+                f"target_link_libraries({name}_tests PRIVATE {name} GTest::gtest_main)\n"
+                f"add_test(NAME {name}_tests COMMAND {name}_tests)\n",
+                encoding="utf-8",
+            )
+            (p.tests_dir / f"{name}_test.cpp").write_text(
+                f"#include <gtest/gtest.h>\n\n"
+                f"TEST({name}_Test, Placeholder) {{ EXPECT_TRUE(true); }}\n",
+                encoding="utf-8",
+            )
 
     # ── Register in CMakeLists.txt files (always) ─────────────────────────
     _cmake_add_subdirectory(libs_cmake, name)
