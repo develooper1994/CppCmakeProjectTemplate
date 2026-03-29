@@ -1,0 +1,23 @@
+{% set cls = name.capitalize() %}
+#include "{{ name }}/{{ name }}.h"
+
+{% if namespace %}namespace {{ namespace }} {
+
+struct {{ cls }}::Impl {
+    // implementation details
+};
+
+{{ cls }}::{{ cls }}() : pImpl(new Impl()) {}
+{{ cls }}::~{{ cls }}() { delete pImpl; }
+void {{ cls }}::do_work() { /* TODO */ }
+
+} // namespace {{ namespace }}
+{% else %}
+struct {{ cls }}::Impl {
+    // implementation details
+};
+
+{{ cls }}::{{ cls }}() : pImpl(new Impl()) {}
+{{ cls }}::~{{ cls }}() { delete pImpl; }
+void {{ cls }}::do_work() { /* TODO */ }
+{% endif %}

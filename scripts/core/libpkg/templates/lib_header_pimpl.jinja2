@@ -1,0 +1,31 @@
+{% set cls = name.capitalize() %}
+#pragma once
+
+{% if namespace %}namespace {{ namespace }} {
+
+class {{ cls }}Impl;
+
+class {{ cls }} {
+public:
+    {{ cls }}();
+    ~{{ cls }}();
+    void do_work();
+private:
+    struct Impl;
+    Impl* pImpl;
+};
+
+} // namespace {{ namespace }}
+{% else %}
+class {{ cls }}Impl;
+
+class {{ cls }} {
+public:
+    {{ cls }}();
+    ~{{ cls }}();
+    void do_work();
+private:
+    struct Impl;
+    Impl* pImpl;
+};
+{% endif %}

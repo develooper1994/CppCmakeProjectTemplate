@@ -1,0 +1,9 @@
+#pragma once
+
+{% if namespace %}namespace {{ namespace }} {
+
+void hello();
+
+} // namespace {{ namespace }}
+{% else %}void hello();
+{% endif %}

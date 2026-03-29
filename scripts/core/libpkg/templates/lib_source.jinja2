@@ -1,0 +1,13 @@
+#include "{{ name }}/{{ name }}.h"
+
+{% if namespace %}namespace {{ namespace }} {
+
+void hello() {
+    // TODO: implement
+}
+
+} // namespace {{ namespace }}
+{% else %}void hello() {
+    // TODO: implement
+}
+{% endif %}

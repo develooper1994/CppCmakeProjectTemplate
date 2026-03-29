@@ -21,6 +21,12 @@ if str(_SCRIPTS) not in sys.path:
 
 from core.utils.common import CLIResult, run_proc, PROJECT_ROOT
 from core.libpkg import create_library
+try:
+    from core.libpkg.jinja_helpers import render_template_file as _render_template_file
+    _USE_JINJA_LIBCMD = True
+except Exception:
+    _render_template_file = None
+    _USE_JINJA_LIBCMD = False
 
 LIBS_DIR = PROJECT_ROOT / "libs"
 
@@ -164,12 +170,15 @@ def _impl_cmd_deps(args) -> None:
             m = re.search(r'([^/]+?)(?:\.git)?(?:@.*)?$', url)
             depname = (m.group(1) if m else "external_dep").replace('-', '_')
             deps_cmake = lib_dir / "deps.cmake"
-            content = (
-                f"# Auto-generated FetchContent for {url}\n"
-                "include(FetchContent)\n"
-                f"FetchContent_Declare(\n    {depname}\n    URL \"{url}\"\n)\n"
-                f"FetchContent_MakeAvailable({depname})\n"
-            )
+            if _USE_JINJA_LIBCMD:
+                content = _render_template_file("deps_fetchcontent.jinja2", url=url, depname=depname)
+            else:
+                content = (
+                    f"# Auto-generated FetchContent for {url}\n"
+                    "include(FetchContent)\n"
+                    f"FetchContent_Declare(\n    {depname}\n    URL \"{url}\"\n)\n"
+                    f"FetchContent_MakeAvailable({depname})\n"
+                )
             deps_cmake.write_text(content, encoding="utf-8")
             # ensure CMakeLists includes deps.cmake
             cm = lib_dir / "CMakeLists.txt"
@@ -243,16 +252,19 @@ def _impl_cmd_export(args) -> None:
 
     # fallback simple behavior
     install_file = lib_dir / "install.cmake"
-    content = (
-        f"# Install/export snippet for {name}\n"
-        f"install(TARGETS {name}\n"
-        "    EXPORT {name}Targets\n"
-        "    ARCHIVE DESTINATION lib\n"
-        "    LIBRARY DESTINATION lib\n"
-        "    RUNTIME DESTINATION bin\n"
-        ")\n\n"
-        f"install(EXPORT {name}Targets FILE {name}Targets.cmake NAMESPACE {name}:: DESTINATION lib/cmake/{name})\n"
-    )
+    if _USE_JINJA_LIBCMD:
+        content = _render_template_file("install_snippet.jinja2", name=name)
+    else:
+        content = (
+            f"# Install/export snippet for {name}\n"
+            f"install(TARGETS {name}\n"
+            "    EXPORT {name}Targets\n"
+            "    ARCHIVE DESTINATION lib\n"
+            "    LIBRARY DESTINATION lib\n"
+            "    RUNTIME DESTINATION bin\n"
+            ")\n\n"
+            f"install(EXPORT {name}Targets FILE {name}Targets.cmake NAMESPACE {name}:: DESTINATION lib/cmake/{name})\n"
+        )
     if dry:
         print("Dry-run: would create:", install_file)
         print("---\n" + content)

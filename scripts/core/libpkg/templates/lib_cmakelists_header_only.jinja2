@@ -1,0 +1,5 @@
+add_library({{ name }} INTERFACE)
+target_include_directories({{ name }} INTERFACE include)
+{% if deps %}
+target_link_libraries({{ name }} INTERFACE {{ deps | join(' ') }})
+{% endif %}

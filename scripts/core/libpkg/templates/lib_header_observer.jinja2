@@ -1,0 +1,15 @@
+{% if namespace %}
+#pragma once
+
+namespace {{ namespace }} {
+
+class Observer { public: virtual ~Observer() = default; virtual void notify() = 0; };
+class Subject { public: void add(Observer*) {} void notify_all() {} };
+
+} // namespace {{ namespace }}
+{% else %}
+#pragma once
+
+class Observer { public: virtual ~Observer() = default; virtual void notify() = 0; };
+class Subject { public: void add(Observer*) {} void notify_all() {} };
+{% endif %}

@@ -1,0 +1,3 @@
+add_executable({{ name }}_tests {{ name }}_test.cpp)
+target_link_libraries({{ name }}_tests PRIVATE {{ name }} GTest::gtest_main)
+add_test(NAME {{ name }}_tests COMMAND {{ name }}_tests)

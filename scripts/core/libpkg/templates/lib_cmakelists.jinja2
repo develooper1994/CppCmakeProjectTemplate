@@ -1,0 +1,8 @@
+{% if cxx_standard %}
+set_target_properties({{ name }} PROPERTIES CXX_STANDARD {{ cxx_standard }})
+{% endif %}
+add_library({{ name }} src/{{ name }}.cpp)
+target_include_directories({{ name }} PUBLIC include)
+{% if deps %}
+target_link_libraries({{ name }} PUBLIC {{ deps | join(' ') }})
+{% endif %}

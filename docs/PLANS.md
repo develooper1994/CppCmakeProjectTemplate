@@ -55,19 +55,33 @@ This document lists the project's current capabilities, governance policies, and
 - **Migration & Cleanup:** ✅ DONE (legacy scripts consolidated)
 - **Refactoring & Core Migration:** ✅ DONE (command logic moved under `core/commands`)
 
-### Phase 2: Distribution & Template Engine (Next)
 
-- **Jinja2 Migration:** Move f-string based templates to Jinja2.
-- **Packaging:** Distribute `tool` as a pip-installable package.
-- **Bootstrap (`tool setup`):** Automated installation of dependencies and Python environment.
-- **Rollback & Recovery:** Add state rollback for failed file operations.
+### Phase 2: Distribution & Template Engine (Status & progress)
 
-Progress updates:
+- **Jinja2 Migration:** Partial — a Jinja2-based POC was implemented and integrated for the `libpkg` scaffolding subsystem. Many templates were added under `scripts/core/libpkg/templates/`, and code paths in `scripts/core/libpkg` were updated to prefer Jinja rendering while preserving the f-string fallback when Jinja2 is not available.
+- **Packaging:** In-progress — extension packaging was hardened and a `.vsix` was produced; the `tool` CLI packaging metadata was added to `pyproject.toml`. Next step: publish `tool` as a pip package (PyPI) after tests and dependency pinning.
+- **Bootstrap (`tool setup`):** Done — `scripts/setup_python_env.py` and `scripts/plugins/setup.py` were extended to support venv bootstrap and dependency installation.
+- **Rollback & Recovery:** Done (core) — a `Transaction` helper for atomic file operations was implemented at `scripts/core/utils/fileops.py`, integrated into `create_library`, and covered by unit and edge-case tests.
 
-- **Jinja2 Migration:** Planned — migration to Jinja2 templates is scoped and scheduled; work not yet started.
-- **Packaging:** In-progress — extension packaging hardened and `.vsix` produced; next step is packaging the `tool` CLI as a pip-installable package and publishing to PyPI.
-- **Bootstrap (`tool setup`):** Done — added `scripts/setup_python_env.py` (cross-platform venv creation) and CI workflow `.github/workflows/create_envs.yml` to create environments on Ubuntu/macOS/Windows.
-- **Rollback & Recovery:** Partial — added `backup_session()` and safer session persistence; further atomic rollback for file mutations is planned.
+Recent work (committed):
+
+- Added Jinja2 helper and many `.jinja2` templates for library scaffolding (`scripts/core/libpkg/templates/`) with fallback behavior.
+- Implemented transactional file-ops helper `Transaction` and integrated it into `create_library` for atomic writes and rollback.
+- Added comprehensive unit tests for `Transaction` (normal and edge-case scenarios) and template integration tests; tests run locally: `17 passed`.
+- Optimized CI workflow: caching for `pip` and `ccache`, improved cache keys, `paths-filter` to detect C/C++ changes, and conditional matrix builds so heavy C++ builds run only when relevant files change. Changes were committed and pushed on branch `ci/optimize-cache-and-tests`.
+
+Recommended next steps (short-term):
+
+- Perform a repository-wide sweep to identify remaining f-string template usages and convert only the file-generation paths that benefit from Jinja2 (leave runtime/log messages as f-strings).
+- Add unit tests for `create_library` failure modes (simulate mid-write exceptions) and expand Transaction tests for cross-device rename with real move semantics where possible.
+- Finalize `pyproject.toml` packaging metadata, pin runtime dependencies, and publish the `tool` CLI to PyPI (use a test PyPI release first).
+- Integrate the Python tests into the project CI as a required check and enable PR gating for the optimized CI workflow.
+
+Recommendations (longer-term):
+
+- Add cache keys tied to lockfiles (if you adopt Poetry/Pipfile) or lockfile hashes for reproducible pip caches.
+- Use `gh` or automation to create the PR from the `ci/optimize-cache-and-tests` branch (branch already pushed).
+- Add CI matrix caching for prebuilt dependencies (vcpkg/Conan) and consider incremental build artifacts between jobs.
 
 ### Phase 3: Test Strategy & Structured CI
 

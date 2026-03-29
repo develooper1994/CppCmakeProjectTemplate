@@ -1,0 +1,26 @@
+{% set cls = name.capitalize() %}
+{% if namespace %}
+#pragma once
+
+namespace {{ namespace }} {
+
+class {{ cls }} {
+public:
+    static {{ cls }}& instance();
+    void do_something();
+private:
+    {{ cls }}() = default;
+};
+
+} // namespace {{ namespace }}
+{% else %}
+#pragma once
+
+class {{ cls }} {
+public:
+    static {{ cls }}& instance();
+    void do_something();
+private:
+    {{ cls }}() = default;
+};
+{% endif %}

@@ -11,3 +11,4 @@ mypy>=1.0
 
 # Packaging / tooling
 conan>=2.0
+Jinja2>=3.1

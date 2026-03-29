@@ -2,6 +2,110 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  python-tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-dev.txt', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Python dev dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run Python tests
+        run: python3 -m pytest -q
+
+  detect-changes:
+    name: Detect C/C++ Changes
+    runs-on: ubuntu-latest
+    outputs:
+      cpp: ${{ steps.filter.outputs.cpp }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            cpp:
+              - 'CMakeLists.txt'
+              - 'CMakePresets.json'
+              - 'cmake/**'
+              - 'libs/**'
+              - 'apps/**'
+              - 'include/**'
+              - 'src/**'
+              - '**/*.c'
+              - '**/*.cpp'
+              - '**/*.cxx'
+              - '**/*.h'
+              - '**/*.hpp'
+              - 'vcpkg.json'
+              - 'conanfile.py'
+
+  cpp-build:
+    name: C/C++ Build & Tests
+    needs: [python-tests, detect-changes]
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config python3-venv python3-distutils ccache
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-dev.txt', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json', 'libs/**', 'apps/**', 'cmake/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Build and run C++ tests + extension
+        env:
+          CCACHE_DIR: ${{ runner.temp }}/ccache
+          CCACHE_MAXSIZE: 1G
+        run: |
+          python3 scripts/tool.py build check
+name: CI
+
+on:
+  push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
@@ -9,6 +113,8 @@ on:
 jobs:
   # ── Linux / GCC ─────────────────────────────────────────────────────────────
   build-linux-gcc:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -43,6 +149,8 @@ jobs:
 
   # ── Linux / Clang ────────────────────────────────────────────────────────────
   build-linux-clang:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -77,6 +185,8 @@ jobs:
 
   # ── Windows / MSVC ───────────────────────────────────────────────────────────
   build-windows:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -110,6 +220,8 @@ jobs:
 
   # ── macOS / AppleClang ───────────────────────────────────────────────────────
   build-macos:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cpp == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

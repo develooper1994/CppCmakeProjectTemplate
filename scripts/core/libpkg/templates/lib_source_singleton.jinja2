@@ -1,0 +1,16 @@
+{% set cls = name.capitalize() %}
+#include "{{ name }}/{{ name }}.h"
+
+{% if namespace %}
+namespace {{ namespace }} {
+
+{{ cls }}& {{ cls }}::instance() { static {{ cls }} i; return i; }
+
+void {{ cls }}::do_something() { /* noop */ }
+
+} // namespace {{ namespace }}
+{% else %}
+{{ cls }}& {{ cls }}::instance() { static {{ cls }} i; return i; }
+
+void {{ cls }}::do_something() { /* noop */ }
+{% endif %}

@@ -1,0 +1,24 @@
+{% set cls = name.capitalize() %}
+{% if namespace %}
+#pragma once
+
+namespace {{ namespace }} {
+
+struct I{{ cls }} {
+    virtual ~I{{ cls }}() = default;
+    virtual void run() = 0;
+};
+
+std::unique_ptr<I{{ cls }}> make_{{ name }}();
+
+} // namespace {{ namespace }}
+{% else %}
+#pragma once
+
+struct I{{ cls }} {
+    virtual ~I{{ cls }}() = default;
+    virtual void run() = 0;
+};
+
+std::unique_ptr<I{{ cls }}> make_{{ name }}();
+{% endif %}
