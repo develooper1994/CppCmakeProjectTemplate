@@ -107,8 +107,18 @@ async function toollibUI() {
             });
             if (!name) return;
 
+            // Default the version input to the repository's VERSION file when available
+            let defaultVersion = '1.0.5';
+            try {
+                const versionPath = path.join(root, 'VERSION');
+                if (fs.existsSync(versionPath)) {
+                    defaultVersion = fs.readFileSync(versionPath, 'utf8').trim();
+                }
+            } catch (e) {
+                // fallback to static default
+            }
             const version = await vscode.window.showInputBox({
-                prompt: 'Version', value: GlobalConfig?.VERSION || '1.0.5',
+                prompt: 'Version', value: defaultVersion,
             });
 
             const depsRaw = await vscode.window.showInputBox({

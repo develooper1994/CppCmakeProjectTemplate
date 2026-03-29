@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Perform the release (commit/tag/push). When false, run dry-run only."
+        required: false
+        default: "false"
+
+jobs:
+  release:
+    name: Release on Tag or Dispatch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Determine base version
+        id: ver
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG=${GITHUB_REF#refs/tags/}
+            echo "TAG=$TAG"
+            BASE=${TAG#v}
+          else
+            BASE=$(cat VERSION | cut -d'+' -f1)
+          fi
+          echo "BASE_VERSION=$BASE" >> $GITHUB_ENV
+          echo "Derived base version: $BASE"
+
+      - name: Set revision
+        run: |
+          echo "REVISION=${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+          echo "Derived revision: ${GITHUB_RUN_NUMBER}"
+
+      - name: Run release helper (dry-run by default)
+        env:
+          BASE_VERSION: ${{ env.BASE_VERSION }}
+          REVISION: ${{ env.REVISION }}
+        run: |
+          APPLY=false
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            APPLY=${{ github.event.inputs.apply }}
+          fi
+          VERSION_TO_SET="${BASE_VERSION}+${REVISION}"
+          echo "Version to set: $VERSION_TO_SET"
+          if [ "$APPLY" = "true" ]; then
+            python3 scripts/release.py set "$VERSION_TO_SET"
+            python3 scripts/release.py tag --push
+          else
+            python3 scripts/release.py set "$VERSION_TO_SET" --dry-run
+          fi

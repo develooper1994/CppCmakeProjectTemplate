@@ -4,8 +4,8 @@
 # Allows this library to be built independently (e.g. via FetchContent from another project)
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     cmake_minimum_required(VERSION 3.25)
-    project(DummyLib VERSION 1.0.0 LANGUAGES CXX)
-    
+    project(DummyLib VERSION ${PROJECT_BASE_VERSION} LANGUAGES CXX)
+
     # Try to load project configs if available
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
     include(ProjectConfigs OPTIONAL)
@@ -25,12 +25,12 @@ add_library(dummy_lib)
 
 # Generate specific build info for this library
 # This proves libraries can have independent versioning
-target_generate_build_info(dummy_lib 
-    NAMESPACE dummy_lib_info 
+target_generate_build_info(dummy_lib
+    NAMESPACE dummy_lib_info
     PROJECT_VERSION "2.5.0")
 
-target_sources(dummy_lib 
-    PRIVATE 
+target_sources(dummy_lib
+    PRIVATE
         src/greet.cpp
     PUBLIC
         FILE_SET HEADERS
@@ -43,8 +43,8 @@ generate_export_header(dummy_lib
     BASE_NAME DUMMY_LIB
     EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/dummy_lib/dummy_lib_export.h")
 
-target_include_directories(dummy_lib 
-    PUBLIC 
+target_include_directories(dummy_lib
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated> # Build tree includes
         $<INSTALL_INTERFACE:include>)

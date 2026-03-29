@@ -9,7 +9,11 @@ Include `ProjectInfo.h` as a single-header convenience wrapper:
 // Print everything (build info + git + feature flags)
 BUILD_INFO_PRINT_ALL(std::cout, main_app_info);
 
-// Short version line: "CppCmakeProjectTemplate v1.0.5 (main@abc1234)"
+// Short version line: "CppCmakeProjectTemplate v1.0.5+0 (main@abc1234)"
+//
+// Version format: <major>.<middle>.<minor>+<revision>
+// - The three-part base (major.middle.minor) is used by CMake `project(... VERSION ...)`.
+// - The optional `+revision` is build metadata (CI run number, build counter).
 std::string ver = BUILD_INFO_VERSION_LINE(main_app_info);
 
 // Access individual fields

@@ -103,6 +103,17 @@ def find_project_root(start: Path) -> Path:
 PROJECT_ROOT: Path = find_project_root(Path(__file__).resolve())
 LOG_FILE: Path = PROJECT_ROOT / "build_logs" / "tool.log"
 
+# If repository has a central VERSION file, use it as the authoritative
+# source of truth for the toolset version. This makes it easy to keep
+# scripts, CMake and packaging in sync by updating a single file.
+try:
+    version_file = PROJECT_ROOT / "VERSION"
+    if version_file.exists():
+        GlobalConfig.VERSION = version_file.read_text(encoding="utf-8").strip()
+except Exception:
+    # best-effort: leave default in place
+    pass
+
 def run_proc(cmd: list[str], check: bool = True, cwd: Path = PROJECT_ROOT) -> int:
     Logger.debug(f"Executing: {' '.join(str(c) for c in cmd)}")
     result = subprocess.run(cmd, cwd=cwd)

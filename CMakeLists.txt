@@ -1,10 +1,21 @@
 cmake_minimum_required(VERSION 3.25)
-
 # -----------------------------------------------------------------------------
 # Project Information
 # -----------------------------------------------------------------------------
+# Read base version from repository `VERSION` file if present. The file may
+# contain a build metadata suffix (e.g. 1.2.3+45); we only use the three-part
+# base version for CMake's `project(... VERSION ...)` invocation.
+file(READ "${CMAKE_SOURCE_DIR}/VERSION" _cmake_version_content OPTIONAL)
+if(DEFINED _cmake_version_content)
+    string(STRIP "${_cmake_version_content}" _cmake_version_content)
+    string(REGEX MATCH "^[0-9]+\.[0-9]+\.[0-9]+" PROJECT_BASE_VERSION "${_cmake_version_content}")
+endif()
+if(NOT PROJECT_BASE_VERSION)
+    set(PROJECT_BASE_VERSION "0.0.0")
+endif()
+
 project(CppCmakeProjectTemplate
-    VERSION 1.0.5
+    VERSION ${PROJECT_BASE_VERSION}
     DESCRIPTION "Professional Modern C++ / CMake Project Template"
     LANGUAGES CXX)
 

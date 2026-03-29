@@ -234,7 +234,7 @@ def _impl_cmd_config_get(args) -> None:
         print(f"DRY_RUN: {GlobalConfig.DRY_RUN}")
         print(f"VERSION: {GlobalConfig.VERSION}")
         return
-    
+
     key_upper = key.upper()
     if hasattr(GlobalConfig, key_upper):
         print(f"{key_upper}: {getattr(GlobalConfig, key_upper)}")
@@ -246,11 +246,11 @@ def _impl_cmd_config_set(args) -> None:
     key = getattr(args, "key")
     value = getattr(args, "value")
     key_upper = key.upper()
-    
+
     if not hasattr(GlobalConfig, key_upper):
         print(f"Unknown config key: {key}")
         return
-    
+
     # Try to convert value to appropriate type
     current = getattr(GlobalConfig, key_upper)
     if isinstance(current, bool):
@@ -263,7 +263,7 @@ def _impl_cmd_config_set(args) -> None:
             return
     else:
         new_val = value
-        
+
     setattr(GlobalConfig, key_upper, new_val)
     print(f"Set {key_upper} = {new_val} (Runtime only, persistent config not implemented yet)")
 
@@ -281,7 +281,7 @@ def _impl_cmd_upgrade_std(args) -> None:
     std = getattr(args, "std")
     target = getattr(args, "target", None)
     dry = getattr(args, "dry_run", False)
-    
+
     if target:
         # Upgrade only one library
         target_cm = PROJECT_ROOT / "libs" / target / "CMakeLists.txt"
@@ -399,18 +399,18 @@ def _impl_cmd_repo_versions(args) -> None:
 def _impl_cmd_ci(args) -> None:
     preset_filter = getattr(args, "preset_filter", "")
     fail_fast = getattr(args, "fail_fast", False)
-    
+
     print(f"CI simulation: running build+test (filter: '{preset_filter}')")
-    
+
     presets_data = load_presets()
     configs = presets_data.get("configurePresets", [])
-    
+
     to_run = []
     for cfg in configs:
         name = cfg.get("name", "")
         if preset_filter in name:
             to_run.append(name)
-            
+
     if not to_run:
         print(f"No presets match filter '{preset_filter}'")
         return
@@ -432,30 +432,31 @@ def _impl_cmd_ci(args) -> None:
 def _impl_cmd_target_add(args) -> None:
     name = getattr(args, "name")
     dry = getattr(args, "dry_run", False)
-    
+
     app_dir = PROJECT_ROOT / "apps" / name
     if app_dir.exists():
         print(f"App '{name}' already exists")
         return
-        
+
     if dry:
         print(f"[dry-run] Would create apps/{name}/")
         print(f"[dry-run] Would register in apps/CMakeLists.txt")
         return
-        
+
     from core.utils.fileops import Transaction
     with Transaction(PROJECT_ROOT) as txn:
         txn.safe_mkdir(app_dir / "src", parents=True, exist_ok=True)
-        
-        # Write CMakeLists.txt
+        # Write CMakeLists.txt. Use the configured repository base version
+        # (strip any +revision metadata) so generated apps stay in sync.
+        base_ver = GlobalConfig.VERSION.split("+")[0] if GlobalConfig.VERSION else "0.0.0"
         cm_content = (
             f"cmake_minimum_required(VERSION 3.25)\n"
-            f"project({name} VERSION 1.0.0 LANGUAGES CXX)\n\n"
+            f"project({name} VERSION {base_ver} LANGUAGES CXX)\n\n"
             f"add_executable({name} src/main.cpp)\n"
             f"target_link_libraries({name} PRIVATE dummy_lib)\n"
         )
         txn.safe_write_text(app_dir / "CMakeLists.txt", cm_content)
-        
+
         # Write main.cpp
         cpp_content = (
             f"#include <iostream>\n"
@@ -467,20 +468,20 @@ def _impl_cmd_target_add(args) -> None:
             f"}}\n"
         )
         txn.safe_write_text(app_dir / "src" / "main.cpp", cpp_content)
-        
+
         # Register in apps/CMakeLists.txt
         from core.libpkg.create import _cmake_add_subdirectory
         _cmake_add_subdirectory(PROJECT_ROOT / "apps" / "CMakeLists.txt", name)
-        
+
     print(f"✅ Created apps/{name}/")
 
 
 def _impl_cmd_check_extra(args) -> None:
     import shutil
     Logger.info("Running extra repository checks (ruff, mypy, cppcheck)...")
-    
+
     overall_ok = True
-    
+
     # 1. Ruff
     if shutil.which("ruff"):
         print("-- ruff (python linter) --")
@@ -552,7 +553,7 @@ def _impl_cmd_init_skeleton(args) -> None:
             dpath = PROJECT_ROOT / dname
             if not dpath.exists():
                 txn.safe_mkdir(dpath, parents=True)
-            
+
             subs = sorted([p.name for p in dpath.iterdir() if p.is_dir() and (p / "CMakeLists.txt").exists()])
             content = render_template_file("subdir_cmakelists.jinja2", dir_name=dname, subdirectories=subs)
             txn.safe_write_text(dpath / "CMakeLists.txt", content)

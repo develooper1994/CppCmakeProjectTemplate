@@ -93,6 +93,41 @@ This document lists the project's current capabilities, governance policies, and
 
 - **`tool.toml`:** Central configuration file.
 - **State Persistence:** `.tool/state.json` for session history.
+
+## Versioning & Release Workflow
+
+We standardize on a single source-of-truth `VERSION` file at the repository root.
+The format is: `<major>.<middle>.<minor>+<revision>` (e.g. `1.2.3+45`). The
+`+<revision>` part is optional and used for build metadata (CI run number or
+build counter).
+
+Key elements:
+
+- `VERSION` (root): canonical version string used by `scripts/release.py` and
+  consumed by `scripts/tool.py` via `GlobalConfig.VERSION` at runtime.
+- `scripts/release.py`: CLI helper to `bump`, `set`, `set-revision`, and
+  `tag`.
+- `tool release`: wrapper that delegates to `scripts/release.py` so releases can
+  be run via the unified CLI (e.g. `python3 scripts/tool.py release bump minor`).
+- `CMakeLists.txt`: reads `VERSION` and uses the three-part base version for the
+  `project(... VERSION ...)` invocation; build metadata (`+revision`) is not
+  passed to CMake project but is available to packaging and docs.
+- CI: `.github/workflows/release.yml` derives a revision (GitHub `run_number`) and
+  runs `scripts/release.py` on tag push or via `workflow_dispatch` (dry-run by
+  default; set `apply: true` on dispatch to perform commit/tag/push).
+
+Workflow summary:
+
+1. Developer runs `python3 scripts/tool.py release bump patch` (or `bump minor/major`).
+2. `scripts/release.py` updates `VERSION`, synchronizes `pyproject.toml`,
+   `extension/package.json`, and top-level `CMakeLists.txt`, then commits.
+3. Optionally `scripts/release.py tag --push` will create and push `v<major>.<middle>.<minor>`.
+4. CI (`release.yml`) can be used to set the `+revision` metadata automatically
+   and optionally publish artifacts.
+
+This approach centralizes version management, reduces accidental drift, and
+provides both manual CLI and CI-driven release paths.
+
 - **Lock Files:** Deterministic dependency management via lock files.
 
 ---

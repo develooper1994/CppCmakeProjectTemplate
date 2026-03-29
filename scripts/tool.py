@@ -24,6 +24,7 @@ from core.utils.common import Logger, GlobalConfig, load_session
 CORE_COMMANDS = {
     "build": "core.commands.build",
     "lib":   "core.commands.lib",
+    "release": "core.commands.release",
     "sol":   "core.commands.sol",
     "tui":   "tui",  # scripts/tui.py
     "session": "core.commands.session",
@@ -89,7 +90,7 @@ def main():
 
     # 1. Look in CORE
     module_name = CORE_COMMANDS.get(command)
-    
+
     # 2. Look in PLUGINS
     if not module_name:
         plugins = discover_plugins()
