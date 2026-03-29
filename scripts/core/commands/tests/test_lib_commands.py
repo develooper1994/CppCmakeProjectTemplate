@@ -156,3 +156,27 @@ def test_move_library_dry_run(tmp_path: Path):
     # originals still exist and dest does not
     assert (root / "libs" / "drylib").exists()
     assert not (root / "libs" / "sub" / "drylib").exists()
+
+
+def test_remove_after_move_prunes_empty_parents(tmp_path: Path):
+    root = tmp_path
+    setup_minimal_project(root)
+    create_mod.create_library("movelib", dry_run=False, root=root)
+
+    import core.commands.lib as lib_cmd
+    lib_cmd.PROJECT_ROOT = root
+
+    # move library into a nested subdir
+    args_move = SimpleNamespace(name="movelib", dest="nested/sub/movelib", dry_run=False)
+    lib_cmd._impl_cmd_move(args_move)
+
+    # verify moved
+    assert (root / "libs" / "nested" / "sub" / "movelib").exists()
+
+    # now remove (delete) by original name; implementation should resolve moved path and prune empty parents
+    args_remove = SimpleNamespace(name="movelib", delete=True, dry_run=False)
+    lib_cmd._impl_cmd_remove(args_remove)
+
+    # parents under libs/nested/sub should be pruned if empty
+    assert not (root / "libs" / "nested").exists()
+    assert not (root / "tests" / "unit" / "nested").exists()

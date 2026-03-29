@@ -19,7 +19,7 @@ _SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from core.utils.common import CLIResult, run_proc, PROJECT_ROOT
+from core.utils.common import CLIResult, run_proc, PROJECT_ROOT, GlobalConfig
 from core.libpkg import (
     create_library,
     remove_library,
@@ -389,6 +389,15 @@ def cmd_add(args):
 
 
 def cmd_remove(args):
+    # CLI-level protection: require explicit --yes to skip confirmation for destructive deletes
+    if getattr(args, "delete", False) and not GlobalConfig.YES and not getattr(args, "dry_run", False):
+        try:
+            resp = input(f"Confirm delete of library '{getattr(args, 'name', '')}' and its files? [y/N]: ")
+        except Exception:
+            resp = "n"
+        if resp.strip().lower() not in ("y", "yes"):
+            print("Aborted.")
+            return CLIResult(success=False, code=1, message="User aborted")
     return _wrap(_impl_cmd_remove, args)
 
 

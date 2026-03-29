@@ -11,6 +11,8 @@ python3 scripts/tool.py lib add renderer --deps core,math --link-app --cxx-stand
 # Remove a library (--delete also removes files from disk)
 python3 scripts/tool.py lib remove my_lib --delete
 
+Note: `--delete` is destructive. The CLI will prompt for confirmation unless you pass `--yes` to auto-confirm or use `--dry-run` to preview the actions. Programmatic calls to the library API (tests or scripts) bypass the interactive prompt.
+
 # Rename (updates all source files, headers, and CMake references)
 python3 scripts/tool.py lib rename old_name new_name
 

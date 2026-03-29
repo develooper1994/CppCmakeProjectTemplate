@@ -22,6 +22,7 @@ from .templates import (
 )
 from .tokens import apply_template_dir
 from core.utils.fileops import Transaction
+from core.utils.common import Logger
 
 try:
     from .jinja_helpers import render_template_file as _render_template_file
@@ -293,34 +294,91 @@ def remove_library(name: str, delete: bool = False, dry_run: bool = False, root:
 
     libs_cmake  = project_root / "libs" / "CMakeLists.txt"
     tests_cmake = project_root / "tests" / "unit" / "CMakeLists.txt"
+    # Resolve actual lib/tests locations. Support moved libraries (e.g. libs/sub/name).
+    actual_lib_dir = p.lib_dir
+    actual_tests_dir = p.tests_dir
+    cmake_entry = name
+
+    # If lib dir is missing, try to locate it under libs/ recursively.
+    libs_root = project_root / "libs"
+    if not actual_lib_dir.exists() and libs_root.exists():
+        candidates = [d for d in libs_root.rglob(name) if d.is_dir()]
+        if candidates:
+            # prefer the shallowest candidate (fewest path parts)
+            candidates.sort(key=lambda d: len(d.relative_to(libs_root).parts))
+            candidate = candidates[0]
+            actual_lib_dir = candidate
+            rel = candidate.relative_to(libs_root)
+            cmake_entry = rel.as_posix()
+            actual_tests_dir = project_root / "tests" / "unit" / rel
+            Logger.debug(f"remove_library: resolved moved lib '{name}' -> {actual_lib_dir}")
 
     # We allow removal even if lib_dir is missing, to cleanup tests/unit or CMake entries
-    exists = p.lib_dir.exists() or p.tests_dir.exists()
+    exists = actual_lib_dir.exists() or actual_tests_dir.exists()
 
     if not exists and not delete:
-        # Check if it exists in CMake at least
+        # Check if it exists in CMake at least (allow either plain name or moved path)
         in_libs = False
         if libs_cmake.exists():
-            in_libs = re.search(rf"^\s*add_subdirectory\(\s*{re.escape(name)}\s*\)", libs_cmake.read_text(encoding="utf-8"), re.MULTILINE) is not None
+            content = libs_cmake.read_text(encoding="utf-8")
+            if re.search(rf"^\s*add_subdirectory\(\s*{re.escape(name)}\s*\)", content, re.MULTILINE) or \
+               re.search(rf"^\s*add_subdirectory\(\s*{re.escape(cmake_entry)}\s*\)", content, re.MULTILINE):
+                in_libs = True
         if not in_libs:
             raise FileNotFoundError(f"Library '{name}' not found in filesystem or CMakeLists.txt")
 
     if dry_run:
-        print(f"[dry-run] unregister {name} from libs/CMakeLists.txt")
-        print(f"[dry-run] unregister {name} from tests/unit/CMakeLists.txt")
+        print(f"[dry-run] unregister {cmake_entry} from libs/CMakeLists.txt")
+        print(f"[dry-run] unregister {cmake_entry} from tests/unit/CMakeLists.txt")
         if delete:
-            if p.lib_dir.exists(): print(f"[dry-run] delete libs/{name}/")
-            if p.tests_dir.exists(): print(f"[dry-run] delete tests/unit/{name}/")
+            if actual_lib_dir.exists(): print(f"[dry-run] delete {actual_lib_dir.relative_to(project_root).as_posix()}/")
+            if actual_tests_dir.exists(): print(f"[dry-run] delete {actual_tests_dir.relative_to(project_root).as_posix()}/")
         return
 
     with Transaction(project_root) as txn:
-        _cmake_remove_subdirectory(libs_cmake, name)
-        _cmake_remove_subdirectory(tests_cmake, name)
+        _cmake_remove_subdirectory(libs_cmake, cmake_entry)
+        _cmake_remove_subdirectory(tests_cmake, cmake_entry)
         _remove_cmake_references(name, project_root, txn)
 
         if delete:
-            if p.lib_dir.exists(): txn.safe_remove(p.lib_dir)
-            if p.tests_dir.exists(): txn.safe_remove(p.tests_dir)
+            # remove actual library and tests directories (where present)
+            if actual_lib_dir.exists(): txn.safe_remove(actual_lib_dir)
+            if actual_tests_dir.exists(): txn.safe_remove(actual_tests_dir)
+
+            # prune empty parent directories under libs/ and tests/unit/
+            try:
+                # prune libs parents
+                parent = actual_lib_dir.parent
+                stop = libs_root
+                while parent.exists() and parent != stop and parent != project_root:
+                    try:
+                        if any(parent.iterdir()):
+                            break
+                    except Exception:
+                        break
+                    Logger.debug(f"remove_library: pruning empty parent {parent}")
+                    txn.safe_remove(parent)
+                    parent = parent.parent
+            except Exception:
+                pass
+
+            try:
+                # prune tests parents
+                tests_root = project_root / "tests" / "unit"
+                parent = actual_tests_dir.parent
+                stop = tests_root
+                while parent.exists() and parent != stop and parent != project_root:
+                    try:
+                        if any(parent.iterdir()):
+                            break
+                    except Exception:
+                        break
+                    Logger.debug(f"remove_library: pruning empty parent {parent}")
+                    txn.safe_remove(parent)
+                    parent = parent.parent
+            except Exception:
+                pass
+
             print(f"✅ Deleted files for {name}")
         else:
             print(f"✅ Detached {name} (CMake entries removed)")
