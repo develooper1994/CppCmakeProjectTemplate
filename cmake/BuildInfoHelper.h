@@ -118,9 +118,9 @@ inline std::string to_string(
         NS::git_dirty,                       \
         NS::build_type,                      \
         NS::library_type,                    \
+        NS::architecture,                    \
         NS::compiler_id,                     \
         NS::compiler_version,                \
-        NS::architecture,                    \
         NS::cmake_version,                   \
         NS::build_timestamp)
 
