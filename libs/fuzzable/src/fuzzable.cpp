@@ -27,7 +27,7 @@ static bool parse_int_from_bytes(const uint8_t* buf, size_t len, int& out) noexc
 
     for (; idx < len; ++idx) {
         char c = static_cast<char>(buf[idx]);
-        if (!std::isdigit(static_cast<unsigned char>(c))) {
+        if (std::isdigit(static_cast<unsigned char>(c)) == 0) {
             return false;
         }
         accum = accum * 10 + (c - '0');
@@ -47,22 +47,22 @@ Result process_input(const uint8_t* data, size_t size) noexcept {
         return result;
     }
 
-    const uint8_t message_type = data[0];
+    const uint8_t MESSAGE_TYPE = data[0];
 
     // Type 1: simple integer parser from payload
-    if (message_type == 0x01) {
+    if (MESSAGE_TYPE == 0x01) {
         if (size < 3) {
             result.msg = "short1";
             return result;
         }
-        const uint16_t payload_len = (static_cast<uint16_t>(data[1]) << 8) | data[2];
-        if (size < static_cast<size_t>(3 + payload_len)) {
+        const uint16_t PAYLOAD_LEN = (static_cast<uint16_t>(data[1]) << 8) | data[2];
+        if (size < static_cast<size_t>(3 + PAYLOAD_LEN)) {
             result.msg = "len-mismatch";
             return result;
         }
         const uint8_t* payload_ptr = &data[3];
         int parsed = 0;
-        if (parse_int_from_bytes(payload_ptr, payload_len, parsed)) {
+        if (parse_int_from_bytes(payload_ptr, PAYLOAD_LEN, parsed)) {
             result.ok = true;
             result.value = parsed;
             result.msg = "ok-int";
@@ -73,15 +73,15 @@ Result process_input(const uint8_t* data, size_t size) noexcept {
     }
 
     // Type 2: simple expression a+b where a and b are small integers
-    if (message_type == 0x02) {
+    if (MESSAGE_TYPE == 0x02) {
         const uint8_t* payload_ptr = &data[1];
-        const size_t payload_len = size - 1;
-        for (size_t idx = 0; idx < payload_len; ++idx) {
+        const size_t PAYLOAD_LEN = size - 1;
+        for (size_t idx = 0; idx < PAYLOAD_LEN; ++idx) {
             if (static_cast<char>(payload_ptr[idx]) == '+') {
                 int left = 0;
                 int right = 0;
                 if (parse_int_from_bytes(payload_ptr, idx, left) &&
-                    parse_int_from_bytes(payload_ptr + idx + 1, payload_len - idx - 1, right)) {
+                    parse_int_from_bytes(payload_ptr + idx + 1, PAYLOAD_LEN - idx - 1, right)) {
                     result.ok = true;
                     result.value = left + right;
                     result.msg = "expr";
@@ -95,13 +95,13 @@ Result process_input(const uint8_t* data, size_t size) noexcept {
     }
 
     // Type 3: checksum of payload
-    if (message_type == 0x03) {
-        uint32_t sum = 0u;
+    if (MESSAGE_TYPE == 0x03) {
+        uint32_t sum = 0U;
         for (size_t idx = 1; idx < size; ++idx) {
             sum += static_cast<uint32_t>(data[idx]);
         }
         result.ok = true;
-        result.value = static_cast<int>(sum & 0xffffffffu);
+        result.value = static_cast<int>(sum & 0xffffffffU);
         result.msg = "sum";
         return result;
     }

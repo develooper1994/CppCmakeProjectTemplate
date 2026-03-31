@@ -11,10 +11,9 @@ target_link_libraries(dummy_lib_tests
 
 set_project_warnings(dummy_lib_tests)
 
-# Tests may include generated headers and exercise constants; skip global static
-# analyzer enforcement on test executables to avoid treating harmless checks as
-# errors during hardened builds.
-set_target_properties(dummy_lib_tests PROPERTIES CXX_CLANG_TIDY "")
-set_target_properties(dummy_lib_tests PROPERTIES CXX_CPPCHECK "")
+# Tests may include generated headers and exercise constants; instead of
+# disabling analyzers entirely we apply a relaxed analyzer configuration so
+# they run but do not treat warnings as errors or fail the build.
+apply_relaxed_analyzers(dummy_lib_tests)
 
 add_test(NAME dummy_lib_tests COMMAND dummy_lib_tests)

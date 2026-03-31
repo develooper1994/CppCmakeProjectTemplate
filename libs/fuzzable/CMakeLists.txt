@@ -46,8 +46,7 @@ endif()
 install(TARGETS fuzzable
     EXPORT fuzzable_Targets
     FILE_SET HEADERS)
-
-# Exempt the fuzzable test helper from strict static analysis to avoid
-# failing hardened builds while iterating on fuzz harnesses. Production
-# libraries remain covered by analyzers.
-set_target_properties(fuzzable PROPERTIES CXX_CLANG_TIDY "" CXX_CPPCHECK "")
+# Apply project analyzers to the fuzzable library so it remains covered by
+# the same checks as other production libraries. Tests and harnesses use the
+# relaxed variant instead.
+apply_project_analyzers(fuzzable)
