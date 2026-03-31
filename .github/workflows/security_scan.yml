@@ -11,7 +11,8 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Common CI setup
+        uses: ./.github/actions/common-ci
 
       - name: Setup Go (for osv-scanner)
         uses: actions/setup-go@v4
