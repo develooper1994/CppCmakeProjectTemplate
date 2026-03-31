@@ -23,12 +23,13 @@ from core.utils.common import (
     GlobalConfig,
     CLIResult,
     run_proc,
+    run_capture,
     list_presets,
     PROJECT_ROOT,
     json_read_cached,
     json_cache_clear,
 )
-from core.utils.common import get_project_version
+from core.utils.common import get_project_version, get_project_name
 from core.libpkg.jinja_helpers import render_template_file
 import json
 
@@ -229,6 +230,49 @@ def _impl_cmd_build(args) -> None:
             Logger.warn(f"CAUTION: Sanitizers are enabled for a RELEASE build ({preset}). This is usually not recommended.")
 
     Logger.info(f"Configuring with preset '{preset}'")
+    # Write a build configuration summary to disk so CI and humans can inspect
+    try:
+        def _write_build_summary(profile, preset, sanitizers, extra_args):
+            out = {
+                "profile": profile,
+                "preset": preset,
+                "sanitizers": list(sanitizers) if sanitizers else [],
+                "extra_args": extra_args,
+                "project": get_project_name(),
+                "version": get_project_version(),
+            }
+            # Try to add git metadata
+            try:
+                gd, rc = run_capture(["git", "describe", "--tags", "--always", "--dirty"], cwd=PROJECT_ROOT)
+                out["git_describe"] = gd if rc == 0 else "N/A"
+                gh, rc2 = run_capture(["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT)
+                out["git_hash"] = gh if rc2 == 0 else "N/A"
+            except Exception:
+                out["git_describe"] = "N/A"
+                out["git_hash"] = "N/A"
+
+            # Effective toggles derived from extra_args
+            toggles = {}
+            toggles["ENABLE_ASAN"] = any(a.startswith("-DENABLE_ASAN=") or a == "-DENABLE_ASAN=ON" for a in extra_args)
+            toggles["ENABLE_UBSAN"] = any(a.startswith("-DENABLE_UBSAN=") or a == "-DENABLE_UBSAN=ON" for a in extra_args)
+            toggles["ENABLE_TSAN"] = any(a.startswith("-DENABLE_TSAN=") or a == "-DENABLE_TSAN=ON" for a in extra_args)
+            toggles["ENABLE_CLANG_TIDY"] = any(a.startswith("-DENABLE_CLANG_TIDY=") or a == "-DENABLE_CLANG_TIDY=ON" for a in extra_args)
+            toggles["HARDENING_LEVEL"] = next((a.split('=')[1] for a in extra_args if a.startswith("-DHARDENING_LEVEL=")), "(unset)")
+            out["toggles"] = toggles
+
+            # Ensure build dir exists
+            build_dir = PROJECT_ROOT / "build"
+            build_dir.mkdir(parents=True, exist_ok=True)
+            path = build_dir / "build_config.json"
+            import json
+            path.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+            return path
+
+        summary_path = _write_build_summary(profile, preset, sanitizers, extra_args)
+        Logger.info(f"Build Configuration Summary written to: {summary_path}")
+    except Exception as e:
+        Logger.warn(f"Failed to write build configuration summary: {e}")
+
     run_proc(["cmake", "--preset", preset] + extra_args)
     Logger.info("Building")
     run_proc(["cmake", "--build", "--preset", preset])

@@ -13,6 +13,16 @@ if(ENABLE_GTEST)
     # gtest_force_shared_crt is already set in ProjectConfigs.cmake for MSVC
     FetchContent_MakeAvailable(googletest)
     message(STATUS "Test framework: GoogleTest")
+    # Disable static analyzers for googletest targets added via FetchContent
+    # They are third-party sources and should not be checked by the project's
+    # clang-tidy/cppcheck configuration which treats warnings as errors.
+    foreach(_gtest_target IN ITEMS gmock gmock_main gtest gtest_main)
+        if(TARGET ${_gtest_target})
+            set_target_properties(${_gtest_target} PROPERTIES CXX_CLANG_TIDY "")
+            # Per-target CXX_CPPCHECK is supported on newer CMake versions; clear if present.
+            set_target_properties(${_gtest_target} PROPERTIES CXX_CPPCHECK "")
+        endif()
+    endforeach()
 endif()
 
 # ── Catch2 ───────────────────────────────────────────────────────────────────
@@ -43,3 +53,7 @@ elseif(ENABLE_QT AND Qt5_FOUND)
 endif()
 
 add_subdirectory(unit)
+
+if(ENABLE_FUZZING)
+    add_subdirectory(fuzz)
+endif()

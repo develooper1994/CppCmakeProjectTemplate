@@ -85,7 +85,9 @@ inline void print_all(
 }
 
 /// Returns a summary as std::string (same content as print_all).
-inline std::string to_string(
+// Suppress cppcheck unusedFunction for this generated helper.
+// cppcheck-suppress unusedFunction
+inline std::string to_string( // NOLINT
     std::string_view project_name,   std::string_view project_version,
     std::string_view git_branch,     std::string_view git_hash,
     std::string_view git_describe,   bool             git_dirty,

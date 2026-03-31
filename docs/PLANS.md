@@ -36,6 +36,8 @@ This document lists the project's current capabilities, governance policies, and
 - **Per-Target BuildInfo:** Per-target versioning and git metadata support.
 - **Dynamic Feature Flags:** Feature toggles controlled at build time.
 
+- **Build Configuration Summary:** The build system now emits `build/build_config.json` at build time. This JSON contains the active `--profile` (for example `normal`, `hardened`, `extreme`), selected sanitizers, the chosen CMake preset/toolchain, and a list of headers or sources generated at configure/generation time. This artifact is intended for CI traceability, debugging, and reproducing the exact configuration used to produce an artifact.
+
 ### Quality & CI/CD
 
 - **Testing:** Support for GoogleTest, Catch2, Boost.Test and QTest.
@@ -94,6 +96,18 @@ This document lists the project's current capabilities, governance policies, and
 - **Fuzz Testing:** Integrate fuzzing tools (e.g., `afl++`, `libFuzzer`).
 - **Static Analysis:** Integrate additional static analysis tools (e.g., `clang-tidy --fix`).
 - **Security Hardening:** Implement features like stack canaries, PIE, RELRO, and control flow integrity (CFI) in build presets.
+
+Notes & recent decisions (implemented / important constraints):
+
+- **Build-time generated headers:** Some headers are produced during configure/generation by CMake or project scripts. These generated files are recorded in `build/build_config.json` and are treated as "generated sources" by the analyzer policy to avoid false-positives originating from generated code. This analyzer scoping does not remove hardening flags from production targets — it only narrows which files will fail CI due to stylistic analyzer rules. To include generated headers in analysis, enable per-target analysis flags (for example `-D<target>_ANALYZE_GENERATED=ON`) or run `tool format tidy-fix` to apply automatic fixes before re-enabling strict analyzer policies.
+
+- **Preserving Hardening Semantics:** Hardening compiler/linker flags (`-fstack-protector-strong`, `_FORTIFY_SOURCE=2`, PIE/RELRO, etc.) remain applied to production libraries and executables by default. Analyzer exclusions are narrowly scoped (third-party dependencies, generated headers, and test/fuzz harness targets) to avoid CI failures on non-actionable warnings. If you prefer stricter enforcement, enable per-target analyzer checks or use the `extreme` profile which tightens checks further.
+
+- **Fuzz Testing (current status):** Basic libFuzzer harness support has been added with both global (`-DENABLE_FUZZING=ON`) and per-target control. A meaningful sample fuzzable target and harness were added under `libs/fuzzable` and `tests/fuzz/` and a CI smoke-run workflow exercises fuzz targets. Remaining items: AFL++ integration, seed-corpus management, long-run CI job configuration, and automated crash triage.
+
+- **clang-tidy --fix automation:** A `tool format tidy-fix` helper and a CI job (`.github/workflows/clang_tidy_fix.yml`) were added to run `clang-tidy -fix` and produce the resulting diff/artifact for review. This facilitates safe re-enabling of analyzers by producing fix-candidates that can be reviewed and merged incrementally.
+
+- **Security-scan CI reporting & policy:** `tool security scan` is integrated and CI uploads results as artifacts. A policy tiering (CRITICAL -> fail, HIGH -> warn/notify, MEDIUM/LOW -> informational) is recommended and partly implemented; additional automation (auto-issues, PR creation, SLA-based blocking) is planned.
 
 ### Phase 5: Performance & Optimization
 

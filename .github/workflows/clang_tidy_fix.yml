@@ -1,0 +1,36 @@
+name: Clang-Tidy Fix Automation
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches: [main]
+
+jobs:
+  tidy-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy clang cmake git
+
+      - name: Configure (generate compile_commands)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Run clang-tidy --fix (tool)
+        run: python3 scripts/tool.py format tidy-fix
+
+      - name: Create patch artifact
+        run: |
+          git --no-pager diff > clang-tidy-fixes.patch || true
+        continue-on-error: true
+
+      - name: Upload fixes
+        uses: actions/upload-artifact@v4
+        with:
+          name: clang-tidy-fixes
+          path: clang-tidy-fixes.patch

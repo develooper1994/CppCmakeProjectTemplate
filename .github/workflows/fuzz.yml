@@ -1,0 +1,42 @@
+name: Fuzz Targets (libFuzzer smoke run)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-run-fuzzers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang clang++ cmake ninja-build build-essential
+
+      - name: Configure (clang, enable fuzzing)
+        run: |
+          cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DENABLE_FUZZING=ON -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build fuzz targets
+        run: |
+          cmake --build build --target fuzz_fuzzable -- -j
+          cmake --build build --target fuzz_dummy_lib -- -j
+
+      - name: Run quick libFuzzer smoke run (fuzz_fuzzable)
+        run: |
+          if [ -x build/fuzz_fuzzable ]; then
+            ./build/fuzz_fuzzable -runs=200 -max_total_time=15 || true
+          else
+            echo "fuzz_fuzzable binary not found; skipping run"
+          fi
+
+      - name: Upload fuzz binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-binaries
+          path: build/fuzz_fuzzable

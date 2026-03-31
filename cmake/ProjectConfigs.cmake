@@ -16,6 +16,7 @@ option(ENABLE_TSAN          "Enable Thread Sanitizer"            OFF)
 option(ENABLE_HARDENING     "Enable security hardening flags"    OFF)
 option(ENABLE_CLANG_TIDY    "Enable Clang-Tidy static analysis"  OFF)
 option(ENABLE_CPPCHECK      "Enable Cppcheck static analysis"    OFF)
+option(ENABLE_FUZZING      "Enable fuzz testing targets"        OFF)
 # NOTE: Valgrind support is planned (ENABLE_VALGRIND). Currently not implemented.
 # When enabled it would wrap ctest runs with valgrind --leak-check=full.
 
