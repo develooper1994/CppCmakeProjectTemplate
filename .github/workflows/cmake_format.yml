@@ -9,9 +9,8 @@ jobs:
   cmake-format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Common CI setup
+        uses: ./.github/actions/common-ci
         with:
           python-version: "3.x"
       - name: Install cmake-format
