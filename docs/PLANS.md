@@ -108,8 +108,8 @@ This document lists the project's current capabilities, governance policies, and
 - **Security Audit Command:** ✅ DONE — New `tool security scan` command for CVE and static security analysis.
 - **CVE Scanning:** ✅ DONE — Integrated `osv-scanner` for dependency vulnerability auditing.
 - **Security Audit:** In-progress — Refining tools and CI integration.
-- **Fuzz Testing:** Integrate fuzzing tools (e.g., `afl++`, `libFuzzer`).
-- **Static Analysis:** Integrate additional static analysis tools (e.g., `clang-tidy --fix`).
+- **Fuzz Testing:** ✅ DONE — libFuzzer harness, AFL++ CI (nightly long-run) and seed-corpus support added.
+- **Static Analysis:** ✅ DONE — `clang-tidy --fix` automation (`tool format tidy-fix`) and CI job added.
 - **Security Hardening:** Implement features like stack canaries, PIE, RELRO, and control flow integrity (CFI) in build presets.
 
 Notes & recent decisions (implemented / important constraints):
