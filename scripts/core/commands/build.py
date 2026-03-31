@@ -29,6 +29,7 @@ from core.utils.common import (
     json_cache_clear,
 )
 from core.utils.common import get_project_version
+from core.libpkg.jinja_helpers import render_template_file
 import json
 
 DEFAULT_PRESET = "gcc-debug-static-x86_64"
@@ -166,10 +167,23 @@ def _choose_preset(preset: Optional[str]) -> str:
     return DEFAULT_PRESET
 
 
+def _generate_clang_tidy(profile: str) -> None:
+    """Dynamically generate .clang-tidy based on build profile."""
+    try:
+        content = render_template_file("clang_tidy.jinja2", profile=profile)
+        (PROJECT_ROOT / ".clang-tidy").write_text(content, encoding="utf-8")
+        Logger.debug(f"Generated .clang-tidy for profile: {profile}")
+    except Exception as e:
+        Logger.warn(f"Failed to generate .clang-tidy: {e}")
+
+
 def _impl_cmd_build(args) -> None:
     preset = _choose_preset(getattr(args, "preset", None))
     profile = getattr(args, "profile", "normal")
     sanitizers = getattr(args, "sanitizers", []) or []
+
+    # Generate .clang-tidy before build starts
+    _generate_clang_tidy(profile)
 
     extra_args = []
     
@@ -343,6 +357,7 @@ def _impl_cmd_extension(args) -> None:
 
 
 def cmd_build(args: argparse.Namespace) -> CLIResult:
+    _generate_clang_tidy(getattr(args, "profile", "normal"))
     if GlobalConfig.DRY_RUN:
         Logger.info("[DRY-RUN] Would run: cmake --preset + cmake --build")
         return CLIResult(success=True, message="[DRY-RUN] build skipped")
@@ -354,6 +369,7 @@ def cmd_build(args: argparse.Namespace) -> CLIResult:
 
 
 def cmd_check(args: argparse.Namespace) -> CLIResult:
+    _generate_clang_tidy(getattr(args, "profile", "normal"))
     if GlobalConfig.DRY_RUN:
         Logger.info("[DRY-RUN] Would run: cmake + build + ctest + extension sync")
         return CLIResult(success=True, message="[DRY-RUN] check skipped")

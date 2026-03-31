@@ -85,6 +85,9 @@ This document lists the project's current capabilities, governance policies, and
   - Usage: `tool build --sanitizers asan ubsan` or `tool build --sanitizers all`.
 - **Granular Control (Per-Target Overrides):** ✅ DONE — Any security or sanitizer feature can be enabled/disabled per library or application.
   - Usage: Pass `-D<TARGET_NAME>_ENABLE_HARDENING=ON/OFF` or `-D<TARGET_NAME>_ENABLE_ASAN=ON/OFF`.
+- **Dynamic Static Analysis:** ✅ DONE — `.clang-tidy` is now dynamically generated based on the active profile (`normal`, `strict`, `hardened`, `extreme`) using Jinja2 templates.
+  - `hardened/extreme` profiles enforce `WarningsAsErrors: "*"`.
+  - `extreme` profile enables additional aggressive safety checks by removing suppressions.
 - **Security Audit:** In-progress — Integrate CVE scanning (e.g., `osv-scanner`) for dependencies.
 - **Fuzz Testing:** Integrate fuzzing tools (e.g., `afl++`, `libFuzzer`).
 - **Static Analysis:** Integrate additional static analysis tools (e.g., `clang-tidy --fix`).

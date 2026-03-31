@@ -6,9 +6,12 @@ function(enable_static_analysis)
         if(CLANG_TIDY_PATH)
             message(STATUS "Found clang-tidy: ${CLANG_TIDY_PATH}")
             set(TIDY_FLAGS "${CLANG_TIDY_PATH};-extra-arg=-Wno-unknown-warning-option")
-            if(ENABLE_WERROR)
+            
+            # Treat warnings as errors if WARNING_LEVEL is ERROR
+            if(WARNING_LEVEL STREQUAL "ERROR" OR ENABLE_WERROR)
                 list(APPEND TIDY_FLAGS "-warnings-as-errors=*")
             endif()
+            
             set(CMAKE_CXX_CLANG_TIDY "${TIDY_FLAGS}" PARENT_SCOPE)
         else()
             message(AUTHOR_WARNING "clang-tidy not found.")
