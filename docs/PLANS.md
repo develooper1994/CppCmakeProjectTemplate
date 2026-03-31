@@ -88,7 +88,9 @@ This document lists the project's current capabilities, governance policies, and
 - **Dynamic Static Analysis:** ✅ DONE — `.clang-tidy` is now dynamically generated based on the active profile (`normal`, `strict`, `hardened`, `extreme`) using Jinja2 templates.
   - `hardened/extreme` profiles enforce `WarningsAsErrors: "*"`.
   - `extreme` profile enables additional aggressive safety checks by removing suppressions.
-- **Security Audit:** In-progress — Integrate CVE scanning (e.g., `osv-scanner`) for dependencies.
+- **Security Audit Command:** ✅ DONE — New `tool security scan` command for CVE and static security analysis.
+- **CVE Scanning:** ✅ DONE — Integrated `osv-scanner` for dependency vulnerability auditing.
+- **Security Audit:** In-progress — Refining tools and CI integration.
 - **Fuzz Testing:** Integrate fuzzing tools (e.g., `afl++`, `libFuzzer`).
 - **Static Analysis:** Integrate additional static analysis tools (e.g., `clang-tidy --fix`).
 - **Security Hardening:** Implement features like stack canaries, PIE, RELRO, and control flow integrity (CFI) in build presets.
