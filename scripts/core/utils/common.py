@@ -21,6 +21,10 @@ class GlobalConfig:
     YES: bool = False
     JSON: bool = False
     DRY_RUN: bool = False
+    # If true, scripts may attempt to provision/install required tools/deps
+    INSTALL: bool = False
+    # When used with --install, recreate the venv if True
+    INSTALL_RECREATE: bool = False
     VERSION: str = "1.0.5"
 
 @dataclass

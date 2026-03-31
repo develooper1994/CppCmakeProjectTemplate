@@ -6,6 +6,7 @@ secure_ops
 It is implemented to compile under the `extreme` hardening profile and aims to demonstrate idiomatic, analyzable, and sanitizer-friendly C++ code.
 
 Contents
+
 - `include/secure_ops/` — public headers
 - `src/` — implementation
 

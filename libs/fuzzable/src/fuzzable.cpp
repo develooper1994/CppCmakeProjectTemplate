@@ -16,9 +16,9 @@ static bool parse_int_from_bytes(const uint8_t* buf, size_t len, int& out) noexc
     long long accum = 0;
     bool negative = false;
     size_t idx = 0;
-    char ch = static_cast<char>(buf[0]);
-    if (ch == '+' || ch == '-') {
-        negative = (ch == '-');
+    char first_ch = static_cast<char>(buf[0]);
+    if (first_ch == '+' || first_ch == '-') {
+        negative = (first_ch == '-');
         idx = 1;
         if (len == 1) {
             return false;
@@ -26,11 +26,11 @@ static bool parse_int_from_bytes(const uint8_t* buf, size_t len, int& out) noexc
     }
 
     for (; idx < len; ++idx) {
-        char c = static_cast<char>(buf[idx]);
-        if (std::isdigit(static_cast<unsigned char>(c)) == 0) {
+        char cur_ch = static_cast<char>(buf[idx]);
+        if (std::isdigit(static_cast<unsigned char>(cur_ch)) == 0) {
             return false;
         }
-        accum = accum * 10 + (c - '0');
+        accum = accum * 10 + (cur_ch - '0');
         if (accum > INT32_MAX) {
             return false;
         }
@@ -40,7 +40,8 @@ static bool parse_int_from_bytes(const uint8_t* buf, size_t len, int& out) noexc
     return true;
 }
 
-Result process_input(const uint8_t* data, size_t size) noexcept {
+// cppcheck-suppress unusedFunction
+[[maybe_unused]] Result process_input(const uint8_t* data, size_t size) noexcept {
     Result result{false, 0, std::string()};
     if (data == nullptr || size == 0) {
         result.msg = "empty";
@@ -55,14 +56,15 @@ Result process_input(const uint8_t* data, size_t size) noexcept {
             result.msg = "short1";
             return result;
         }
-        const uint16_t PAYLOAD_LEN = (static_cast<uint16_t>(data[1]) << 8) | data[2];
-        if (size < static_cast<size_t>(3 + PAYLOAD_LEN)) {
+        auto payload_len = static_cast<uint16_t>((static_cast<uint32_t>(data[1]) << 8) |
+                                                 static_cast<uint32_t>(data[2]));
+        if (size < static_cast<size_t>(3 + payload_len)) {
             result.msg = "len-mismatch";
             return result;
         }
         const uint8_t* payload_ptr = &data[3];
         int parsed = 0;
-        if (parse_int_from_bytes(payload_ptr, PAYLOAD_LEN, parsed)) {
+        if (parse_int_from_bytes(payload_ptr, payload_len, parsed)) {
             result.ok = true;
             result.value = parsed;
             result.msg = "ok-int";

@@ -48,6 +48,8 @@ def main():
     parser.add_argument("--json",    action="store_true")
     parser.add_argument("--yes",     action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--install", action="store_true", help="Provision/install required tools/deps for scripts")
+    parser.add_argument("--recreate", action="store_true", help="When used with --install, recreate virtualenvs")
     parser.add_argument("--help",    action="store_true")
     parser.add_argument("--version", action="store_true")
 
@@ -73,6 +75,8 @@ def main():
     GlobalConfig.JSON    = args.json    if '--json'    in provided else bool(session.get('json', args.json))
     GlobalConfig.YES     = args.yes     if '--yes'     in provided else bool(session.get('yes', args.yes))
     GlobalConfig.DRY_RUN = args.dry_run if '--dry-run' in provided else bool(session.get('dry_run', args.dry_run))
+    GlobalConfig.INSTALL = args.install if '--install' in provided else bool(session.get('install', args.install))
+    GlobalConfig.INSTALL_RECREATE = args.recreate if '--recreate' in provided else bool(session.get('install_recreate', args.recreate))
 
     # If no command was provided on CLI, fall back to session default_command when present
     if not cmd_and_beyond:
