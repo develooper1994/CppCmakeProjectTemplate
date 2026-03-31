@@ -26,6 +26,7 @@ CORE_COMMANDS = {
     "lib":   "core.commands.lib",
     "release": "core.commands.release",
     "sol":   "core.commands.sol",
+    "security": "core.commands.security",
     "tui":   "tui",  # scripts/tui.py
     "session": "core.commands.session",
     "plugins": "core.commands.plugins",
