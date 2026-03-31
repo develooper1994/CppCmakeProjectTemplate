@@ -63,8 +63,8 @@ __pycache__/
 .session.json*
 
 # Extension generated files (copied from repo root during build)
-extension/README.md
-extension/LICENSE
+#extension/README.md
+#extension/LICENSE
 
 # Python virtual environments
 .venv/
