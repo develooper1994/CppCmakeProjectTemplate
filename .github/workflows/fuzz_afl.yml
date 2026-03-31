@@ -1,0 +1,41 @@
+name: AFL++ Fuzz (manual dispatch)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  afl-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang clang++ cmake ninja-build build-essential afl++
+
+      - name: Configure (clang, enable fuzzing)
+        run: |
+          cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DENABLE_FUZZING=ON -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build fuzz targets
+        run: |
+          cmake --build build --target fuzz_fuzzable -- -j || true
+
+      - name: Prepare seed corpus
+        run: |
+          ls -la tests/fuzz/corpus || true
+
+      - name: Run short AFL++ smoke run (manual)
+        run: |
+          if [ -x build/fuzz_fuzzable ]; then
+            afl-fuzz -i tests/fuzz/corpus/fuzz_fuzzable -o findings -m none -t 10 -- ./build/fuzz_fuzzable @@ & sleep 12; pkill afl-fuzz || true
+          else
+            echo "fuzz_fuzzable binary not found; build may have failed"
+          fi
+
+      - name: Upload findings
+        uses: actions/upload-artifact@v4
+        with:
+          name: afl-findings
+          path: findings || true
