@@ -7,12 +7,13 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import argparse
 # Ensure scripts/ is on sys.path so `core.*` imports work when the module
 # is imported as a package or executed directly.
 _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
-from core.utils.common import run_capture
+from core.utils.common import run_capture, install_dev_env
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG = ROOT / "build_logs" / "verify.log"
@@ -37,7 +38,15 @@ def run(cmd, cwd=ROOT):
             f.write(f"\n[EXCEPTION] {e}\n")
             return 2
 
-def main():
+def main(argv: list[str] | None = None):
+    parser = argparse.ArgumentParser(prog="verify_full")
+    parser.add_argument("--install", action="store_true", help="Install dev dependencies into .venv before running")
+    parser.add_argument("--recreate", action="store_true", help="Recreate the venv when used with --install")
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    if args.install:
+        install_dev_env(recreate=bool(args.recreate))
+
     steps = [
         [sys.executable, "scripts/tool.py", "build", "check"],
         [sys.executable, "scripts/tool.py", "build", "extension"],

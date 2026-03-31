@@ -1,7 +1,10 @@
 # cmake/Fuzzing.cmake
-# Minimal fuzzing support for libFuzzer/afl++ targets.
+# Extended fuzzing support for libFuzzer and AFL++ targets.
 # Provides `add_fuzz_target(<name> SOURCES ...)` which sets suitable
-# compile/link flags when ENABLE_FUZZING is enabled.
+# compile/link flags when fuzzing is enabled. Supports both libFuzzer
+# (default) and AFL++ (llvm-mode) when `-DENABLE_AFL=ON` or env var
+# `ENABLE_AFL=1` is set at configure time. For best AFL++ results, use
+# `CC=afl-clang-fast CXX=afl-clang-fast++` when configuring.
 
 function(add_fuzz_target name)
     cmake_parse_arguments(_fuzz "" "" "SOURCES" ${ARGN})
@@ -22,14 +25,35 @@ function(add_fuzz_target name)
         endif()
     endif()
 
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        # Basic libFuzzer flags: address sanitizer + fuzzer runtime
-        target_compile_options(${name} PRIVATE -g -O1 -fno-omit-frame-pointer)
-        # Prefer using libFuzzer (Clang) or GCC's fuzzer sanitizer
-        target_compile_options(${name} PRIVATE -fsanitize=fuzzer,address)
-        target_link_options(${name} PRIVATE -fsanitize=fuzzer,address)
+    # Decide whether to enable AFL (llvm-mode) instrumentation
+    if(DEFINED ENABLE_AFL AND ENABLE_AFL)
+        set(_use_afl TRUE)
+    elseif(DEFINED ENV{ENABLE_AFL} AND NOT "$ENV{ENABLE_AFL}" STREQUAL "")
+        set(_use_afl TRUE)
     else()
-        message(WARNING "Fuzzing flags not configured for compiler: ${CMAKE_CXX_COMPILER_ID}")
+        set(_use_afl FALSE)
+    endif()
+
+    if(_use_afl)
+        message(STATUS "Configuring ${name} for AFL++ (llvm-mode). For best results configure with CC=afl-clang-fast CXX=afl-clang-fast++")
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            # LLVM-mode instrumentation flags (works with AFL++ and clang-fast)
+            target_compile_options(${name} PRIVATE -g -O1 -fno-omit-frame-pointer -fsanitize-coverage=trace-pc-guard,indirect-calls)
+            target_link_options(${name} PRIVATE -fsanitize-coverage=trace-pc-guard,indirect-calls)
+        else()
+            message(WARNING "AFL flags not configured for compiler: ${CMAKE_CXX_COMPILER_ID}")
+        endif()
+        target_compile_definitions(${name} PRIVATE FUZZ_AFL=1)
+    else()
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            # Default: libFuzzer-friendly flags
+            target_compile_options(${name} PRIVATE -g -O1 -fno-omit-frame-pointer)
+            target_compile_options(${name} PRIVATE -fsanitize=fuzzer,address)
+            target_link_options(${name} PRIVATE -fsanitize=fuzzer,address)
+        else()
+            message(WARNING "Fuzzing flags not configured for compiler: ${CMAKE_CXX_COMPILER_ID}")
+        endif()
+        target_compile_definitions(${name} PRIVATE FUZZ_LIBFUZZER=1)
     endif()
 
     # Keep fuzz targets out of regular test runs by default

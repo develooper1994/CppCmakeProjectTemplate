@@ -1,0 +1,24 @@
+name: CMake Format Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  cmake-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+      - name: Install cmake-format
+        run: pip install cmake-format
+      - name: Run cmake-format check
+        run: |
+          files=$(git ls-files '*.cmake' 'CMakeLists.txt' 'libs/**/CMakeLists.txt' 'apps/**/CMakeLists.txt' || true)
+          if [ -n "$files" ]; then
+            cmake-format -c .cmake-format --check $files
+          fi

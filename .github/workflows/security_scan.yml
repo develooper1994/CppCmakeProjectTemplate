@@ -37,12 +37,14 @@ jobs:
 
       - name: Evaluate security policy (fail on CRITICAL; warn on HIGH)
         run: |
-          if grep -q "CRITICAL" security-scan.log; then
+          set -o pipefail
+          python3 scripts/ci/ci_security_policy.py security-scan.log || rc=$?
+          rc=${rc:-0}
+          if [ "$rc" -eq 2 ]; then
             echo "::error file=security-scan.log::Critical vulnerability found; failing policy"
             cat security-scan.log
             exit 1
-          fi
-          if grep -q "HIGH" security-scan.log; then
+          elif [ "$rc" -eq 1 ]; then
             echo "::warning file=security-scan.log::High severity vulnerabilities detected"
             # keep job green but upload log for review
           fi

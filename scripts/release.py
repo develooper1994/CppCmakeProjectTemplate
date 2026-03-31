@@ -150,6 +150,8 @@ def create_tag(v: Version, push: bool = False) -> None:
 
 def main(argv: Optional[list[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="scripts/release.py")
+    p.add_argument("--install", action="store_true", help="Install dev dependencies into .venv before running")
+    p.add_argument("--recreate", action="store_true", help="Recreate the venv when used with --install")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pb = sub.add_parser("bump", help="Bump a part of the version")
@@ -168,6 +170,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     pt.add_argument("--push", action="store_true", help="Push tag to origin")
 
     args = p.parse_args(argv)
+
+    # Optional per-script install helper
+    if getattr(args, "install", False):
+        try:
+            from core.utils.common import install_dev_env
+            install_dev_env(recreate=bool(getattr(args, "recreate", False)))
+        except Exception as e:
+            Logger.warn(f"Dev install helper failed: {e}")
 
     current = read_version_file(VERSION_PATH)
 
