@@ -34,6 +34,7 @@ OPTIONAL_SYS = {
     "doxygen": "doxygen",
     "clang": "clang",
     "cppcheck": "cppcheck",
+    "osv-scanner": "osv-scanner",
 }
 
 

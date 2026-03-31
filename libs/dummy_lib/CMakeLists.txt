@@ -72,6 +72,10 @@ if(COMMAND enable_sanitizers)
     enable_sanitizers(dummy_lib)
 endif()
 
+if(COMMAND enable_hardening)
+    enable_hardening(dummy_lib)
+endif()
+
 # Apply project-wide warnings
 if(COMMAND set_project_warnings)
     set_project_warnings(dummy_lib)

@@ -13,6 +13,7 @@ option(ENABLE_COVERAGE      "Enable code coverage reporting"     OFF)
 option(ENABLE_ASAN          "Enable Address Sanitizer"           OFF)
 option(ENABLE_UBSAN         "Enable Undefined Behavior Sanitizer" OFF)
 option(ENABLE_TSAN          "Enable Thread Sanitizer"            OFF)
+option(ENABLE_HARDENING     "Enable security hardening flags"    OFF)
 option(ENABLE_CLANG_TIDY    "Enable Clang-Tidy static analysis"  OFF)
 option(ENABLE_CPPCHECK      "Enable Cppcheck static analysis"    OFF)
 # NOTE: Valgrind support is planned (ENABLE_VALGRIND). Currently not implemented.

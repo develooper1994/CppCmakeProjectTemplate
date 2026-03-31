@@ -168,8 +168,54 @@ def _choose_preset(preset: Optional[str]) -> str:
 
 def _impl_cmd_build(args) -> None:
     preset = _choose_preset(getattr(args, "preset", None))
+    profile = getattr(args, "profile", "normal")
+    sanitizers = getattr(args, "sanitizers", []) or []
+
+    extra_args = []
+    
+    # 1. Profile Logic (Hardening & Warnings)
+    if profile == "extreme":
+        Logger.warn("EXTREME profile active: Maximum hardening, no-exceptions, no-rtti, full RELRO.")
+        extra_args += [
+            "-DWARNING_LEVEL=ERROR",
+            "-DHARDENING_LEVEL=EXTREME",
+            "-DENABLE_CLANG_TIDY=ON",
+            "-DENABLE_CPPCHECK=ON"
+        ]
+    elif profile == "hardened":
+        Logger.warn("HARDENED profile active: Warnings are errors, security flags enabled.")
+        extra_args += [
+            "-DWARNING_LEVEL=ERROR",
+            "-DHARDENING_LEVEL=STANDARD",
+            "-DENABLE_CLANG_TIDY=ON",
+            "-DENABLE_CPPCHECK=ON"
+        ]
+    elif profile == "strict":
+        Logger.info("STRICT profile active: Aggressive warnings enabled.")
+        extra_args += ["-DWARNING_LEVEL=AGGRESSIVE"]
+    elif profile == "normal":
+        Logger.debug("Applying 'normal' profile (default settings)")
+
+    # 2. Sanitizer Logic
+    if sanitizers:
+        san_list = set(sanitizers)
+        if "all" in san_list:
+            Logger.warn("SANITIZED mode active: Enabling standard sanitizers (ASan + UBSan).")
+            extra_args += ["-DENABLE_ASAN=ON", "-DENABLE_UBSAN=ON"]
+        else:
+            if "asan" in san_list:
+                extra_args += ["-DENABLE_ASAN=ON"]
+            if "ubsan" in san_list:
+                extra_args += ["-DENABLE_UBSAN=ON"]
+            if "tsan" in san_list:
+                extra_args += ["-DENABLE_TSAN=ON"]
+            Logger.warn(f"SANITIZED mode active: Enabled {', '.join(sorted(san_list))}")
+
+        if "release" in preset.lower():
+            Logger.warn(f"CAUTION: Sanitizers are enabled for a RELEASE build ({preset}). This is usually not recommended.")
+
     Logger.info(f"Configuring with preset '{preset}'")
-    run_proc(["cmake", "--preset", preset])
+    run_proc(["cmake", "--preset", preset] + extra_args)
     Logger.info("Building")
     run_proc(["cmake", "--build", "--preset", preset])
 
@@ -364,11 +410,25 @@ def build_parser() -> argparse.ArgumentParser:
     # build
     p = sub.add_parser("build", help="Configure + compile")
     p.add_argument("--preset", default=None)
+    p.add_argument("--profile", 
+                   choices=["normal", "strict", "hardened", "extreme"], 
+                   default="normal",
+                   help="Apply specific build profile (e.g. hardened)")
+    p.add_argument("--sanitizers", nargs="+",
+                   choices=["asan", "ubsan", "tsan", "all"],
+                   help="Enable granular sanitizers (multiple allowed, or 'all')")
     p.set_defaults(func=cmd_build)
 
     # check
     p = sub.add_parser("check", help="Build + test + extension sync")
     p.add_argument("--preset", default=None)
+    p.add_argument("--profile", 
+                   choices=["normal", "strict", "hardened", "extreme"], 
+                   default="normal",
+                   help="Apply specific build profile (e.g. hardened)")
+    p.add_argument("--sanitizers", nargs="+",
+                   choices=["asan", "ubsan", "tsan", "all"],
+                   help="Enable granular sanitizers (multiple allowed, or 'all')")
     p.add_argument("--no-sync", action="store_true")
     p.set_defaults(func=cmd_check)
 

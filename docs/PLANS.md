@@ -62,7 +62,7 @@ This document lists the project's current capabilities, governance policies, and
 - **Bootstrap (`tool setup`):** ✅ DONE — Venv bootstrap and dependency installation supported.
 - **Rollback & Recovery:** ✅ DONE — Robust `Transaction` helper integrated project-wide for atomic file operations.
 
-### Phase 3: Test Strategy & Structured CI (Status & progress)
+### Phase 3: Test Strategy & Structured CI (Status & progress) - Completed
 
 - **Comprehensive Testing (in-progress):** ✅ DONE - Library management commands (`rename`, `move`, `remove`) are now transactional and include project-wide CMake reference updates. Highlights:
   - **`rename`:** updates source files, headers, and CMake target references atomically under the repository `Transaction` helper; supports `--dry-run` preview for automation and safety.
@@ -72,17 +72,54 @@ This document lists the project's current capabilities, governance policies, and
 - **Dependency Awareness:** ✅ DONE — `tool lib tree` and `tool lib info` now parse actual CMake dependencies.
 - **Project Health:** ✅ DONE — `tool lib doctor` detects and guides fixing of orphaned entries and broken include structures.
 - **Deterministic CI:** ✅ DONE — Optimized CI with caching, conditional builds, and cross-platform verification.
-- **App Scaffolding:** In-progress — `tool sol target add` implemented for automated app creation.
+- **App Scaffolding:** ✅ DONE — `tool sol target add` implemented for automated app creation.
 
-### Phase 4: Safety, Hardening & Sanitizers
+### Phase 4: Safety, Hardening & Sanitizers (Rust-like C++ Safety)
 
-- **Sanitizer Profiles:** `tool build --profile sanitized` support.
-- **Security Audit:** Integrate CVE scanning (e.g., `osv-scanner`).
+- **Multi-Tiered Security Profiles:** ✅ DONE — Implementation of progressive safety levels.
+  - **`normal`**: Base warnings (`-Wall -Wextra`).
+  - **`strict`**: Aggressive warnings (`-Wconversion`, `-Wshadow`, etc.).
+  - **`hardened`**: `strict` + `-Werror` + `-fstack-protector-strong` + `_FORTIFY_SOURCE=2` + `-fPIE`.
+  - **`extreme`**: Full "Rust-like" safety. `hardened` + `uninitialized-init` + `-fno-exceptions` + `-fno-rtti` + Full RELRO + `-pie`.
+- **Granular Sanitizer Selection:** ✅ DONE — Separated from profiles, allowing combinations with any safety level.
+  - Usage: `tool build --sanitizers asan ubsan` or `tool build --sanitizers all`.
+- **Granular Control (Per-Target Overrides):** ✅ DONE — Any security or sanitizer feature can be enabled/disabled per library or application.
+  - Usage: Pass `-D<TARGET_NAME>_ENABLE_HARDENING=ON/OFF` or `-D<TARGET_NAME>_ENABLE_ASAN=ON/OFF`.
+- **Security Audit:** In-progress — Integrate CVE scanning (e.g., `osv-scanner`) for dependencies.
+- **Fuzz Testing:** Integrate fuzzing tools (e.g., `afl++`, `libFuzzer`).
+- **Static Analysis:** Integrate additional static analysis tools (e.g., `clang-tidy --fix`).
+- **Security Hardening:** Implement features like stack canaries, PIE, RELRO, and control flow integrity (CFI) in build presets.
 
 ### Phase 5: Performance & Optimization
 
 - **Performance Tracking:** Benchmark history and regression tracking.
 - **Performance Budget:** Threshold checks for performance regressions.
+- **Profile-Guided Optimization (PGO):** Support for PGO builds and workflows.
+- **Link-Time Optimization (LTO):** Support for LTO builds and workflows.
+- **Build Caching:** Integrate ccache or similar for faster incremental builds.
+- **Build Visualization:** Generate build graphs and dependency visualizations.
+- **Hot Reloading:** Explore hot-reloading capabilities for faster development iterations.
+- **Cross-Compilation:** Enhance support for cross-compilation targets and workflows.
+- **Embedded Targets:** Add presets and tooling for embedded development (e.g., ARM Cortex-M).
+- **Code Size Analysis:** Tools for analyzing and optimizing binary size.
+- **Build Time Analysis:** Tools for analyzing and optimizing build times.
+- **Compiler Explorer Integration:** Integrate with Compiler Explorer for easy access to assembly output and compiler insights.
+- **Performance Profiling Integration:** Integrate with profiling tools (e.g., `perf`, `VTune`, `Instruments`) for streamlined performance analysis.
+- **Automated Performance Regression Detection:** Integrate performance benchmarks into CI to automatically detect regressions.
+- **Documentation of Performance Best Practices:** Create documentation and guidelines for writing high-performance C++ code within the project.
+- **Performance Annotations:** Support for annotating code with performance hints (e.g., `[[likely]]`, `[[unlikely]]`, `[[nodiscard]]`) and enforcing their correct usage.
+- **Compiler-Specific Optimizations:** Provide utilities for applying compiler-specific optimizations (e.g., `__attribute__((hot))`, `__declspec(noinline)`) in a cross-platform manner.
+- **Runtime Performance Metrics:** Integrate runtime performance metrics collection and reporting for applications built with the project.
+- **Automated Performance Tuning:** Explore integration with tools that can automatically suggest performance improvements based on code analysis and profiling data.
+- **Performance-Focused Code Reviews:** Establish guidelines and checklists for performance-focused code reviews to ensure that performance considerations are consistently addressed in pull requests.
+- **Memory Usage Analysis:** Tools for analyzing and optimizing memory usage, including heap profiling and leak detection.
+- **Concurrency Analysis:** Tools for analyzing and optimizing concurrent code, including thread sanitizers and race condition detectors.
+- **Cache Optimization:** Tools and guidelines for optimizing cache usage and reducing cache misses.
+- **Vectorization Analysis:** Tools for analyzing and optimizing vectorization opportunities in code.
+- **Auto-Parallelization:** Explore tools and techniques for automatically parallelizing code where appropriate.
+- **GPU Offloading:** Explore support for GPU offloading (e.g., CUDA, OpenCL) for performance-critical code sections.
+- **Memory Pooling & Custom Allocators:** Support for memory pooling and custom allocators to reduce fragmentation and improve performance.
+- **Zero-Cost Abstractions:** Guidelines and tools for writing zero-cost abstractions in C++ to achieve high performance without sacrificing code clarity.
 
 ### Phase 6: Ecosystem & UI
 
@@ -129,6 +166,13 @@ This approach centralizes version management, reduces accidental drift, and
 provides both manual CLI and CI-driven release paths.
 
 - **Lock Files:** Deterministic dependency management via lock files.
+
+## Git leak detection (gitleaks)
+
+- **Pre-Commit Hook:** Implement a Git pre-commit hook that scans for sensitive information (e.g., API keys, secrets) using regex patterns. The hook should block commits that contain potential leaks and provide feedback to the developer.
+- **CI Integration:** Integrate gitleaks into the CI pipeline to automatically scan all commits and pull requests for sensitive information. This ensures that any potential leaks are caught before they are merged into the main branch.
+- **Custom Rules:** Define custom gitleaks rules specific to the project’s context (e.g., patterns for internal API keys, database credentials) to enhance detection accuracy.
+- **Reporting & Alerts:** Configure gitleaks to generate reports and send alerts (e.g., email, Slack) when potential leaks are detected, enabling prompt response and remediation.
 
 ---
 

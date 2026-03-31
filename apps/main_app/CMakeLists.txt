@@ -12,6 +12,9 @@ target_link_libraries(main_app
 # Apply project-wide warnings
 set_project_warnings(main_app)
 
+# Apply hardening flags if enabled
+enable_hardening(main_app)
+
 # Apply sanitizers (ASan/UBSan/TSan) if enabled
 enable_sanitizers(main_app)
 
