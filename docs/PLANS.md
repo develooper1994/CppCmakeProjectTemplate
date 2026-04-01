@@ -97,7 +97,7 @@ All per-script and per-target toggles implemented as `-D` CMake options and CLI 
 - **Zero-Cost Abstractions:** `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` macros.
 - **Binary Size Delta Tracking:** `tool perf size-diff` — compares `.text`/`.data`/`.bss` against baseline.
 - **Auto-Tuner:** `tool perf autotune` — hill/grid/random/anneal strategies with speed/size/instructions oracles.
-- **Optional Allocator Backends:** `cmake/Allocators.cmake` — `target_use_allocator()` and `project_apply_allocator()` for mimalloc, jemalloc, tcmalloc. CLI: `tool build --allocator {default|mimalloc|jemalloc|tcmalloc}`. Per-target and global override (`ENABLE_ALLOCATOR_OVERRIDE_ALL`). All executables, tests, and benchmarks wired. Zero application code changes required.
+- **Optional Allocator Backends:** `cmake/Allocators.cmake` — `target_use_allocator()` and `project_apply_allocator()` for mimalloc, jemalloc, tcmalloc. CLI: `tool build --allocator {default|mimalloc|jemalloc|tcmalloc}`. Per-target and global override (`ENABLE_ALLOCATOR_OVERRIDE_ALL`). All executables, tests, and benchmarks wired. Zero application code changes required. Conan/vcpkg integration with conditional dependencies. Preset generator allocator dimension (`tool.toml [presets] allocators`). FetchContent fallback for mimalloc (`ALLOCATOR_FETCHCONTENT=ON`). `std::pmr` pool utilities via `cmake/PoolAllocator.h`.
 
 ### Ecosystem & UI
 
@@ -177,17 +177,18 @@ Architecture is in place (see `cmake/CUDA.cmake` and `cmake/HIP.cmake` patterns)
 
 Architecture is in place. Add `cmake/Metal.cmake` (via Metal-cpp or similar) when macOS GPU compute targets are needed.
 
-### Memory Pooling & Custom Allocators _(Partially Complete)_
+### Memory Pooling & Custom Allocators _(Complete)_
 
 **Completed (Tier 1 — Backend Wiring):** `cmake/Allocators.cmake` with mimalloc/jemalloc/tcmalloc support, CLI `--allocator` flag, per-target and global override, all targets wired.
 
-Remaining:
+**Completed (Tier 2 — Dependency & Preset Integration):**
 
-- **Dependency manager integration:** Conan/vcpkg conditional `requires` for allocator libraries.
-- **Allocator preset variants:** Optional presets like `gcc-release-mimalloc-x86_64`.
-- **Pool APIs:** `std::pmr`-based memory resources and optional Boost.Pool adapters (separate category, not global malloc replacement).
-- **Dependency policy:** Boost.Pool support requires explicit optional Boost enablement.
-- **Diagnostics:** Continue relying on `tool perf valgrind --vg-tool massif`.
+- **Dependency manager integration:** Conan `allocator` option (`-o allocator=mimalloc|jemalloc|tcmalloc`) auto-pulls the correct library. vcpkg `features` (`mimalloc`, `jemalloc`) for feature-gated dependencies.
+- **Allocator preset variants:** `tool.toml [presets] allocators` dimension. Generates presets like `gcc-release-static-x86_64-mimalloc` with `ENABLE_ALLOCATOR` and `ENABLE_ALLOCATOR_OVERRIDE_ALL` cache variables pre-set. CLI: `tool presets generate --allocator mimalloc,jemalloc`.
+- **FetchContent fallback:** `ALLOCATOR_FETCHCONTENT=ON` auto-downloads mimalloc from upstream when not found via system/Conan/vcpkg. jemalloc/tcmalloc require system install (autotools builds).
+- **Improved discovery:** `find_package(CONFIG)` tried first for all backends (vcpkg/Conan targets), then `find_library`, then FetchContent (mimalloc only).
+- **Pool APIs:** `cmake/PoolAllocator.h` — header-only `std::pmr`-based wrappers: `StackPool<N>` (monotonic buffer), `UnsyncPool` (unsynchronized pool), `SyncPool` (synchronized pool). Zero dependencies, C++17.
+- **Diagnostics:** `tool perf valgrind --vg-tool massif` for heap profiling.
 
 ### Static Analysis & Cppcheck Acceleration _(Complete)_
 
