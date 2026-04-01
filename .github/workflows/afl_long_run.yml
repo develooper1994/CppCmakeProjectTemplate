@@ -2,7 +2,7 @@ name: AFL Long Run
 
 on:
   schedule:
-    - cron: '0 3 * * *' # nightly at 03:00 UTC
+    - cron: "0 3 * * *" # nightly at 03:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -57,53 +57,3 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_CORPUS_NAME }}
           path: tests/fuzz/corpus/${{ env.TARGET }}
-name: AFL Long-Run Fuzz (nightly)
-
-on:
-  schedule:
-    - cron: "0 3 * * *" # daily at 03:00 UTC
-  workflow_dispatch:
-
-jobs:
-  afl_long_run:
-    name: AFL Long-Run (nightly)
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install AFL++
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y afl++
-
-      - name: Configure build (AFL)
-        env:
-          CC: afl-clang-fast
-          CXX: afl-clang-fast++
-        run: |
-          cmake -S . -B build-afl -DENABLE_FUZZING=ON -DENABLE_AFL=ON -DCMAKE_BUILD_TYPE=Debug
-
-      - name: Build AFL targets
-        run: |
-          cmake --build build-afl --target fuzz_secure_ops_afl -- -j || true
-
-      - name: Prepare output dir
-        run: |
-          mkdir -p afl_out || true
-
-      - name: Run afl-fuzz (sample long-run)
-        run: |
-          # Run afl-fuzz with seed corpus and save findings
-          if [ -x build-afl/fuzz_secure_ops_afl ]; then
-            timeout 1800s afl-fuzz -i tests/fuzz/corpus/secure_ops -o afl_out -m none -t 300 -- ./build-afl/fuzz_secure_ops_afl @@ || true
-          else
-            echo "AFL target not found; skipping run"
-          fi
-
-      - name: Upload AFL findings
-        uses: actions/upload-artifact@v4
-        with:
-          name: afl-findings-$(date +%F)
-          path: afl_out

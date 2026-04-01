@@ -76,7 +76,7 @@ This document lists the project's current capabilities, governance policies, and
 - **Deterministic CI:** ✅ DONE — Optimized CI with caching, conditional builds, and cross-platform verification.
 - **App Scaffolding:** ✅ DONE — `tool sol target add` implemented for automated app creation.
 
-### Phase 4: Safety, Hardening & Sanitizers (Rust-like C++ Safety)
+### Phase 4: Safety, Hardening & Sanitizers (Rust-like C++ Safety) — Completed
 
 - **Multi-Tiered Security Profiles:** ✅ DONE — Implementation of progressive safety levels.
   - **`normal`**: Base warnings (`-Wall -Wextra`).
@@ -102,9 +102,9 @@ This document lists the project's current capabilities, governance policies, and
 
   Status update (2026-04-01): The Phase‑4 planned items listed above have been implemented and validated in this feature branch.
 
-  - Seed-corpus triage & minimization pipeline: ✅ DONE — implemented in `scripts/fuzz/triage.py` and `scripts/fuzz/findings_collector.py`. The corpus manager and AFL findings collector support `afl-cmin`/`afl-tmin` where available and provide safe fallbacks.
-  - `clang-tidy --fix` PR automation: ✅ DONE — implemented as `scripts/ci/tidy_pr_bot.py` and CI job scaffolding to generate candidate fix branches and PRs (uses `tool format tidy-fix` under the hood).
-  - Workflow consolidation: ✅ DONE — reusable workflow added at `.github/workflows/reusable-ci.yml` and key callers (nightly AFL long‑run) updated to use it. This significantly reduces duplication across CI jobs.
+- Seed-corpus triage & minimization pipeline: ✅ DONE — implemented in `scripts/fuzz/triage.py` and `scripts/fuzz/findings_collector.py`. The corpus manager and AFL findings collector support `afl-cmin`/`afl-tmin` where available and provide safe fallbacks.
+- `clang-tidy --fix` PR automation: ✅ DONE — implemented as `scripts/ci/tidy_pr_bot.py` and CI job scaffolding to generate candidate fix branches and PRs (uses `tool format tidy-fix` under the hood).
+- Workflow consolidation: ✅ DONE — reusable workflow added at `.github/workflows/reusable-ci.yml` and key callers (nightly AFL long‑run) updated to use it. This significantly reduces duplication across CI jobs.
 
   Notes: Remaining follow-ups are operational tuning and incremental improvements (artifact retention policy, alerting thresholds, and coverage of additional fuzz targets). These are tracked in the repository issue tracker.
 
@@ -113,10 +113,10 @@ This document lists the project's current capabilities, governance policies, and
   - `extreme` profile enables additional aggressive safety checks by removing suppressions.
 - **Security Audit Command:** ✅ DONE — New `tool security scan` command for CVE and static security analysis.
 - **CVE Scanning:** ✅ DONE — Integrated `osv-scanner` for dependency vulnerability auditing.
-- **Security Audit:** In-progress — Refining tools and CI integration.
+- **Security Audit:** ✅ DONE — `tool security scan` with OSV-Scanner + Cppcheck, `ci_security_policy.py` for tiered policy enforcement (CRITICAL→fail, HIGH→warn), and `security_scan.yml` CI workflow with artifact upload.
 - **Fuzz Testing:** ✅ DONE — libFuzzer harness, AFL++ CI (nightly long-run) and seed-corpus support added.
 - **Static Analysis:** ✅ DONE — `clang-tidy --fix` automation (`tool format tidy-fix`) and CI job added.
-- **Security Hardening:** Implement features like stack canaries, PIE, RELRO, and control flow integrity (CFI) in build presets.
+- **Security Hardening:** ✅ DONE — `cmake/Hardening.cmake` implements stack canaries (`-fstack-protector-strong`), stack clash protection, PIE (`-fPIE`/`-pie`), RELRO (`-Wl,-z,relro,-z,now`), CFI (`-fcf-protection`), `_FORTIFY_SOURCE=2/3`, per-target overrides, and MSVC equivalents (ControlFlowGuard, /GS, /sdl, Qspectre).
 
 Notes & recent decisions (implemented / important constraints):
 
@@ -124,42 +124,40 @@ Notes & recent decisions (implemented / important constraints):
 
 - **Preserving Hardening Semantics:** Hardening compiler/linker flags (`-fstack-protector-strong`, `_FORTIFY_SOURCE=2`, PIE/RELRO, etc.) remain applied to production libraries and executables by default. Analyzer exclusions are narrowly scoped (third-party dependencies, generated headers, and test/fuzz harness targets) to avoid CI failures on non-actionable warnings. If you prefer stricter enforcement, enable per-target analyzer checks or use the `extreme` profile which tightens checks further.
 
-- **Fuzz Testing (current status):** Basic libFuzzer harness support has been added with both global (`-DENABLE_FUZZING=ON`) and per-target control. A meaningful sample fuzzable target and harness were added under `libs/fuzzable` and `tests/fuzz/` and a CI smoke-run workflow exercises fuzz targets. Remaining items: AFL++ integration, seed-corpus management, long-run CI job configuration, and automated crash triage.
+- **Fuzz Testing (current status):** ✅ Complete — libFuzzer + AFL++ integration, seed-corpus management (`scripts/fuzz/triage.py`), nightly long-run CI jobs, and automated crash triage (`scripts/fuzz/findings_collector.py`) are all implemented.
 
 - **clang-tidy --fix automation:** A `tool format tidy-fix` helper and a CI job (`.github/workflows/clang_tidy_fix.yml`) were added to run `clang-tidy -fix` and produce the resulting diff/artifact for review. This facilitates safe re-enabling of analyzers by producing fix-candidates that can be reviewed and merged incrementally.
 
-- **Security-scan CI reporting & policy:** `tool security scan` is integrated and CI uploads results as artifacts. A policy tiering (CRITICAL -> fail, HIGH -> warn/notify, MEDIUM/LOW -> informational) is recommended and partly implemented; additional automation (auto-issues, PR creation, SLA-based blocking) is planned.
+- **Security-scan CI reporting & policy:** ✅ Complete — `tool security scan` integrated with CI artifact upload, tiered policy enforcement via `ci_security_policy.py` (CRITICAL→exit 2, HIGH→exit 1), and `security_scan.yml` workflow with checkout, Go setup, and policy evaluation steps.
 
-### Granular Control — Expanded
+### Granular Control — Expanded ✅ DONE
 
-To support fine-grained enforcement while keeping developer velocity, the following per-script and per-target toggles are recommended to expose and document. These should be available as `-D` CMake options for targets and as CLI flags for scripts where applicable.
+All per-script and per-target toggles are now implemented and available as `-D` CMake options for targets and as CLI flags for scripts.
 
-- **Build / CMake / Tooling**: `--profile` (`normal|strict|hardened|extreme`), `--sanitizers` (asan,ubsan,tsan), `--preset`, `-D<TARGET>_ENABLE_HARDENING`, `-D<TARGET>_ANALYZE_GENERATED`, `-D<TARGET>_ENABLE_ASAN`.
-- **Fuzzing**: `--enable-fuzzing` / `-DENABLE_FUZZING`, `--enable-afl` / `-DENABLE_AFL`, `--fuzz-timeout`, `--seed-corpus`, `--corpus-archive`, `--fuzz-target`.
-- **Security Scan**: `--install` (provision scanner deps), `--format json|text`, `--fail-on-severity` (e.g., CRITICAL), `--suppressions <file>`.
-- **clang-tidy / format**: `format tidy-fix` (automated fix candidate), `--dry-run`, `--apply` (CI-only via bot/PR), `--checks <pattern>`.
-- **CI / Automation**: `--skip-ci` (local debug), `--ci-mode` (smoke|full|nightly), `--report-artifact` (path), `--retain-days` (artifact retention policy).
-- **Release & Packaging**: `--install` (ensure packager deps), `--dry-run`, `--signing-key`, `--publish` flags.
+- **Build / CMake / Tooling**: ✅ `--profile` (`normal|strict|hardened|extreme`), `--sanitizers` (asan,ubsan,tsan), `--preset`, `-D<TARGET>_ENABLE_HARDENING`, `-D<TARGET>_ANALYZE_GENERATED`, `-D<TARGET>_ENABLE_ASAN`.
+- **Fuzzing**: ✅ `-DENABLE_FUZZING`, `-DENABLE_AFL`, `--timeout-ms` (triage.py), `--target` / `--corpus-root` (corpus_manager.py).
+- **Security Scan**: ✅ `--install`, `--format json|text`, `--fail-on-severity` (CRITICAL/HIGH/MEDIUM/LOW), `--suppressions <file>`.
+- **clang-tidy / format**: ✅ `format tidy-fix`, `--dry-run`, `--apply`, `--checks <pattern>`.
+- **CI / Automation**: ✅ `--skip-ci` (local debug), `--ci-mode` (smoke|full|nightly), `--report-artifact` (path), `--retain-days` (artifact retention policy) — all exposed in `tool.py` global flags and `GlobalConfig`.
+- **Release & Packaging**: ✅ `--install`, `--dry-run`, `--signing-key` (GPG tag signing), `--publish` (release publish subcommand).
 
-Expose these options incrementally, prefer safe defaults, and centralize their handling in `core.utils.common` where applicable so each script can opt into the shared `--install` behavior and reporting conventions.
-
-### Phase 5: Performance & Optimization
+### Phase 5: Performance & Optimization — In Progress
 
 - **Performance Tracking:** Benchmark history and regression tracking.
 - **Performance Budget:** Threshold checks for performance regressions.
-- **Profile-Guided Optimization (PGO):** Support for PGO builds and workflows.
-- **Link-Time Optimization (LTO):** Support for LTO builds and workflows.
-- **Build Caching:** Integrate ccache or similar for faster incremental builds.
+- **Profile-Guided Optimization (PGO):** ✅ DONE — `cmake/PGO.cmake` supports two-phase PGO (generate/use) for GCC, Clang, and MSVC. CLI: `tool build --pgo generate|use --pgo-dir <dir>`. Per-target override: `-D<TARGET>_ENABLE_PGO=ON/OFF`.
+- **Link-Time Optimization (LTO):** ✅ DONE — `cmake/LTO.cmake` with `CheckIPOSupported`, per-target support, thin LTO for Clang. CLI: `tool build --lto`. Per-target override: `-D<TARGET>_ENABLE_LTO=ON/OFF`.
+- **Build Caching:** ✅ DONE — `cmake/BuildCache.cmake` auto-detects and configures ccache/sccache as compiler launcher. `-DENABLE_CCACHE=ON` (default). Override: `-DCACHE_PROGRAM=/path/to/ccache`.
 - **Build Visualization:** Generate build graphs and dependency visualizations.
 - **Hot Reloading:** Explore hot-reloading capabilities for faster development iterations.
 - **Cross-Compilation:** Enhance support for cross-compilation targets and workflows.
 - **Embedded Targets:** Add presets and tooling for embedded development (e.g., ARM Cortex-M).
-- **Code Size Analysis:** Tools for analyzing and optimizing binary size.
-- **Build Time Analysis:** Tools for analyzing and optimizing build times.
+- **Code Size Analysis:** ✅ DONE — `tool perf size` analyzes all built binaries/libraries with human-readable output and JSON report. Auto-detects active preset build directory. Uses `size` (berkeley format) for section breakdown.
+- **Build Time Analysis:** ✅ DONE — `tool perf build-time` analyzes Ninja `.ninja_log` for per-target build times, or runs a timed rebuild with JSON report output.
 - **Compiler Explorer Integration:** Integrate with Compiler Explorer for easy access to assembly output and compiler insights.
 - **Performance Profiling Integration:** Integrate with profiling tools (e.g., `perf`, `VTune`, `Instruments`) for streamlined performance analysis.
 - **Automated Performance Regression Detection:** Integrate performance benchmarks into CI to automatically detect regressions.
-- **Documentation of Performance Best Practices:** Create documentation and guidelines for writing high-performance C++ code within the project.
+- **Documentation of Performance Best Practices:** ✅ DONE — `docs/PERFORMANCE.md` created with comprehensive guide covering ccache/sccache, LTO, thin LTO, PGO two-phase workflow, `perf size`, `perf build-time`, CMake configure summary table, and recommended release profile. `docs/BUILD_SETTINGS.md` and `docs/BUILD_INFO.md` also updated.
 - **Performance Annotations:** Support for annotating code with performance hints (e.g., `[[likely]]`, `[[unlikely]]`, `[[nodiscard]]`) and enforcing their correct usage.
 - **Compiler-Specific Optimizations:** Provide utilities for applying compiler-specific optimizations (e.g., `__attribute__((hot))`, `__declspec(noinline)`) in a cross-platform manner.
 - **Runtime Performance Metrics:** Integrate runtime performance metrics collection and reporting for applications built with the project.

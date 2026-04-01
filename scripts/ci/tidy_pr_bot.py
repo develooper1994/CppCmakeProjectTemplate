@@ -43,7 +43,7 @@ def main():
 
     # Run the tidy-fix (this command is provided by the tool)
     try:
-        run([sys.executable, "scripts/tool.py", "format", "tidy-fix", "--apply"]) 
+        run([sys.executable, "scripts/tool.py", "format", "tidy-fix", "--apply"])
     except subprocess.CalledProcessError:
         logging.error("`tool format tidy-fix` failed")
         return 1
@@ -125,7 +125,7 @@ def main():
     # Create branch
     run(["git", "checkout", "-b", branch])
     run(["git", "add", "-A"])
-    run(["git", "commit", "-m", "chore(tidy): apply clang-tidy --fix automated changes"]) 
+    run(["git", "commit", "-m", "chore(tidy): apply clang-tidy --fix automated changes"])
 
     if args.push:
         run(["git", "push", "-u", "origin", branch])
@@ -133,7 +133,7 @@ def main():
     if args.create_pr:
         # Prefer gh CLI if available
         if shutil.which("gh"):
-            run(["gh", "pr", "create", "--title", "chore(tidy): apply clang-tidy fixes", "--body", "Automated tidy fixes.", "--base", "main"]) 
+            run(["gh", "pr", "create", "--title", "chore(tidy): apply clang-tidy fixes", "--body", "Automated tidy fixes.", "--base", "main"])
         else:
             token = os.environ.get("GITHUB_TOKEN")
             if token:

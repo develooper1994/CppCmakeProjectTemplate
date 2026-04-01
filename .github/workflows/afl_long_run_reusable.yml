@@ -1,14 +1,14 @@
 name: AFL long-run (reusable caller)
 on:
-  schedule:
-    - cron: '0 3 * * *'
-  workflow_dispatch: {}
+    schedule:
+        - cron: "0 3 * * *"
+    workflow_dispatch: {}
 
 jobs:
-  afl_long_run:
-    uses: ./.github/workflows/reusable-ci.yml
-    with:
-      cmake_args: '-DENABLE_FUZZING=ON -DENABLE_AFL=ON'
-      enable_fuzz: true
-      build_type: Debug
-    secrets: inherit
+    afl_long_run:
+        uses: ./.github/workflows/reusable-ci.yml
+        with:
+            cmake_args: "-DENABLE_FUZZING=ON -DENABLE_AFL=ON"
+            enable_fuzz: true
+            build_type: Debug
+        secrets: inherit

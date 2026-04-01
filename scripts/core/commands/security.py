@@ -13,6 +13,7 @@ from core.utils.common import (
     GlobalConfig,
     CLIResult,
     run_proc,
+    run_capture,
     PROJECT_ROOT,
 )
 
@@ -20,7 +21,7 @@ def _check_tool(name: str, install_cmd: str, auto_install: bool = False) -> bool
     # 1. System Path
     if shutil.which(name):
         return True
-    
+
     # 2. Go Path fallback
     go_bin = Path.home() / "go" / "bin" / name
     if name == "osv-scanner" and go_bin.exists():
@@ -51,9 +52,13 @@ def _impl_cmd_scan(args) -> None:
         install_cmd = "go install github.com/google/osv-scanner/cmd/osv-scanner@latest"
         if _check_tool("osv-scanner", install_cmd, auto_install=args.install):
             Logger.info("Running OSV-Scanner (CVE Audit)...")
+            osv_cmd = ["osv-scanner", "-r", str(PROJECT_ROOT)]
+            fmt = getattr(args, 'format', 'text')
+            if fmt == "json":
+                osv_cmd.extend(["--format", "json"])
             try:
                 # Run and capture output so we can evaluate policy thresholds later
-                out, rc = run_capture(["osv-scanner", "-r", str(PROJECT_ROOT)])
+                out, rc = run_capture(osv_cmd)
                 log_path = PROJECT_ROOT / "build" / "build_logs" / "security_scan_osv.log"
                 log_path.parent.mkdir(parents=True, exist_ok=True)
                 log_path.write_text(out + "\n", encoding="utf-8")
@@ -85,6 +90,14 @@ def _impl_cmd_scan(args) -> None:
                 "-i", "build",
                 "-i", "extension/templates"
             ]
+            # Add user-provided suppressions file
+            suppressions = getattr(args, 'suppressions', None)
+            if suppressions:
+                supp_path = Path(suppressions)
+                if supp_path.exists():
+                    cmd.extend(["--suppressions-list=" + str(supp_path)])
+                else:
+                    Logger.warn(f"Suppressions file not found: {suppressions}")
             try:
                 out, rc = run_capture(cmd)
                 cpp_log = PROJECT_ROOT / "build" / "build_logs" / "security_scan_cppcheck.log"
@@ -150,6 +163,10 @@ def security_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-static", action="store_true", help="Skip static security analysis")
     p.add_argument("--fail-on-severity", choices=["CRITICAL","HIGH","MEDIUM","LOW"], default=None,
                    help="Fail the command when findings of given minimum severity are detected")
+    p.add_argument("--format", choices=["json", "text"], default="text",
+                   help="Output format for scan results (default: text)")
+    p.add_argument("--suppressions", default=None, metavar="FILE",
+                   help="Path to a suppressions file for cppcheck")
     p.add_argument("--force", action="store_true", help="Continue even if vulnerabilities are found")
     p.set_defaults(func=cmd_scan)
 

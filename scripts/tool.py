@@ -25,6 +25,7 @@ CORE_COMMANDS = {
     "build": "core.commands.build",
     "format": "core.commands.format",
     "lib":   "core.commands.lib",
+    "perf":  "core.commands.perf",
     "release": "core.commands.release",
     "sol":   "core.commands.sol",
     "security": "core.commands.security",
@@ -50,6 +51,13 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--install", action="store_true", help="Provision/install required tools/deps for scripts")
     parser.add_argument("--recreate", action="store_true", help="When used with --install, recreate virtualenvs")
+    parser.add_argument("--skip-ci", action="store_true", help="Skip CI-only steps (for local debug runs)")
+    parser.add_argument("--ci-mode", choices=["smoke", "full", "nightly"], default=None,
+                        help="CI run mode: smoke (fast), full (default), nightly (extended)")
+    parser.add_argument("--report-artifact", default=None, metavar="PATH",
+                        help="Path to write CI report artifact")
+    parser.add_argument("--retain-days", type=int, default=None, metavar="N",
+                        help="Artifact retention policy in days (for CI metadata)")
     parser.add_argument("--help",    action="store_true")
     parser.add_argument("--version", action="store_true")
 
@@ -77,6 +85,10 @@ def main():
     GlobalConfig.DRY_RUN = args.dry_run if '--dry-run' in provided else bool(session.get('dry_run', args.dry_run))
     GlobalConfig.INSTALL = args.install if '--install' in provided else bool(session.get('install', args.install))
     GlobalConfig.INSTALL_RECREATE = args.recreate if '--recreate' in provided else bool(session.get('install_recreate', args.recreate))
+    GlobalConfig.SKIP_CI = getattr(args, 'skip_ci', False)
+    GlobalConfig.CI_MODE = getattr(args, 'ci_mode', None)
+    GlobalConfig.REPORT_ARTIFACT = getattr(args, 'report_artifact', None)
+    GlobalConfig.RETAIN_DAYS = getattr(args, 'retain_days', None)
 
     # If no command was provided on CLI, fall back to session default_command when present
     if not cmd_and_beyond:

@@ -25,6 +25,11 @@ class GlobalConfig:
     INSTALL: bool = False
     # When used with --install, recreate the venv if True
     INSTALL_RECREATE: bool = False
+    # CI-level flags
+    SKIP_CI: bool = False
+    CI_MODE: str | None = None       # smoke | full | nightly
+    REPORT_ARTIFACT: str | None = None
+    RETAIN_DAYS: int | None = None
     VERSION: str = "1.0.5"
 
 @dataclass

@@ -64,9 +64,20 @@ endfunction()
 
 
 # Helper: apply strict project analyzers to a target
+# Per-target override: -D<TARGET>_ANALYZE_GENERATED=ON includes generated
+# headers in the analysis header-filter (off by default to avoid noise).
 function(apply_project_analyzers tgt)
+    string(TOUPPER "${tgt}" _tgt_upper)
+    set(_analyze_gen_var "${_tgt_upper}_ANALYZE_GENERATED")
+
     if(DEFINED PROJECT_CLANG_TIDY)
-        set_target_properties(${tgt} PROPERTIES CXX_CLANG_TIDY "${PROJECT_CLANG_TIDY}")
+        set(_tidy_for_tgt ${PROJECT_CLANG_TIDY})
+        if(DEFINED ${_analyze_gen_var} AND ${_analyze_gen_var})
+            # Widen header-filter to also include generated headers
+            list(FILTER _tidy_for_tgt EXCLUDE REGEX "^-header-filter=")
+            list(APPEND _tidy_for_tgt "-header-filter=^${CMAKE_SOURCE_DIR}/(libs|apps|tests|gui_app|main_app|extension)/|^${CMAKE_BINARY_DIR}/generated/")
+        endif()
+        set_target_properties(${tgt} PROPERTIES CXX_CLANG_TIDY "${_tidy_for_tgt}")
     endif()
     if(DEFINED PROJECT_CPPCHECK)
         set_target_properties(${tgt} PROPERTIES CXX_CPPCHECK "${PROJECT_CPPCHECK}")

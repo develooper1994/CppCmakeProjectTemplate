@@ -20,6 +20,10 @@ option(ENABLE_FUZZING      "Enable fuzz testing targets"        OFF)
 # NOTE: Valgrind support is planned (ENABLE_VALGRIND). Currently not implemented.
 # When enabled it would wrap ctest runs with valgrind --leak-check=full.
 
+# --- Performance & Optimization Options ---
+option(ENABLE_LTO           "Enable Link-Time Optimization"      OFF)
+option(ENABLE_CCACHE        "Enable compiler caching (ccache/sccache)" ON)
+
 # Master list of all boolean options — drives FeatureFlags.cmake dynamic generation.
 # Add new options here; FeatureFlags.h will update automatically on next cmake run.
 set(PROJECT_ALL_OPTIONS
@@ -29,6 +33,8 @@ set(PROJECT_ALL_OPTIONS
     ASAN UBSAN TSAN
     # Analysis / coverage
     CLANG_TIDY CPPCHECK COVERAGE
+    # Performance
+    LTO
     # Frameworks
     QT QML BOOST
     # Misc

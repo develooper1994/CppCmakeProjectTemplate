@@ -52,6 +52,21 @@ std::cout << main_app_info::project_version;   // "1.0.5"
 | `<ns>::library_type` | CMake target type | Static/Shared/Executable |
 | `<ns>::compiler_id` | `CMAKE_CXX_COMPILER_ID` | GNU/Clang/MSVC |
 | `<ns>::build_timestamp` | configure time | UTC string |
+| `<ns>::lto_enabled` | `ENABLE_LTO` | `bool` — LTO active for this target |
+| `<ns>::pgo_mode` | `PGO_MODE` | `"off"` \| `"generate"` \| `"use"` |
+| `<ns>::build_cache` | `CMAKE_CXX_COMPILER_LAUNCHER` | `"ccache"` \| `"sccache"` \| `"none"` |
 | `FEATURE_GTEST` | `ENABLE_GTEST` | `0` or `1` |
 | `FEATURE_ASAN` | `ENABLE_ASAN` | `0` or `1` |
 | `PROJECT_SHARED_LIBS` | `BUILD_SHARED_LIBS` | `0` or `1` |
+
+The **Performance** section appears automatically in the `BUILD_INFO_PRINT_ALL` / `BUILD_INFO_SUMMARY_STRING` output:
+
+```
+├─────────────────────────────────────────────────┤
+│  Performance
+├─────────────────────────────────────────────────┤
+  LTO                    : disabled
+  PGO mode               : off
+  Build cache            : ccache
+└─ ...
+```
