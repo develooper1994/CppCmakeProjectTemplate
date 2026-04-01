@@ -29,6 +29,7 @@ This document lists the project's current capabilities and remaining backlog ite
 - **Build Configuration Summary:** `build/build_config.json` emitted at build time with profile, sanitizers, preset, and generated sources.
 - **CMakePresets.json Generator:** `tool presets generate` reads `tool.toml [presets]` and generates the full preset matrix. Supports per-dimension filters, constraint matrix, auto-backup, `--dry-run`.
 - **`tool presets list` / `validate`:** List visible presets and validate via `cmake --list-presets`.
+- **musl libc / Fully Static Builds:** `cmake/toolchains/x86_64-linux-musl.cmake` — produces zero-dependency statically linked binaries. Auto-detects musl-cross-make or `musl-gcc` wrapper. `Dockerfile.alpine` for native musl C++ builds. Preset generator wires `gcc-*-static-x86_64-linux-musl` presets with automatic dynamic-linkage skip. Sanitizers disabled (incompatible with musl). Optional `-static-pie` via `MUSL_STATIC_PIE=ON`.
 
 ### Distribution & Template Engine
 
@@ -212,6 +213,13 @@ Large-scale refactor is planned after stabilization milestones, with safety gate
 - **Anti-duplication plan:** extract repeated argument parsing, runner orchestration, and reporting helpers.
 - **Guardrails:** no broad "big bang" rewrites; each phase must remain buildable/testable and reversible.
 - **Completion criteria:** shorter cohesive modules, lower churn hotspots, and preserved CLI compatibility.
+
+### musl / Static Build Expansion _(V2 / Future)_
+
+- **aarch64-linux-musl:** ARM64 fully static builds via musl cross-toolchain.
+- **Zig cc backend:** `zig cc --target=x86_64-linux-musl` as drop-in cross-compiler (no separate toolchain install).
+- **CI nightly musl job:** Catch static-linking regressions in scheduled builds.
+- **Conan/vcpkg musl profiles:** Package manager integration for musl-targeted dependency resolution.
 
 ---
 
