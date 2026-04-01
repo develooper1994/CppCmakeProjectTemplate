@@ -66,6 +66,7 @@ __pycache__/
 
 # Session backups (tool.toml is the canonical session store)
 *.bak.toml
+.session.json
 
 # Extension generated files (copied from repo root during build)
 #extension/README.md
