@@ -85,3 +85,14 @@ endif()
 install(TARGETS dummy_lib
     EXPORT dummy_lib_Targets
     FILE_SET HEADERS)
+
+# ---------------------------------------------------------------------------
+# Google Benchmark targets (built only when ENABLE_BENCHMARKS=ON)
+# ---------------------------------------------------------------------------
+if(ENABLE_BENCHMARKS AND TARGET benchmark::benchmark)
+    add_executable(bench_greet benchmarks/bench_greet.cpp)
+    target_link_libraries(bench_greet PRIVATE dummy_lib)
+    target_apply_benchmark_options(bench_greet)
+
+    message(STATUS "[dummy_lib] Benchmark target 'bench_greet' registered.")
+endif()

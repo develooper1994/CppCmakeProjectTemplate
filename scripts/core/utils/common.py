@@ -31,6 +31,13 @@ class GlobalConfig:
     REPORT_ARTIFACT: str | None = None
     RETAIN_DAYS: int | None = None
     VERSION: str = "1.0.5"
+    # Defaults populated by config_loader from tool.toml
+    DEFAULT_PRESET: str = ""
+    PERF_SIZE_THRESHOLD_PCT: float = 10.0
+    PERF_TIME_THRESHOLD_PCT: float = 20.0
+    SECURITY_FAIL_SEVERITY: str = "HIGH"
+    DOC_SERVE_PORT: int = 8080
+    DOC_SERVE_OPEN: bool = False
 
 @dataclass
 class CLIResult:

@@ -141,29 +141,29 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 - **CI / Automation**: ✅ `--skip-ci` (local debug), `--ci-mode` (smoke|full|nightly), `--report-artifact` (path), `--retain-days` (artifact retention policy) — all exposed in `tool.py` global flags and `GlobalConfig`.
 - **Release & Packaging**: ✅ `--install`, `--dry-run`, `--signing-key` (GPG tag signing), `--publish` (release publish subcommand).
 
-### Phase 5: Performance & Optimization — In Progress
+### Phase 5: Performance & Optimization — ✅ DONE
 
-- **Performance Tracking:** Benchmark history and regression tracking.
-- **Performance Budget:** Threshold checks for performance regressions.
+- **Performance Tracking:** ✅ DONE — `tool perf track` saves a size+build-time baseline to `build_logs/perf_baseline.json` (13+ artifacts tracked).
+- **Performance Budget:** ✅ DONE — `tool perf check-budget [--size-threshold N] [--time-threshold N]` compares current build vs baseline, fails CI on regressions.
 - **Profile-Guided Optimization (PGO):** ✅ DONE — `cmake/PGO.cmake` supports two-phase PGO (generate/use) for GCC, Clang, and MSVC. CLI: `tool build --pgo generate|use --pgo-dir <dir>`. Per-target override: `-D<TARGET>_ENABLE_PGO=ON/OFF`.
 - **Link-Time Optimization (LTO):** ✅ DONE — `cmake/LTO.cmake` with `CheckIPOSupported`, per-target support, thin LTO for Clang. CLI: `tool build --lto`. Per-target override: `-D<TARGET>_ENABLE_LTO=ON/OFF`.
 - **Build Caching:** ✅ DONE — `cmake/BuildCache.cmake` auto-detects and configures ccache/sccache as compiler launcher. `-DENABLE_CCACHE=ON` (default). Override: `-DCACHE_PROGRAM=/path/to/ccache`.
-- **Build Visualization:** Generate build graphs and dependency visualizations.
+- **Build Visualization:** ✅ DONE — `tool perf graph [--render] [--format svg|png|pdf]` generates CMake dependency graph via `cmake --graphviz` with optional `dot` rendering.
 - **Hot Reloading:** Explore hot-reloading capabilities for faster development iterations.
-- **Cross-Compilation:** Enhance support for cross-compilation targets and workflows.
-- **Embedded Targets:** Add presets and tooling for embedded development (e.g., ARM Cortex-M).
+- **Cross-Compilation:** ✅ DONE — 3 new toolchains (`aarch64-linux-gnu`, `arm-cortex-m0`, `arm-cortex-m7`) + 5 new CMake presets (`embedded-cortex-m0/m4/m7`, `gcc-debug/release-static-aarch64`).
+- **Embedded Targets:** ✅ DONE — `cmake/EmbeddedUtils.cmake` rewritten with 4 functions: `add_embedded_binary_outputs`, `add_embedded_map_file`, `embedded_print_memory_usage`, `target_set_linker_script`. 3 new toolchains + 3 new embedded presets.
 - **Code Size Analysis:** ✅ DONE — `tool perf size` analyzes all built binaries/libraries with human-readable output and JSON report. Auto-detects active preset build directory. Uses `size` (berkeley format) for section breakdown.
 - **Build Time Analysis:** ✅ DONE — `tool perf build-time` analyzes Ninja `.ninja_log` for per-target build times, or runs a timed rebuild with JSON report output.
 - **Compiler Explorer Integration:** Integrate with Compiler Explorer for easy access to assembly output and compiler insights.
 - **Performance Profiling Integration:** Integrate with profiling tools (e.g., `perf`, `VTune`, `Instruments`) for streamlined performance analysis.
 - **Automated Performance Regression Detection:** Integrate performance benchmarks into CI to automatically detect regressions.
 - **Documentation of Performance Best Practices:** ✅ DONE — `docs/PERFORMANCE.md` created with comprehensive guide covering ccache/sccache, LTO, thin LTO, PGO two-phase workflow, `perf size`, `perf build-time`, CMake configure summary table, and recommended release profile. `docs/BUILD_SETTINGS.md` and `docs/BUILD_INFO.md` also updated.
-- **Performance Annotations:** Support for annotating code with performance hints (e.g., `[[likely]]`, `[[unlikely]]`, `[[nodiscard]]`) and enforcing their correct usage.
-- **Compiler-Specific Optimizations:** Provide utilities for applying compiler-specific optimizations (e.g., `__attribute__((hot))`, `__declspec(noinline)`) in a cross-platform manner.
+- **Performance Annotations:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` demonstrates `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` cross-platform macros, `SetBytesProcessed`, `SetItemsProcessed`.
+- **Compiler-Specific Optimizations:** ✅ DONE — `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` macros in `bench_greet.cpp` with GCC/Clang/MSVC guards. Integrated into benchmark targets via `cmake/Benchmark.cmake`.
 - **Runtime Performance Metrics:** Integrate runtime performance metrics collection and reporting for applications built with the project.
 - **Automated Performance Tuning:** Explore integration with tools that can automatically suggest performance improvements based on code analysis and profiling data.
 - **Performance-Focused Code Reviews:** Establish guidelines and checklists for performance-focused code reviews to ensure that performance considerations are consistently addressed in pull requests.
-- **Memory Usage Analysis:** Tools for analyzing and optimizing memory usage, including heap profiling and leak detection.
+- **Memory Usage Analysis:** ✅ DONE — `tool perf valgrind [--vg-tool memcheck|massif] [--target <binary>]` runs Valgrind and saves XML/massif output. `ms_print` summary displayed for massif.
 - **Concurrency Analysis:** Tools for analyzing and optimizing concurrent code, including thread sanitizers and race condition detectors.
 - **Cache Optimization:** Tools and guidelines for optimizing cache usage and reducing cache misses.
 - **Vectorization Analysis:** Tools for analyzing and optimizing vectorization opportunities in code.
@@ -172,15 +172,15 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 - **Memory Pooling & Custom Allocators:** Support for memory pooling and custom allocators to reduce fragmentation and improve performance.
 - **Zero-Cost Abstractions:** Guidelines and tools for writing zero-cost abstractions in C++ to achieve high performance without sacrificing code clarity.
 
-### Phase 6: Ecosystem & UI
+### Phase 6: Ecosystem & UI — ✅ DONE
 
-- **TUI as Wrapper:** Integrate `scripts/tui.py` with the central `tool` dispatcher.
-- **Live Doc Server:** `tool doc serve` to serve documentation locally.
+- **TUI as Wrapper:** ✅ DONE — `tool tui` dispatches to `scripts/tui.py`. `tui/` app already wired via CORE_COMMANDS `"tui": "tui"`.
+- **Live Doc Server:** ✅ DONE — `tool doc serve [--port N] [--open]` serves `docs/` via Python `http.server`. `tool doc list` shows all 15 documents. `tool doc build` supports mkdocs/sphinx.
 
-### Phase 7: Configuration & State Management
+### Phase 7: Configuration & State Management — ✅ DONE
 
-- **`tool.toml`:** Central configuration file.
-- **State Persistence:** `.tool/state.json` for session history.
+- **`tool.toml`:** ✅ DONE — `tool.toml` at project root contains 9 sections (`[tool]`, `[build]`, `[perf]`, `[security]`, `[lib]`, `[doc]`, `[release]`, `[hooks]`, `[embedded]`). Read by `scripts/core/utils/config_loader.py` via `tomllib` (Python 3.11+) with `tomli` fallback and minimal built-in parser. Values flow into `GlobalConfig` at dispatcher startup. CLI args always take precedence.
+- **State Persistence:** ✅ DONE — `.tool/state.json` session history managed by `scripts/core/commands/session.py`.
 
 ## Versioning & Release Workflow
 
@@ -218,12 +218,12 @@ provides both manual CLI and CI-driven release paths.
 
 - **Lock Files:** Deterministic dependency management via lock files.
 
-## Git leak detection (gitleaks)
+## Git leak detection (gitleaks) — ✅ DONE
 
-- **Pre-Commit Hook:** Implement a Git pre-commit hook that scans for sensitive information (e.g., API keys, secrets) using regex patterns. The hook should block commits that contain potential leaks and provide feedback to the developer.
-- **CI Integration:** Integrate gitleaks into the CI pipeline to automatically scan all commits and pull requests for sensitive information. This ensures that any potential leaks are caught before they are merged into the main branch.
-- **Custom Rules:** Define custom gitleaks rules specific to the project’s context (e.g., patterns for internal API keys, database credentials) to enhance detection accuracy.
-- **Reporting & Alerts:** Configure gitleaks to generate reports and send alerts (e.g., email, Slack) when potential leaks are detected, enabling prompt response and remediation.
+- **Pre-Commit Hook:** ✅ DONE — `.pre-commit-config.yaml` with gitleaks v8.18.4 hook (blocks commits with secrets), plus pre-commit-hooks, ruff, cmake-format, clang-format.
+- **CI Integration:** ✅ DONE — `.github/workflows/gitleaks.yml` scans all push/PR events + weekly schedule. SARIF upload on failure. PR commenting via `GITLEAKS_ENABLE_COMMENTS`.
+- **Custom Rules:** ✅ DONE — `.gitleaks.toml` with 3 custom rules (CMake private key, SSH credentials, API Bearer tokens) and project-specific allowlists.
+- **Reporting & Alerts:** ✅ DONE — SARIF reports uploaded to GitHub Security; CI workflow fails on detected secrets.
 
 ---
 

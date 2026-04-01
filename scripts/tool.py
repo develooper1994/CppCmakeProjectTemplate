@@ -22,16 +22,17 @@ from core.utils.common import Logger, GlobalConfig, load_session
 
 # Core command to sub-package mapping
 CORE_COMMANDS = {
-    "build": "core.commands.build",
-    "format": "core.commands.format",
-    "lib":   "core.commands.lib",
-    "perf":  "core.commands.perf",
-    "release": "core.commands.release",
-    "sol":   "core.commands.sol",
+    "build":    "core.commands.build",
+    "doc":      "core.commands.doc",
+    "format":   "core.commands.format",
+    "lib":      "core.commands.lib",
+    "perf":     "core.commands.perf",
+    "release":  "core.commands.release",
     "security": "core.commands.security",
-    "tui":   "tui",  # scripts/tui.py
-    "session": "core.commands.session",
-    "plugins": "core.commands.plugins",
+    "session":  "core.commands.session",
+    "sol":      "core.commands.sol",
+    "plugins":  "core.commands.plugins",
+    "tui":      "tui",  # scripts/tui.py
 }
 
 def discover_plugins():
@@ -90,6 +91,13 @@ def main():
     GlobalConfig.REPORT_ARTIFACT = getattr(args, 'report_artifact', None)
     GlobalConfig.RETAIN_DAYS = getattr(args, 'retain_days', None)
 
+    # Apply tool.toml defaults (CLI values set above take precedence)
+    try:
+        from core.utils.config_loader import apply_to_global_config
+        apply_to_global_config()
+    except Exception:
+        pass  # tool.toml is optional — never block execution
+
     # If no command was provided on CLI, fall back to session default_command when present
     if not cmd_and_beyond:
         if args.version:
@@ -142,30 +150,56 @@ def print_main_help():
 Usage: tool [globals] <command> [args...]
 
 Global Options:
-  --verbose    Enable debug logging
-  --json       Output results in JSON
-  --yes        Auto-confirm (non-interactive)
-  --dry-run    Preview only
-  --version    Show version
-  --help       Show this help
+  --verbose              Enable debug logging
+  --json                 Output results in JSON
+  --yes                  Auto-confirm (non-interactive)
+  --dry-run              Preview only
+  --skip-ci              Skip CI-only steps (local debug)
+  --ci-mode <mode>       CI run mode: smoke | full | nightly
+  --report-artifact PATH Write CI report to path
+  --retain-days N        Artifact retention days (CI metadata)
+  --version              Show version
+  --help                 Show this help
 
 Core Commands:
   build        Configure, compile, test, extension (.vsix)
+               Flags: --preset, --profile, --lto, --pgo, --sanitizers
+  doc          Documentation utilities
+               Subcommands: serve [--port N] [--open], list, build
+  format       Code formatting and clang-tidy
+               Subcommands: check, tidy-fix [--dry-run] [--apply]
   lib          Library CRUD (add/remove/rename/move/deps/export/info/test)
-  sol          Presets, toolchains, repo, CI, upgrade-std, doctor
-  tui          Terminal UI (interactive wrapper)
-    plugins      List and inspect available `scripts/plugins/` modules
+               Subcommands: add, remove, rename, move, list, tree, info, deps, export, doctor
+  perf         Performance analysis and optimization
+               Subcommands: size, build-time, track, check-budget, bench, valgrind, graph
+  release      Version management and release tagging
+               Subcommands: bump, set, tag, publish
+  security     Security scanning (CVE, cppcheck, clang-tidy security checks)
+               Flags: --format json|text, --fail-on-severity, --suppressions
+  session      Persistent session state (preset, last command)
+  sol          Project orchestration (presets, toolchains, CI, doctor)
+               Subcommands: preset, ci, doctor, target, upgrade-std
+  tui          Terminal UI — interactive wrapper for all tool commands
+  plugins      List and inspect available plugins/
 
 Plugins (scripts/plugins/):
   setup        Check/install project dependencies
   init         Rename project after clone
-  hooks        Install git pre-commit hooks
+  hooks        Install git pre-commit hooks (pre-commit, gitleaks)
   hello        Example plugin
 
 Examples:
-  tool build check
+  tool build check --no-sync          # Build + test (skip dependency sync)
+  tool build --lto --profile hardened # Release build with LTO + hardening
   tool lib add my_lib --template singleton
   tool lib deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
+  tool perf track && tool perf check-budget
+  tool perf bench --compare
+  tool perf valgrind --binary build/gcc-debug-static-x86_64/apps/main_app/main_app
+  tool perf graph --render --format svg
+  tool doc serve --open
+  tool doc list
+  tool security --format json --fail-on-severity HIGH
   tool sol ci --preset-filter gcc
   tool tui
   tool setup --install

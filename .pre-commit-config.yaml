@@ -1,0 +1,76 @@
+# .pre-commit-config.yaml
+# Pre-commit hooks for CppCmakeProjectTemplate.
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # ---------------------------------------------------------------------------
+  # gitleaks — secret / credential leakage detection
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: gitleaks (secret scan)
+        args:
+          - --config=.gitleaks.toml
+          - --verbose
+
+  # ---------------------------------------------------------------------------
+  # General hygiene
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: "\\.(patch|diff)$"
+      - id: end-of-file-fixer
+        exclude: "\\.(patch|diff|bin|hex|srec)$"
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: "\\.(bat|cmd|ps1)$"
+      - id: detect-private-key
+
+  # ---------------------------------------------------------------------------
+  # Python — ruff (fast linter + formatter)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^scripts/
+      - id: ruff-format
+        files: ^scripts/
+
+  # ---------------------------------------------------------------------------
+  # CMake — cmake-format
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        files: "CMakeLists\\.txt$|\\.cmake$"
+        exclude: "cmake/toolchains/|external/"
+        args: [--line-width=100]
+      - id: cmake-lint
+        files: "CMakeLists\\.txt$|\\.cmake$"
+        exclude: "cmake/toolchains/|external/"
+
+  # ---------------------------------------------------------------------------
+  # C++ — clang-format
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v18.1.6
+    hooks:
+      - id: clang-format
+        files: "\\.(cpp|cxx|cc|c|h|hpp|hxx)$"
+        exclude: "external/|build/|build-.*/|.*_export\\.h$"
+        args: [--style=file]

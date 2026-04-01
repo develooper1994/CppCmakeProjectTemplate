@@ -47,6 +47,7 @@ include(FeatureFlags)
 include(LTO)
 include(PGO)
 include(BuildCache)
+include(Benchmark)
 generate_feature_flags()
 
 # INTERFACE library — attach once, all targets inherit FeatureFlags.h

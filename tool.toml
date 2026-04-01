@@ -1,0 +1,147 @@
+# tool.toml — CppCmakeProjectTemplate Central Configuration
+#
+# This file provides project-wide defaults for all `tool` commands.
+# CLI flags always override values here. Environment variables override too.
+#
+# Sections mirror the tool command structure:
+#   [tool]       — global dispatcher defaults
+#   [build]      — `tool build` defaults
+#   [perf]       — `tool perf` defaults
+#   [security]   — `tool security` defaults
+#   [lib]        — `tool lib` defaults
+#   [doc]        — `tool doc` defaults
+#   [release]    — `tool release` defaults
+#   [hooks]      — pre-commit / git hooks
+#   [embedded]   — cross-compilation / embedded target defaults
+
+# ---------------------------------------------------------------------------
+# [tool] — Global dispatcher defaults
+# ---------------------------------------------------------------------------
+[tool]
+# Default preset used when none is specified on CLI or in session.
+default_preset = "gcc-debug-static-x86_64"
+
+# Default build profile: normal | strict | hardened | extreme
+default_profile = "normal"
+
+# Structured log format: text | json
+log_format = "text"
+
+# Automatically confirm non-destructive operations (equivalent to --yes)
+auto_confirm = false
+
+# ---------------------------------------------------------------------------
+# [build] — `tool build` defaults
+# ---------------------------------------------------------------------------
+[build]
+# Preset to use when --preset is not given on CLI
+preset = "gcc-debug-static-x86_64"
+
+# LTO disabled by default (enabled for release profiles)
+lto = false
+
+# Compiler cache: ccache | sccache | "" (auto-detected)
+cache_program = ""
+
+# Extra CMake definitions appended to every configure run
+# Specified as a list of "KEY=VALUE" strings
+extra_cmake_args = []
+
+# Default parallel jobs (0 = auto-detect from CPU count)
+parallel_jobs = 0
+
+# ---------------------------------------------------------------------------
+# [perf] — `tool perf` defaults
+# ---------------------------------------------------------------------------
+[perf]
+# Budget thresholds for `tool perf check-budget`
+size_threshold_pct  = 10.0   # Max allowed binary size growth (%)
+time_threshold_pct  = 20.0   # Max allowed build time growth (%)
+
+# Auto-detect build directory (most recently modified preset dir)
+auto_detect_build_dir = true
+
+# Save bench results as baseline automatically after each `perf bench` run
+bench_auto_baseline = false
+
+# ---------------------------------------------------------------------------
+# [security] — `tool security` defaults
+# ---------------------------------------------------------------------------
+[security]
+# Minimum severity that causes a non-zero exit: CRITICAL | HIGH | MEDIUM | LOW | NONE
+fail_on_severity = "HIGH"
+
+# Output format: text | json
+format = "text"
+
+# Paths to suppression files (cppcheck / clang-tidy)
+# suppressions = ["cmake/suppressions.txt"]
+suppressions = []
+
+# ---------------------------------------------------------------------------
+# [lib] — `tool lib` defaults
+# ---------------------------------------------------------------------------
+[lib]
+# Default C++ standard for newly created libraries
+cxx_standard = "17"
+
+# Default template used by `tool lib add`
+default_template = "normal"
+
+# Auto-register exported libraries in the root CMakeLists.txt
+auto_register = true
+
+# ---------------------------------------------------------------------------
+# [doc] — `tool doc` defaults
+# ---------------------------------------------------------------------------
+[doc]
+# Port used by `tool doc serve`
+serve_port = 8080
+
+# Automatically open browser when starting the doc server
+serve_open_browser = false
+
+# ---------------------------------------------------------------------------
+# [release] — `tool release` defaults
+# ---------------------------------------------------------------------------
+[release]
+# Auto-push tag after `tool release tag`
+auto_push = false
+
+# GPG signing key (fingerprint or email). Empty = no signing.
+# signing_key = "maintainer@example.com"
+signing_key = ""
+
+# Files synchronized when version is bumped
+version_files = [
+    "VERSION",
+    "pyproject.toml",
+    "extension/package.json",
+    "CMakeLists.txt",
+]
+
+# ---------------------------------------------------------------------------
+# [hooks] — pre-commit / git hooks
+# ---------------------------------------------------------------------------
+[hooks]
+# gitleaks configuration file (relative to project root)
+gitleaks_config = ".gitleaks.toml"
+
+# Run gitleaks on commit (disable only if you have a slower CI gate)
+gitleaks_on_commit = true
+
+# clang-format on staged C++ files
+clangformat_on_commit = true
+
+# ---------------------------------------------------------------------------
+# [embedded] — cross-compilation / embedded defaults
+# ---------------------------------------------------------------------------
+[embedded]
+# Default embedded preset (used by `tool build --embedded`)
+default_preset = "embedded-cortex-m4"
+
+# Tool prefix for bare-metal toolchains
+arm_toolchain_prefix = "arm-none-eabi-"
+
+# Path to linker scripts directory (relative to project root)
+linker_scripts_dir = "cmake/linker_scripts"

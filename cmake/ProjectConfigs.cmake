@@ -23,6 +23,7 @@ option(ENABLE_FUZZING      "Enable fuzz testing targets"        OFF)
 # --- Performance & Optimization Options ---
 option(ENABLE_LTO           "Enable Link-Time Optimization"      OFF)
 option(ENABLE_CCACHE        "Enable compiler caching (ccache/sccache)" ON)
+option(ENABLE_BENCHMARKS    "Build Google Benchmark targets"     OFF)
 
 # Master list of all boolean options — drives FeatureFlags.cmake dynamic generation.
 # Add new options here; FeatureFlags.h will update automatically on next cmake run.
@@ -34,7 +35,7 @@ set(PROJECT_ALL_OPTIONS
     # Analysis / coverage
     CLANG_TIDY CPPCHECK COVERAGE
     # Performance
-    LTO
+    LTO BENCHMARKS
     # Frameworks
     QT QML BOOST
     # Misc

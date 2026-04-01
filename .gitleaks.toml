@@ -1,0 +1,60 @@
+# .gitleaks.toml
+# Custom gitleaks configuration for CppCmakeProjectTemplate.
+# https://github.com/gitleaks/gitleaks
+
+title = "CppCmakeProjectTemplate gitleaks config"
+
+[extend]
+# Use the default gitleaks ruleset as a base
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Custom rules for project-specific secrets
+# ---------------------------------------------------------------------------
+[[rules]]
+id          = "cmake-private-key-variable"
+description = "CMake cache variable containing a private key path or value"
+regex       = '''(?i)(PRIVATE[_-]KEY|SIGNING[_-]KEY|SECRET[_-]KEY)\s*[=:]\s*\S+'''
+tags        = ["cmake", "key"]
+
+[[rules]]
+id          = "deploy-ssh-host"
+description = "Hardcoded SSH host or credentials in deploy scripts"
+regex       = '''(?i)(ssh|scp|rsync).*@[a-z0-9._-]+\s+[^$]'''
+tags        = ["ssh", "deploy"]
+
+[[rules]]
+id          = "api-token-inline"
+description = "Inline API token or Bearer token"
+regex       = '''(?i)(Bearer|Token)\s+[A-Za-z0-9\-._~+/]{20,}'''
+tags        = ["api", "token"]
+
+# ---------------------------------------------------------------------------
+# Allowlist — paths/patterns that are intentionally not secrets
+# ---------------------------------------------------------------------------
+[allowlist]
+description = "Safe patterns to ignore"
+paths = [
+    # Test fixtures and mocks
+    "tests/.*",
+    ".*_test\\.cpp$",
+    ".*_tests\\.cpp$",
+    # Documentation examples
+    "docs/.*",
+    "README\\.md$",
+    # CMake module templates (they use variable placeholders)
+    "cmake/.*\\.cmake\\.in$",
+    "cmake/LibraryConfig\\.cmake\\.in$",
+    # Build artifacts
+    "build/.*",
+    "build-.*/.*",
+]
+
+regexes = [
+    # GPG test key fingerprints in docs are not real secrets
+    "DEADBEEF[0-9A-F]+",
+    # CMake variable placeholders like @MY_VAR@
+    "@[A-Z_]+@",
+    # Example/placeholder values in code
+    "example|placeholder|dummy|MY_SECRET|your_key_here",
+]
