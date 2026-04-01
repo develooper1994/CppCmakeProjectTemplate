@@ -154,7 +154,15 @@ C++ hot-reloading (LLVM JIT / cr.h) requires significant runtime scaffolding and
 
 ### Automated Performance Tuning _(V2 / Long-term)_
 
-PGO + BOLT (already implemented) cover the primary automated tuning strategies. Auto-tuning frameworks (e.g., OpenTuner, Halide scheduling) are out of scope for V1.
+PGO + BOLT (already implemented) cover the primary automated tuning strategies for V1. V2 expands this into a closed-loop system:
+
+- **Phase 1 (safe defaults):** Keep current `tool perf autotune` strategies (hill/grid/random/anneal) as optional non-blocking advisors.
+- **Phase 2 (evidence-based presets):** Promote only repeatedly winning flag sets into optional presets (for example `*-perf-tuned-*`).
+- **Phase 3 (CI budget gates):** Feed baseline and tuned runs into `tool perf check-budget` with policy thresholds.
+- **Phase 4 (nightly exploration):** Run wider candidate sweeps at night, keep PR pipelines deterministic and fast.
+- **Phase 5 (portfolio tuning):** Maintain separate tuning profiles for speed-focused and size-focused outputs.
+
+Scope remains practical: no mandatory heavy external tuning framework for V1/V1.x; integrations are incremental and reversible.
 
 ### Intel SYCL Support _(V2 / Long-term)_
 
@@ -166,7 +174,49 @@ Architecture is in place. Add `cmake/Metal.cmake` (via Metal-cpp or similar) whe
 
 ### Memory Pooling & Custom Allocators _(Future / User-Land)_
 
-Template does not prescribe allocators by design. `tool perf valgrind --vg-tool massif` profiles heap usage. Users may link `mimalloc` or `jemalloc` via vcpkg/conan. CMake helper `target_use_allocator()` could be added per user request.
+Template keeps default allocator behavior unless explicitly enabled.
+
+- **Primary goal:** optional allocator backend switching with minimal or zero application code changes.
+- **Default behavior:** if no allocator option is selected, standard platform allocator remains active.
+- **Planned first-class backends:** `mimalloc`, `jemalloc`, `tcmalloc`.
+- **Planned enablement model:** CMake option + CLI passthrough + dependency manager integration (Conan/vcpkg).
+- **Planned scopes:** per-target override and global override (opt-in), with clear precedence rules.
+- **Operational safety:** allocator modes must be easy to disable for sanitizer/debug workflows.
+
+Separate category (not global malloc replacement):
+
+- **Pool APIs:** `std::pmr`-based memory resources and optional Boost.Pool adapters.
+- **Dependency policy:** Boost.Pool support requires explicit optional Boost enablement.
+- **Usability target:** one-line opt-in per target/app, no mandatory source rewrite.
+
+Diagnostics and validation continue to rely on existing tools like `tool perf valgrind --vg-tool massif`.
+
+### Static Analysis & Cppcheck Acceleration _(V2 / Future)_
+
+Cppcheck correctness coverage is valuable but can be slow on larger trees. Planned acceleration strategy:
+
+- **Tiered execution:** fast PR mode + full/nightly mode.
+- **Scope control:** run incremental target/file subsets when possible, full scan on schedule.
+- **Parallelization:** shard scans by module or directory and merge reports.
+- **Suppression hygiene:** centralize suppressions and audit/remove stale entries regularly.
+- **Cache-aware workflow:** avoid unnecessary re-analysis for unchanged source sets.
+- **CI policy:** treat scanner health as blocking, while keeping runtime predictable.
+
+### Internal Tooling Refactor Program _(V2 / Structural)_
+
+Large-scale refactor is planned after stabilization milestones, with safety gates at each step.
+
+- **Motivation:** some script files are too long, responsibilities overlap, and code duplication exists.
+- **Refactor principle:** split by clear domain ownership, not by artificial micro-fragmentation.
+- **Target architecture:**
+	- command facade layer
+	- execution/service layer
+	- shared utility layer
+	- plugin boundary with stable contracts
+- **Execution style:** phased vertical slices (domain-by-domain), each with full regression checks.
+- **Anti-duplication plan:** extract repeated argument parsing, runner orchestration, and reporting helpers.
+- **Guardrails:** no broad "big bang" rewrites; each phase must remain buildable/testable and reversible.
+- **Completion criteria:** shorter cohesive modules, lower churn hotspots, and preserved CLI compatibility.
 
 ---
 
