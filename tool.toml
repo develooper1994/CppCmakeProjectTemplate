@@ -153,8 +153,10 @@ linkages    = ["static", "dynamic"]
 # Common values: x86_64 | x86 | aarch64 | armv7 | <free-string>
 # Free-string arches must have a matching cmake/toolchains/<arch>.cmake file.
 # Uncomment x86_64-linux-musl for fully static musl libc builds.
+# Uncomment x86_64-linux-musl-zig for zig cc + musl (no separate toolchain needed).
 arches      = ["x86_64"]
 # arches    = ["x86_64", "x86_64-linux-musl"]
+# arches    = ["x86_64", "x86_64-linux-musl-zig"]
 
 # CMake minimum version required in the generated file.
 cmake_minimum_major = 3
@@ -177,6 +179,7 @@ skip_combinations = [
     "msvc-*-dynamic-aarch64",   # MSVC has no ARM64 dynamic-link preset here
     "cuda-*-dynamic-*",          # CUDA forces static linkage
     "*-*-dynamic-*musl*",        # musl targets are static-only
+    "clang-*-*-*zig*",           # zig toolchain provides its own compiler
 ]
 
 # ---------------------------------------------------------------------------

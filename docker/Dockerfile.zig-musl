@@ -1,0 +1,36 @@
+# docker/Dockerfile.zig-musl — Zig cc + musl static builds
+#
+# Usage:
+#   docker build -f docker/Dockerfile.zig-musl -t cpp-zig-musl-builder .
+#   docker run --rm -v $PWD:/workspace cpp-zig-musl-builder \
+#     cmake --preset gcc-release-static-x86_64-linux-musl-zig
+#   docker run --rm -v $PWD:/workspace cpp-zig-musl-builder \
+#     cmake --build --preset gcc-release-static-x86_64-linux-musl-zig
+#
+# Zig ships with musl libc — no musl-tools or Alpine needed.
+# Produces fully static, zero-dependency Linux binaries.
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install base tools + Zig
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake \
+    ninja-build \
+    git \
+    python3 \
+    ca-certificates \
+    curl \
+    xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Zig (latest stable)
+ARG ZIG_VERSION=0.13.0
+RUN curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz" \
+    | tar -xJ -C /opt \
+    && ln -s /opt/zig-linux-x86_64-${ZIG_VERSION}/zig /usr/local/bin/zig
+
+WORKDIR /workspace
+
+CMD ["/bin/bash"]
