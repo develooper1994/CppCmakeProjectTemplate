@@ -28,6 +28,7 @@ CORE_COMMANDS = {
     "format":   "core.commands.format",
     "lib":      "core.commands.lib",
     "perf":     "core.commands.perf",
+    "presets":  "core.commands.presets",
     "release":  "core.commands.release",
     "security": "core.commands.security",
     "session":  "core.commands.session",

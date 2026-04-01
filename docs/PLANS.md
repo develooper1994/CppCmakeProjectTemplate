@@ -172,11 +172,27 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 - **Memory Pooling & Custom Allocators:** _(Future / User-Land)_ — Template does not prescribe allocators by design. `tool perf valgrind --vg-tool massif` profiles heap usage. Users may link `mimalloc` or `jemalloc` via vcpkg/conan. CMake helper `target_use_allocator()` could be added per user request.
 - **Zero-Cost Abstractions:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` demonstrates `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` cross-platform macros. `docs/PERFORMANCE.md` covers the guidelines.
 
-### Phase 8: GUI & Framework Support — 🔄 In Progress
+### Phase 8: GUI, GPU & Tooling Evolution — 🔄 In Progress
+
+#### Framework Support
 
 - **Qt5/Qt6 Support:** ✅ DONE — `cmake/Qt.cmake` auto-detects Qt6 (falls back to Qt5). Provides `target_link_qt(<target> [QML] [NETWORK] [MULTIMEDIA] [OPENGL] [SVG])` helper: sets AUTOMOC/AUTOUIC/AUTORCC, links all requested components, defines `FEATURE_QT=1` and `QT_VERSION_MAJOR`. Global option: `-DENABLE_QT=ON [-DENABLE_QML=ON]`. CLI: `tool build --qt [--qml]`. Cross-compile (AArch64): pass `-DQT_HOST_PATH=` + `-DCMAKE_PREFIX_PATH=`. Bare-metal targets (Cortex-M*) forcibly disable Qt. `apps/gui_app/CMakeLists.txt` updated to use `target_link_qt()` and `apply_openmp_defaults()`.
-- **CUDA / GPU Offloading:** _(Phase 8 — Roadmapped)_ — `cmake/CUDA.cmake` + CUDA preset. `enable_language(CUDA)` is standard CMake. AMD HIP, Intel SYCL, Apple Metal are also viable.
-- **Compiler Explorer (Godbolt) Integration:** _(Phase 8 — Roadmapped)_ — `tool perf godbolt --source <file>` streams compiled asm via godbolt.org API.
+- **OpenMP & Auto-Parallelization:** ✅ DONE — see Phase 5.
+
+#### GPU & Heterogeneous Computing
+
+- **CUDA / GPU Offloading:** ⏳ IN PROGRESS — `cmake/CUDA.cmake`: `enable_cuda_support()` (WSL-safe auto-detect via `/usr/local/cuda`), `target_add_cuda()`, `set_cuda_architectures(<target> native|all-major|<arch_list>)`. `ENABLE_CUDA=ON` option. `CMAKE_CUDA_ARCHITECTURES=native` (auto GPU detect). Clang-as-CUDA fallback. CLI: `tool build --cuda`. AMD HIP, Intel SYCL, Apple Metal: _(V2 / user-land)_.
+- **AMD HIP / Intel SYCL / Apple Metal:** _(V2 / Long-term)_ — Architecture is in place; add `cmake/HIP.cmake`, `cmake/SYCL.cmake` when concrete targets exist.
+
+#### Preset Generation (Python-driven, key V1 goal)
+
+- **CMakePresets.json Generator:** ⏳ IN PROGRESS — `tool presets generate` reads `tool.toml [presets]` (compilers, build_types, linkages, arches) and generates the **entire** `CMakePresets.json` (configurePresets + buildPresets + testPresets). Supports per-combinatör filters: `--compiler`, `--build-type`, `--linkage`, `--arch`. Constraint matrix enforced (no embedded+dynamic, no MSVC+ARM, etc.). Auto-backup `CMakePresets.json.bak` before overwrite. Dry-run supported. `cuda_architectures = "native"` by default (auto GPU detect). Arch is a free string — unknown arches use toolchain file if present, else `CMAKE_SYSTEM_PROCESSOR` variable.
+- **`tool presets list`:** Lists presets from current `CMakePresets.json` grouped by compiler/arch.
+- **`tool presets validate`:** Runs `cmake --list-presets` to verify the generated file.
+
+#### Tooling Quality
+
+- **Compiler Explorer (Godbolt) Integration:** _(Phase 8 — Roadmapped)_ — `tool perf godbolt --source <file>` streams compiled asm via godbolt.org API. `tool perf vec` covers local vectorization analysis in the interim.
 
 ### Phase 6: Ecosystem & UI — ✅ DONE
 
