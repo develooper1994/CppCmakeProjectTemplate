@@ -1,0 +1,12 @@
+# cmake/iwyu_mappings.imp
+# IWYU mapping file — maps implementation headers to their public equivalents.
+# Format: { include: ["<impl>", private, "<public>", public] }
+# See https://github.com/include-what-you-use/include-what-you-use/blob/master/docs/IWYUMappings.md
+#
+# This file is intentionally minimal. Add project-specific mappings below.
+
+[
+    # Standard library forward-declaration mappings are built into IWYU.
+    # Add third-party library mappings here as needed, e.g.:
+    # { include: ["<boost/filesystem/path.hpp>", private, "<boost/filesystem.hpp>", public] }
+]
