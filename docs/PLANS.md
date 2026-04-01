@@ -13,7 +13,7 @@ This document lists the project's current capabilities and remaining backlog ite
 - **Structured Logging:** Standard log levels and persistent log storage.
 - **Standardized Results:** Commands return a `CLIResult` and support `--json` for automation.
 - **Clean Environment:** Legacy scripts consolidated into a single professional interface.
-- **Shared Session Persistence:** `load_session()`, `save_session()`, `backup_session()` used by both `tool.py` and `tui.py` via `.session.json`.
+- **Shared Session Persistence:** `load_session()`, `save_session()`, `backup_session()` used by both `tool.py` and `tui.py` via the `[session]` section in `tool.toml`.
 - **Verification Harness:** `scripts/verify_full.py` automates build/test/extension and library flows.
 - **Python Environment Automation:** `scripts/setup_python_env.py` creates cross-platform virtual environments.
 - **Extension Packaging Hardened:** Reliable `.vsix` production under `extension/`.
@@ -107,7 +107,7 @@ All per-script and per-target toggles implemented as `-D` CMake options and CLI 
 ### Configuration & State Management
 
 - **`tool.toml`:** 9 sections (`tool`, `build`, `perf`, `security`, `lib`, `doc`, `release`, `hooks`, `embedded`). Read by `config_loader.py` via `tomllib`/`tomli`. CLI args override.
-- **State Persistence:** `.session.json` shared by `tool.py` and `tui.py`. `tool session save/load/set` subcommands.
+- **`tool.toml` Session:** Runtime state stored in `[session]` section of `tool.toml` (replaces `.session.json`). `tool session save/load/set` subcommands.
 
 ### GUI, GPU & Tooling
 

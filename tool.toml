@@ -257,3 +257,18 @@ arm_toolchain_prefix = "arm-none-eabi-"
 
 # Path to linker scripts directory (relative to project root)
 linker_scripts_dir = "cmake/linker_scripts"
+
+# ---------------------------------------------------------------------------
+# [session] — Runtime session state (managed by `tool session save/set`)
+#
+# This section replaces the old .session.json file.  Each key is read/written
+# by the tool dispatcher and TUI; CLI flags always take precedence.
+# ---------------------------------------------------------------------------
+[session]
+last_preset = "gcc-debug-static-x86_64"
+verbose = false
+json = false
+yes = false
+dry_run = false
+default_command = "build check"
+default_preset = "gcc-debug-static-x86_64"
