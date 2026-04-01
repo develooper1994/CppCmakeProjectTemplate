@@ -64,8 +64,8 @@ build_logs/
 # Python
 __pycache__/
 
-# Session file
-.session.json*
+# Session backups (tool.toml is the canonical session store)
+*.bak.toml
 
 # Extension generated files (copied from repo root during build)
 #extension/README.md

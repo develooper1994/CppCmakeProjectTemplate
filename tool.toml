@@ -156,11 +156,22 @@ linkages    = ["static", "dynamic"]
 # Uncomment x86_64-linux-musl-zig for zig cc + musl (no separate toolchain needed).
 # Uncomment arm64 for MSVC ARM64 builds (Windows on ARM).
 # Uncomment embedded arches for bare-metal cross-compilation.
+#
+# Available toolchains (cmake/toolchains/):
+#   Linux cross:  aarch64-linux-gnu, armv7-linux-gnueabihf, riscv64-linux-gnu,
+#                 powerpc64le-linux-gnu, mipsel-linux-gnu, linux-x86
+#   Windows:      x86_64-w64-mingw32 (MinGW-w64 from Linux)
+#   musl static:  x86_64-linux-musl, aarch64-linux-musl
+#   musl+zig:     x86_64-linux-musl-zig, aarch64-linux-musl-zig
+#   Embedded:     arm-cortex-m0, arm-cortex-m7, arm-none-eabi
 arches      = ["x86_64"]
 # arches    = ["x86_64", "x86_64-linux-musl"]
 # arches    = ["x86_64", "x86_64-linux-musl-zig"]
 # arches    = ["x86_64", "arm64"]
-# arches    = ["x86_64", "aarch64-linux-gnu", "arm-cortex-m0", "arm-cortex-m7"]
+# arches    = ["x86_64", "aarch64-linux-gnu", "armv7-linux-gnueabihf", "riscv64-linux-gnu"]
+# arches    = ["x86_64", "x86_64-w64-mingw32"]
+# arches    = ["x86_64", "aarch64-linux-musl", "aarch64-linux-musl-zig"]
+# arches    = ["x86_64", "arm-cortex-m0", "arm-cortex-m7"]
 
 # CMake minimum version required in the generated file.
 cmake_minimum_major = 3
@@ -193,6 +204,8 @@ skip_combinations = [
     "cuda-*-*-arm-cortex-*",     # embedded targets are not CUDA-compatible
     "*-*-dynamic-arm-none-*",    # embedded targets are bare-metal (static only)
     "*-*-dynamic-arm-cortex-*",  # embedded targets are bare-metal (static only)
+    "clang-*-*-*mingw*",         # MinGW only supports gcc
+    "cuda-*-*-*mingw*",          # CUDA does not support MinGW cross-compilation
 ]
 
 # ---------------------------------------------------------------------------
@@ -244,3 +257,18 @@ arm_toolchain_prefix = "arm-none-eabi-"
 
 # Path to linker scripts directory (relative to project root)
 linker_scripts_dir = "cmake/linker_scripts"
+
+# ---------------------------------------------------------------------------
+# [session] — Runtime session state (managed by `tool session save/set`)
+#
+# This section replaces the old .session.json file.  Each key is read/written
+# by the tool dispatcher and TUI; CLI flags always take precedence.
+# ---------------------------------------------------------------------------
+[session]
+last_preset = "gcc-debug-static-x86_64"
+verbose = false
+json = false
+yes = false
+dry_run = false
+default_command = "build check"
+default_preset = "gcc-debug-static-x86_64"

@@ -217,6 +217,11 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
         if linkage == "dynamic":
             return f"embedded arch '{arch}' is bare-metal (static only)"
 
+    # MinGW cross-compilation: only gcc is supported (no clang/cuda cross-mingw)
+    if "mingw" in arch:
+        if compiler not in ("gcc", "msvc"):
+            return f"MinGW arch '{arch}' only supports gcc compiler"
+
     # User-configured patterns  (tool.toml  skip_combinations)
     for pattern in skip_patterns:
         # Normalise pattern segments to match our naming
