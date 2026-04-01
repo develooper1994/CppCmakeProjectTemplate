@@ -201,6 +201,8 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
         return "CUDA compiler forces static linkage"
     if "musl" in arch and linkage == "dynamic":
         return "musl targets are static-only"
+    if "zig" in arch and compiler != "gcc":
+        return "zig toolchain provides its own compiler — use gcc base only"
     if compiler == "msvc":
         if arch not in ("x86_64", "x64", "x86", "win32"):
             return f"MSVC preset not generated for non-Windows arch '{arch}'"
@@ -418,8 +420,10 @@ def _test_presets(configure_names: list[str]) -> list[dict[str, Any]]:
     result = []
     for name in configure_names:
         # Skip cross-compiled presets (they have ENABLE_UNIT_TESTS=OFF)
-        parts = name.split("-")
-        arch = parts[-1] if parts else ""
+        # Preset name: {compiler}-{buildtype}-{linkage}-{arch...}
+        # Arch can contain hyphens (e.g. x86_64-linux-musl-zig), so rejoin after 3 splits
+        parts = name.split("-", 3)
+        arch = parts[3] if len(parts) > 3 else ""
         native_arches = {"x86_64", "x64"}
         # musl x86_64 targets run natively on the host
         if arch not in native_arches and "musl" not in arch:

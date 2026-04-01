@@ -29,7 +29,9 @@ This document lists the project's current capabilities and remaining backlog ite
 - **Build Configuration Summary:** `build/build_config.json` emitted at build time with profile, sanitizers, preset, and generated sources.
 - **CMakePresets.json Generator:** `tool presets generate` reads `tool.toml [presets]` and generates the full preset matrix. Supports per-dimension filters, constraint matrix, auto-backup, `--dry-run`.
 - **`tool presets list` / `validate`:** List visible presets and validate via `cmake --list-presets`.
-- **musl libc / Fully Static Builds:** `cmake/toolchains/x86_64-linux-musl.cmake` — produces zero-dependency statically linked binaries. Auto-detects musl-cross-make or `musl-gcc` wrapper. `Dockerfile.alpine` for native musl C++ builds. Preset generator wires `gcc-*-static-x86_64-linux-musl` presets with automatic dynamic-linkage skip. Sanitizers disabled (incompatible with musl). Optional `-static-pie` via `MUSL_STATIC_PIE=ON`.
+- **musl libc / Fully Static Builds:** `cmake/toolchains/x86_64-linux-musl.cmake` — produces zero-dependency statically linked binaries. Auto-detects musl-cross-make or `musl-gcc` wrapper. `docker/Dockerfile.alpine` for native musl C++ builds. Preset generator wires `gcc-*-static-x86_64-linux-musl` presets with automatic dynamic-linkage skip. Sanitizers disabled (incompatible with musl). Optional `-static-pie` via `MUSL_STATIC_PIE=ON`.
+- **Zig cc + musl:** `cmake/toolchains/x86_64-linux-musl-zig.cmake` — Zig ships with musl libc built-in; no separate musl toolchain or Alpine Docker required. Creates wrapper scripts for `zig cc` / `zig c++`. `docker/Dockerfile.zig-musl` for containerized builds.
+- **Docker Consolidation:** All Dockerfiles organized under `docker/` — `Dockerfile` (Ubuntu dev), `Dockerfile.alpine` (musl native), `Dockerfile.zig-musl` (Zig cc + musl).
 
 ### Distribution & Template Engine
 
@@ -126,7 +128,7 @@ All per-script and per-target toggles implemented as `-D` CMake options and CLI 
 ### Ecosystem & Integration
 
 - **Conan 2.0 Profile Generation:** `tool deps conan-profile generate` — maps `tool.toml [presets]` to Conan 2 profiles.
-- **Docker Build:** `tool build docker` — builds inside container.
+- **Docker Build:** `tool build docker` — builds inside container. Dockerfiles consolidated under `docker/`.
 - **Package Publishing:** `tool release publish --to github|conan|vcpkg` and `tool release unpublish --to github|conan|vcpkg`.
 - **Cross-Compile Sysroot Management:** `tool sol sysroot add <arch>` — downloads/installs sysroots, writes `sysroots/registry.json`.
 - **LibFuzzer Native Integration:** `cmake/Fuzzing.cmake` — `enable_libfuzzer(<target>)`.
@@ -214,10 +216,14 @@ Large-scale refactor is planned after stabilization milestones, with safety gate
 - **Guardrails:** no broad "big bang" rewrites; each phase must remain buildable/testable and reversible.
 - **Completion criteria:** shorter cohesive modules, lower churn hotspots, and preserved CLI compatibility.
 
-### musl / Static Build Expansion _(V2 / Future)_
+### musl / Static Build Expansion _(Partially Complete)_
+
+**Completed:** x86_64 musl toolchain (GCC-based), Zig cc + musl toolchain, Alpine Dockerfile, Zig-musl Dockerfile, Docker file consolidation, preset generator wiring with skip rules.
+
+Remaining:
 
 - **aarch64-linux-musl:** ARM64 fully static builds via musl cross-toolchain.
-- **Zig cc backend:** `zig cc --target=x86_64-linux-musl` as drop-in cross-compiler (no separate toolchain install).
+- **aarch64-linux-musl-zig:** ARM64 via Zig cc (`zig cc -target aarch64-linux-musl`).
 - **CI nightly musl job:** Catch static-linking regressions in scheduled builds.
 - **Conan/vcpkg musl profiles:** Package manager integration for musl-targeted dependency resolution.
 

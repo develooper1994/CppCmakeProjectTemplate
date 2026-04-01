@@ -13,15 +13,19 @@
 #     libstdc++ is linked against glibc.
 #
 #   Option B — Alpine Docker (C + C++, recommended):
-#     docker run --rm -v $PWD:/workspace -w /workspace alpine:3.21 \
-#       sh -c "apk add gcc g++ cmake ninja musl-dev linux-headers git python3 && \
-#              cmake --preset gcc-release-static-x86_64-linux-musl && \
-#              cmake --build --preset gcc-release-static-x86_64-linux-musl"
+#     docker build -f docker/Dockerfile.alpine -t cpp-musl-builder .
+#     docker run --rm -v $PWD:/workspace -w /workspace cpp-musl-builder \
+#       cmake --preset gcc-release-static-x86_64-linux-musl && \
+#       cmake --build --preset gcc-release-static-x86_64-linux-musl
 #     Native musl g++ — full C++ support out of the box.
 #
 #   Option C — musl-cross-make (C + C++, standalone):
 #     Build a complete x86_64-linux-musl cross-toolchain from source.
 #     See: https://github.com/richfelker/musl-cross-make
+#
+#   Option D — Zig cc (C + C++, zero-install cross-compile):
+#     Use x86_64-linux-musl-zig.cmake toolchain instead.
+#     Requires only `zig` in PATH.  See cmake/toolchains/x86_64-linux-musl-zig.cmake.
 #
 # Usage:
 #   cmake --preset gcc-release-static-x86_64-linux-musl
