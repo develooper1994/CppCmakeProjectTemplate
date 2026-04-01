@@ -56,6 +56,11 @@ scripts/extension/package-lock.json
 
 # Temporary log directory
 build_logs/
+
+# Generated artifacts (do not commit)
+*.bak
+*-fixes.patch
+
 # Python
 __pycache__/
 

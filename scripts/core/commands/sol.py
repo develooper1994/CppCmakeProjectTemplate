@@ -926,9 +926,10 @@ def _impl_sysroot_add(args) -> None:
                 apt_ok = shutil.which("apt-get")
                 if apt_ok:
                     import subprocess
-                    rc = subprocess.call(["sudo", "apt-get", "install", "-y"] + pkgs)
-                    if rc != 0:
-                        Logger.warn("[Sysroot] apt-get failed — sysroot may be incomplete.")
+                    result = subprocess.run(["sudo", "apt-get", "install", "-y"] + pkgs,
+                                           capture_output=True)
+                    if result.returncode != 0:
+                        Logger.warn(f"[Sysroot] apt-get failed — sysroot may be incomplete: {result.stderr.decode(errors='replace')}")
                     # Typical apt sysroot location for aarch64 cross
                     apt_sysroot = Path(f"/usr/{arch.replace('aarch64', 'aarch64')}-linux-gnu")
                     if not apt_sysroot.exists():

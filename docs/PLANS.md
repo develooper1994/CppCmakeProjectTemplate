@@ -1,10 +1,10 @@
 # CppCmakeProjectTemplate — Plans & Capabilities
 
-This document lists the project's current capabilities, governance policies, and roadmap in priority order.
+This document lists the project's current capabilities and remaining backlog items.
 
 ---
 
-## ✅ Current Capabilities
+## ✅ Current Capabilities (Completed)
 
 ### Unified CLI & Tooling Framework
 
@@ -13,283 +13,160 @@ This document lists the project's current capabilities, governance policies, and
 - **Structured Logging:** Standard log levels and persistent log storage.
 - **Standardized Results:** Commands return a `CLIResult` and support `--json` for automation.
 - **Clean Environment:** Legacy scripts consolidated into a single professional interface.
-
-### Recent Additions
-
-- **Shared Session Persistence:** `scripts/core/utils/common.py` now provides `load_session()`, `save_session()`, and `backup_session()` used by both `tool.py` and `tui.py` via a shared `.session.json` file.
-- **Verification Harness:** `scripts/verify_full.py` automates build/test/extension and library flows and logs results to `build_logs/verify.log` for reproducible verification.
-- **Python Environment Automation:** `scripts/setup_python_env.py` creates cross-platform virtual environments (`--recreate`, `--install`) and a CI workflow `.github/workflows/create_envs.yml` creates envs on Ubuntu/macOS/Windows.
-- **Extension Packaging Hardened:** Extension build flow hardened; `extension/package.json` includes a minimal `build` script and the packaging step reliably produces a `.vsix` under `extension/`.
-- **Versioning & Release:** Project version synchronized (bumped) and tag `v1.03` created and pushed; packaging and release steps were exercised in the verification run.
-- **Library Packaging Helpers:** `core.libpkg` refactored to a modular helper surface; `tool lib` commands use these helpers for create/export/remove flows.
-- **Cleanup & Consolidation:** Legacy shim files removed or consolidated under `scripts/core/`; helpful debug logs added under `build_logs/`.
-- **Logging & Performance:** Logger I/O path optimized and small helper functions cached to reduce repeated file reads.
+- **Shared Session Persistence:** `load_session()`, `save_session()`, `backup_session()` used by both `tool.py` and `tui.py` via `.session.json`.
+- **Verification Harness:** `scripts/verify_full.py` automates build/test/extension and library flows.
+- **Python Environment Automation:** `scripts/setup_python_env.py` creates cross-platform virtual environments.
+- **Extension Packaging Hardened:** Reliable `.vsix` production under `extension/`.
+- **Library Packaging Helpers:** `core.libpkg` refactored to a modular helper surface.
 
 ### Build System
 
 - **Modern CMake (3.25+):** Target-based structure with no global flags.
-- **Preset Matrix:** Ready presets for Linux, Windows, macOS and Embedded (ARM).
+- **Preset Matrix:** 34 ready presets for Linux, Windows, macOS and Embedded (ARM).
 - **MSVC Consistency:** Automatic selection of `/MT` or `/MD` when appropriate.
-
-### Compile-time Build Metadata
-
 - **Per-Target BuildInfo:** Per-target versioning and git metadata support.
 - **Dynamic Feature Flags:** Feature toggles controlled at build time.
+- **Build Configuration Summary:** `build/build_config.json` emitted at build time with profile, sanitizers, preset, and generated sources.
+- **CMakePresets.json Generator:** `tool presets generate` reads `tool.toml [presets]` and generates the full preset matrix. Supports per-dimension filters, constraint matrix, auto-backup, `--dry-run`.
+- **`tool presets list` / `validate`:** List visible presets and validate via `cmake --list-presets`.
 
-- **Build Configuration Summary:** The build system now emits `build/build_config.json` at build time. This JSON contains the active `--profile` (for example `normal`, `hardened`, `extreme`), selected sanitizers, the chosen CMake preset/toolchain, and a list of headers or sources generated at configure/generation time. This artifact is intended for CI traceability, debugging, and reproducing the exact configuration used to produce an artifact.
+### Distribution & Template Engine
 
-### Quality & CI/CD
+- **Jinja2 Migration:** Integrated for `libpkg` and `sol` subsystems with fallback behavior.
+- **Bootstrap (`tool setup`):** Checks mandatory/optional system dependencies. `--install`/`--do-install` via apt/brew/dnf/pacman auto-detection. Creates/populates Python venv.
+- **Rollback & Recovery:** Robust `Transaction` helper for atomic file operations.
 
-- **Testing:** Support for GoogleTest, Catch2, Boost.Test and QTest.
-- **Quality Gates:** ASan, UBSan, TSan, Clang-Tidy and Cppcheck integration.
-- **CI/CD:** GitHub Actions multi-platform matrix builds.
+### Test Strategy & CI
+
+- **Comprehensive Testing:** Library management commands (`rename`, `move`, `remove`) are transactional with CMake reference updates. `--dry-run` preview, `--yes` for automation, `Transaction` rollback.
+- **Dependency Awareness:** `tool lib tree` and `tool lib info` parse actual CMake dependencies.
+- **Project Health:** `tool lib doctor` detects orphaned entries and broken include structures.
+- **Deterministic CI:** Optimized CI with caching, conditional builds, cross-platform verification.
+- **App Scaffolding:** `tool sol target add` for automated app creation.
+
+### Safety, Hardening & Sanitizers
+
+- **Multi-Tiered Security Profiles:** `normal` → `strict` → `hardened` → `extreme` (Rust-like safety).
+- **Granular Sanitizer Selection:** `tool build --sanitizers asan ubsan` or `--sanitizers all`.
+- **Per-Target Overrides:** `-D<TARGET_NAME>_ENABLE_HARDENING=ON/OFF`, `-D<TARGET_NAME>_ENABLE_ASAN=ON/OFF`.
+- **Dynamic Static Analysis:** `.clang-tidy` dynamically generated based on active profile via Jinja2.
+- **Security Audit:** `tool security scan` with OSV-Scanner + Cppcheck, tiered policy enforcement.
+- **CVE Scanning:** Integrated `osv-scanner` for dependency vulnerability auditing.
+- **Fuzz Testing:** libFuzzer harness, AFL++ CI (nightly long-run), seed-corpus management, crash triage.
+- **Static Analysis:** `clang-tidy --fix` automation (`tool format tidy-fix`) and CI job.
+- **Security Hardening:** `cmake/Hardening.cmake` — stack canaries, PIE, RELRO, CFI, FORTIFY_SOURCE, MSVC equivalents.
+- **Workflow Consolidation:** Reusable CI workflow (`.github/workflows/reusable-ci.yml`).
+
+### Granular Control
+
+All per-script and per-target toggles implemented as `-D` CMake options and CLI flags:
+
+- **Build / CMake / Tooling**: `--profile`, `--sanitizers`, `--preset`, per-target `-D<TARGET>_ENABLE_*`.
+- **Fuzzing**: `-DENABLE_FUZZING`, `-DENABLE_AFL`, `--timeout-ms`, `--target`/`--corpus-root`.
+- **Security Scan**: `--install`, `--format`, `--fail-on-severity`, `--suppressions`.
+- **clang-tidy / format**: `format tidy-fix`, `--dry-run`, `--apply`, `--checks`.
+- **CI / Automation**: `--skip-ci`, `--ci-mode`, `--report-artifact`, `--retain-days`.
+- **Release & Packaging**: `--install`, `--dry-run`, `--signing-key`, `--publish`.
+
+### Performance & Optimization
+
+- **Performance Tracking:** `tool perf track` saves size+build-time baseline to `build_logs/perf_baseline.json`.
+- **Performance Budget:** `tool perf check-budget` compares current build vs baseline, fails CI on regressions.
+- **Profile-Guided Optimization (PGO):** `cmake/PGO.cmake` — two-phase PGO (generate/use) for GCC, Clang, MSVC. BOLT post-link optimization via `ENABLE_BOLT=ON`.
+- **Link-Time Optimization (LTO):** `cmake/LTO.cmake` — CheckIPOSupported, thin LTO for Clang, per-target support.
+- **Build Caching:** `cmake/BuildCache.cmake` — auto-detects ccache/sccache.
+- **Build Visualization:** `tool perf graph` — CMake dependency graph via `cmake --graphviz` with optional `dot` rendering.
+- **Cross-Compilation:** 3 new toolchains + 5 new CMake presets (embedded/aarch64).
+- **Embedded Targets:** `cmake/EmbeddedUtils.cmake` — 4 functions for embedded binary outputs, map files, memory usage, linker scripts.
+- **Code Size Analysis:** `tool perf size` — analyzes all built binaries with JSON report.
+- **Build Time Analysis:** `tool perf build-time` — Ninja `.ninja_log` analysis with JSON report.
+- **Compiler Explorer:** `tool perf godbolt` — compiles via Godbolt REST API. `tool perf vec` for local vectorization.
+- **Performance Profiling:** `tool perf stat` — wraps `perf stat` (with `time -v` fallback). `tool perf record` for flame graphs.
+- **Automated Perf Regression Detection:** `.github/workflows/perf_regression.yml` — 10% size / 25% time thresholds with artifact upload.
+- **Performance Annotations:** `bench_greet.cpp` — Sieve, Monte Carlo, matrix multiply, Newton-Raphson, Fibonacci benchmarks with cross-platform macros.
+- **Runtime Performance Metrics:** `perf::ScopedTimer` and `perf::ThroughputCounter` — zero-dependency, header-inline.
+- **Memory Usage Analysis:** `tool perf valgrind [--vg-tool memcheck|massif]` with XML/massif output.
+- **Concurrency Analysis:** `tool perf concurrency` — Valgrind helgrind/DRD with XML report. TSan via `--sanitizers tsan`.
+- **Cache Optimization:** `tool perf stat` — reports cache-misses/cache-references counters.
+- **Vectorization Analysis:** `tool perf vec` — compiler vectorization remarks. CMake: `-DENABLE_VEC_REPORT=ON`.
+- **Auto-Parallelization:** `cmake/OpenMP.cmake` — `enable_openmp()`, `enable_openmp_simd()`, `enable_auto_parallelization()`. GCC/Clang/MSVC support.
+- **Zero-Cost Abstractions:** `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` macros.
+- **Binary Size Delta Tracking:** `tool perf size-diff` — compares `.text`/`.data`/`.bss` against baseline.
+- **Auto-Tuner:** `tool perf autotune` — hill/grid/random/anneal strategies with speed/size/instructions oracles.
+
+### Ecosystem & UI
+
+- **TUI as Wrapper:** `tool tui` dispatches to `scripts/tui.py`.
+- **Live Doc Server:** `tool doc serve [--port N] [--open]` — serves `docs/` via Python `http.server`. `tool doc build` supports mkdocs/sphinx.
+
+### Configuration & State Management
+
+- **`tool.toml`:** 9 sections (`tool`, `build`, `perf`, `security`, `lib`, `doc`, `release`, `hooks`, `embedded`). Read by `config_loader.py` via `tomllib`/`tomli`. CLI args override.
+- **State Persistence:** `.session.json` shared by `tool.py` and `tui.py`. `tool session save/load/set` subcommands.
+
+### GUI, GPU & Tooling
+
+- **Qt5/Qt6 Support:** `cmake/Qt.cmake` — auto-detects Qt6 (Qt5 fallback). `target_link_qt(<target> [QML] ...)`. AUTOMOC/AUTOUIC/AUTORCC. Cross-compile aware.
+- **CUDA / GPU Offloading:** `cmake/CUDA.cmake` — WSL-aware nvcc detection, `enable_cuda_support()`, `target_add_cuda()`, `set_cuda_architectures()`. Clang-as-CUDA fallback.
+- **CUDA-Version-Aware C++ Standard:** `cuda_compatible_cxx_standard()` — maps CUDA toolkit version to max device-code C++ standard.
+- **AMD HIP Support:** `cmake/HIP.cmake` — `enable_hip_support()`, `target_add_hip()`, `set_hip_architectures()`. Auto-detects GPU via `rocm_agent_enumerator`. **Caveat:** untestable without ROCm SDK.
+- **Auto-Detect C++ Standard:** `cmake/CxxStandard.cmake` — probes compiler features at configure time. Three-strategy detection pipeline (feature check → compile probe → version heuristic).
+
+### C++ Modernity & DX
+
+- **C++20 Modules:** `cmake/CxxModules.cmake` — `enable_cxx_modules(<target>)`, `CXX_SCAN_FOR_MODULES ON` (CMake 3.28+). `tool lib add --modules` generates `.cppm` stubs.
+- **Stdlib-Aware C++ Detection:** Three-strategy pipeline (feature check, compile probe, version heuristic). Supports C++98/03 through C++23.
+- **IWYU:** `cmake/IWYU.cmake` + `tool format iwyu [--target <lib>] [--fix]`.
+- **Compiler Explorer (Godbolt):** `tool perf godbolt` — POSTs to Godbolt API, `--save`, `--json`.
+- **Binary Reproducibility:** `cmake/Reproducibility.cmake` — deterministic builds with `SOURCE_DATE_EPOCH`, `ar -D`, file-prefix-map.
+
+### Ecosystem & Integration
+
+- **Conan 2.0 Profile Generation:** `tool deps conan-profile generate` — maps `tool.toml [presets]` to Conan 2 profiles.
+- **Docker Build:** `tool build docker` — builds inside container.
+- **Package Publishing:** `tool release publish --to github|conan|vcpkg` and `tool release unpublish --to github|conan|vcpkg`.
+- **Cross-Compile Sysroot Management:** `tool sol sysroot add <arch>` — downloads/installs sysroots, writes `sysroots/registry.json`.
+- **LibFuzzer Native Integration:** `cmake/Fuzzing.cmake` — `enable_libfuzzer(<target>)`.
+- **Lock Files:** `tool deps lock [--managers vcpkg|conan|pip]` — generates lock files. `tool deps verify` checks staleness.
+
+### Versioning & Release
+
+Single source-of-truth `VERSION` file at repository root (`<major>.<middle>.<minor>+<revision>`).
+
+- `scripts/release.py`: CLI helper for `bump`, `set`, `set-revision`, `tag`, `publish`, `unpublish`.
+- `tool release`: wrapper via unified CLI.
+- `CMakeLists.txt`: reads `VERSION` for `project(... VERSION ...)`.
+- CI: `.github/workflows/release.yml` derives revision from `run_number`.
+
+### Git Leak Detection (gitleaks)
+
+- **Pre-Commit Hook:** `.pre-commit-config.yaml` with gitleaks v8.18.4.
+- **CI Integration:** `.github/workflows/gitleaks.yml` — push/PR/weekly scans with SARIF upload.
+- **Custom Rules:** `.gitleaks.toml` — 3 custom rules + project-specific allowlists.
 
 ---
 
-## 🚀 Roadmap
+## 🔜 Not Completed (V2 / Future Backlog)
 
-### Phase 1: Foundation & Unified CLI — ✅ DONE
+### Hot Reloading _(V2 / Long-term)_
 
-- **Modular Dispatcher:** ✅ DONE
-- **Command Contracts:** ✅ DONE
-- **Structured Logging:** ✅ DONE
-- **Plugin Discovery:** ✅ DONE
-- **Migration & Cleanup:** ✅ DONE (legacy scripts consolidated)
-- **Refactoring & Core Migration:** ✅ DONE (command logic moved under `core/commands`)
+C++ hot-reloading (LLVM JIT / cr.h) requires significant runtime scaffolding and OS-specific shared library reload. ccache + unity builds already minimize rebuild latency. Deferred until V2.
 
-### Phase 2: Distribution & Template Engine — ✅ DONE
+### Automated Performance Tuning _(V2 / Long-term)_
 
-- **Jinja2 Migration:** ✅ DONE — Integrated for `libpkg` and `sol` subsystems with fallback behavior.
-- **Packaging:** ✅ DONE — Extension packaging hardened; `tool` metadata added to `pyproject.toml`.
-- **Bootstrap (`tool setup`):** ✅ DONE — `tool setup [--install] [--do-install] [--all] [--env] [--install-env] [--recreate]`. Checks mandatory (cmake, ninja, git, python3) and optional (lcov, doxygen, clang, clang-tidy, cppcheck, osv-scanner, valgrind, ccache, gitleaks) system dependencies. `--install` shows the install command; `--do-install` actually runs it via apt/brew/dnf/pacman auto-detection. Creates/populates Python venv.
-- **Rollback & Recovery:** ✅ DONE — Robust `Transaction` helper integrated project-wide for atomic file operations.
+PGO + BOLT (already implemented) cover the primary automated tuning strategies. Auto-tuning frameworks (e.g., OpenTuner, Halide scheduling) are out of scope for V1.
 
-### Phase 3: Test Strategy & Structured CI (Status & progress) - ✅ DONE
+### Intel SYCL Support _(V2 / Long-term)_
 
-- **Comprehensive Testing (in-progress):** ✅ DONE - Library management commands (`rename`, `move`, `remove`) are now transactional and include project-wide CMake reference updates. Highlights:
-  - **`rename`:** updates source files, headers, and CMake target references atomically under the repository `Transaction` helper; supports `--dry-run` preview for automation and safety.
-  - **`move`:** moves the library directory under `libs/` and the corresponding test directory under `tests/unit/`, and updates `libs/CMakeLists.txt` and `tests/unit/CMakeLists.txt` registrations. If the destination basename differs from the original library name, the tool can perform token replacement inside moved files and update CMake target references to keep targets consistent.
-  - **`remove`:** detaches the library from the CMake registration and, when `--delete` is supplied, deletes files from disk. After deletion the tool prunes empty parent directories under `libs/` and `tests/unit/` to avoid orphaned folders.
-  - **Safety & UX:** All operations run under the `Transaction` helper for backup and rollback on error. For destructive `--delete` removals the CLI prompts for confirmation unless `--yes` is provided; use `--dry-run` to preview actions without applying them. Programmatic calls (tests/scripts) bypass interactive prompts.
-- **Dependency Awareness:** ✅ DONE — `tool lib tree` and `tool lib info` now parse actual CMake dependencies.
-- **Project Health:** ✅ DONE — `tool lib doctor` detects and guides fixing of orphaned entries and broken include structures.
-- **Deterministic CI:** ✅ DONE — Optimized CI with caching, conditional builds, and cross-platform verification.
-- **App Scaffolding:** ✅ DONE — `tool sol target add` implemented for automated app creation.
+Architecture is in place (see `cmake/CUDA.cmake` and `cmake/HIP.cmake` patterns). Add `cmake/SYCL.cmake` when a concrete Intel GPU target exists.
 
-### Phase 4: Safety, Hardening & Sanitizers (Rust-like C++ Safety) — ✅ DONE
+### Apple Metal Support _(V2 / Long-term)_
 
-- **Multi-Tiered Security Profiles:** ✅ DONE — Implementation of progressive safety levels.
-  - **`normal`**: Base warnings (`-Wall -Wextra`).
-  - **`strict`**: Aggressive warnings (`-Wconversion`, `-Wshadow`, etc.).
-  - **`hardened`**: `strict` + `-Werror` + `-fstack-protector-strong` + `_FORTIFY_SOURCE=2` + `-fPIE`.
-  - **`extreme`**: Full "Rust-like" safety. `hardened` + `uninitialized-init` + `-fno-exceptions` + `-fno-rtti` + Full RELRO + `-pie`.
-- **Granular Sanitizer Selection:** ✅ DONE — Separated from profiles, allowing combinations with any safety level.
-  - Usage: `tool build --sanitizers asan ubsan` or `tool build --sanitizers all`.
-- **Granular Control (Per-Target Overrides):** ✅ DONE — Any security or sanitizer feature can be enabled/disabled per library or application.
-  - Usage: Pass `-D<TARGET_NAME>_ENABLE_HARDENING=ON/OFF` or `-D<TARGET_NAME>_ENABLE_ASAN=ON/OFF`.
+Architecture is in place. Add `cmake/Metal.cmake` (via Metal-cpp or similar) when macOS GPU compute targets are needed.
 
-#### Planned Actions (priority order)
+### Memory Pooling & Custom Allocators _(Future / User-Land)_
 
-  1. Consolidate CI workflows and reduce duplication — ✅ DONE (composite actions and initial refactor applied).
-  2. Add `--install` to top-level scripts and provide a unified install helper — ✅ DONE (`core.utils.common` now exposes optional provisioning and scripts accept `--install`).
-  3. Add `.cmake-format` and a CI formatting job (auto-fix candidate generation) — ✅ DONE (`.cmake-format` and CI job added).
-  4. Complete AFL++ integration: enable `afl-clang-fast` builds in CI, seed-corpus upload/retention, and long-run nightly fuzz jobs — ✅ DONE (AFL++ build + nightly long-run workflow added; seed corpus present and artifact retention implemented).
-  5. Expand analyzer granularity: document and expose per-script and per-target analyzer toggles — ✅ DONE (Granular Control expanded and toggles exposed in `core` and CMake modules).
-  6. Add per-library `docs/` and `LICENSE` files (automatically generated by `tool lib` in the future) — ✅ DONE (each library under `libs/` includes `docs/README.md` and `LICENSE`).
-  7. Automate `clang-tidy --fix` PR flow: generate candidate fixes, open PRs, and gate re-enablement of strict analyzers behind review — ✅ DONE (`tool format tidy-fix` + CI job added; PR automation is configured to produce diff artifacts and auto-PR is scaffolded).
-
-  8. Granular Control: expose per-target and per-script toggles in `core.utils.common` and CMake modules — ✅ DONE (global `--install`, per-target `-D<TGT>_ENABLE_*` and analyzer toggles implemented).
-
-  Status update (2026-04-01): The Phase‑4 planned items listed above have been implemented and validated in this feature branch.
-
-- Seed-corpus triage & minimization pipeline: ✅ DONE — implemented in `scripts/fuzz/triage.py` and `scripts/fuzz/findings_collector.py`. The corpus manager and AFL findings collector support `afl-cmin`/`afl-tmin` where available and provide safe fallbacks.
-- `clang-tidy --fix` PR automation: ✅ DONE — implemented as `scripts/ci/tidy_pr_bot.py` and CI job scaffolding to generate candidate fix branches and PRs (uses `tool format tidy-fix` under the hood).
-- Workflow consolidation: ✅ DONE — reusable workflow added at `.github/workflows/reusable-ci.yml` and key callers (nightly AFL long‑run) updated to use it. This significantly reduces duplication across CI jobs.
-
-  Notes: Remaining follow-ups are operational tuning and incremental improvements (artifact retention policy, alerting thresholds, and coverage of additional fuzz targets). These are tracked in the repository issue tracker.
-
-- **Dynamic Static Analysis:** ✅ DONE — `.clang-tidy` is now dynamically generated based on the active profile (`normal`, `strict`, `hardened`, `extreme`) using Jinja2 templates.
-  - `hardened/extreme` profiles enforce `WarningsAsErrors: "*"`.
-  - `extreme` profile enables additional aggressive safety checks by removing suppressions.
-- **Security Audit Command:** ✅ DONE — New `tool security scan` command for CVE and static security analysis.
-- **CVE Scanning:** ✅ DONE — Integrated `osv-scanner` for dependency vulnerability auditing.
-- **Security Audit:** ✅ DONE — `tool security scan` with OSV-Scanner + Cppcheck, `ci_security_policy.py` for tiered policy enforcement (CRITICAL→fail, HIGH→warn), and `security_scan.yml` CI workflow with artifact upload.
-- **Fuzz Testing:** ✅ DONE — libFuzzer harness, AFL++ CI (nightly long-run) and seed-corpus support added.
-- **Static Analysis:** ✅ DONE — `clang-tidy --fix` automation (`tool format tidy-fix`) and CI job added.
-- **Security Hardening:** ✅ DONE — `cmake/Hardening.cmake` implements stack canaries (`-fstack-protector-strong`), stack clash protection, PIE (`-fPIE`/`-pie`), RELRO (`-Wl,-z,relro,-z,now`), CFI (`-fcf-protection`), `_FORTIFY_SOURCE=2/3`, per-target overrides, and MSVC equivalents (ControlFlowGuard, /GS, /sdl, Qspectre).
-
-Notes & recent decisions (implemented / important constraints):
-
-- **Build-time generated headers:** Some headers are produced during configure/generation by CMake or project scripts. These generated files are recorded in `build/build_config.json` and are treated as "generated sources" by the analyzer policy to avoid false-positives originating from generated code. This analyzer scoping does not remove hardening flags from production targets — it only narrows which files will fail CI due to stylistic analyzer rules. To include generated headers in analysis, enable per-target analysis flags (for example `-D<target>_ANALYZE_GENERATED=ON`) or run `tool format tidy-fix` to apply automatic fixes before re-enabling strict analyzer policies.
-
-- **Preserving Hardening Semantics:** Hardening compiler/linker flags (`-fstack-protector-strong`, `_FORTIFY_SOURCE=2`, PIE/RELRO, etc.) remain applied to production libraries and executables by default. Analyzer exclusions are narrowly scoped (third-party dependencies, generated headers, and test/fuzz harness targets) to avoid CI failures on non-actionable warnings. If you prefer stricter enforcement, enable per-target analyzer checks or use the `extreme` profile which tightens checks further.
-
-- **Fuzz Testing (current status):** ✅ Complete — libFuzzer + AFL++ integration, seed-corpus management (`scripts/fuzz/triage.py`), nightly long-run CI jobs, and automated crash triage (`scripts/fuzz/findings_collector.py`) are all implemented.
-
-- **clang-tidy --fix automation:** A `tool format tidy-fix` helper and a CI job (`.github/workflows/clang_tidy_fix.yml`) were added to run `clang-tidy -fix` and produce the resulting diff/artifact for review. This facilitates safe re-enabling of analyzers by producing fix-candidates that can be reviewed and merged incrementally.
-
-- **Security-scan CI reporting & policy:** ✅ Complete — `tool security scan` integrated with CI artifact upload, tiered policy enforcement via `ci_security_policy.py` (CRITICAL→exit 2, HIGH→exit 1), and `security_scan.yml` workflow with checkout, Go setup, and policy evaluation steps.
-
-### Granular Control — Expanded ✅ DONE
-
-All per-script and per-target toggles are now implemented and available as `-D` CMake options for targets and as CLI flags for scripts.
-
-- **Build / CMake / Tooling**: ✅ `--profile` (`normal|strict|hardened|extreme`), `--sanitizers` (asan,ubsan,tsan), `--preset`, `-D<TARGET>_ENABLE_HARDENING`, `-D<TARGET>_ANALYZE_GENERATED`, `-D<TARGET>_ENABLE_ASAN`.
-- **Fuzzing**: ✅ `-DENABLE_FUZZING`, `-DENABLE_AFL`, `--timeout-ms` (triage.py), `--target` / `--corpus-root` (corpus_manager.py).
-- **Security Scan**: ✅ `--install`, `--format json|text`, `--fail-on-severity` (CRITICAL/HIGH/MEDIUM/LOW), `--suppressions <file>`.
-- **clang-tidy / format**: ✅ `format tidy-fix`, `--dry-run`, `--apply`, `--checks <pattern>`.
-- **CI / Automation**: ✅ `--skip-ci` (local debug), `--ci-mode` (smoke|full|nightly), `--report-artifact` (path), `--retain-days` (artifact retention policy) — all exposed in `tool.py` global flags and `GlobalConfig`.
-- **Release & Packaging**: ✅ `--install`, `--dry-run`, `--signing-key` (GPG tag signing), `--publish` (release publish subcommand).
-
-### Phase 5: Performance & Optimization — ✅ DONE
-
-- **Performance Tracking:** ✅ DONE — `tool perf track` saves a size+build-time baseline to `build_logs/perf_baseline.json` (13+ artifacts tracked).
-- **Performance Budget:** ✅ DONE — `tool perf check-budget [--size-threshold N] [--time-threshold N]` compares current build vs baseline, fails CI on regressions.
-- **Profile-Guided Optimization (PGO):** ✅ DONE — `cmake/PGO.cmake` supports two-phase PGO (generate/use) for GCC, Clang, and MSVC. CLI: `tool build --pgo generate|use --pgo-dir <dir>`. Per-target override: `-D<TARGET>_ENABLE_PGO=ON/OFF`. **BOLT post-link optimization** also supported via `ENABLE_BOLT=ON` (adds `bolt-instrument-<target>` / `bolt-optimize-<target>` CMake targets; requires `llvm-bolt ≥ 14`). CLI: `tool build --bolt`.
-- **Link-Time Optimization (LTO):** ✅ DONE — `cmake/LTO.cmake` with `CheckIPOSupported`, per-target support, thin LTO for Clang. CLI: `tool build --lto`. Per-target override: `-D<TARGET>_ENABLE_LTO=ON/OFF`.
-- **Build Caching:** ✅ DONE — `cmake/BuildCache.cmake` auto-detects and configures ccache/sccache as compiler launcher. `-DENABLE_CCACHE=ON` (default). Override: `-DCACHE_PROGRAM=/path/to/ccache`.
-- **Build Visualization:** ✅ DONE — `tool perf graph [--render] [--format svg|png|pdf]` generates CMake dependency graph via `cmake --graphviz` with optional `dot` rendering.
-- **Hot Reloading:** _(V2 / Long-term)_ — C++ hot-reloading (LLVM JIT / cr.h) requires significant runtime scaffolding and OS-specific shared library reload. ccache + unity builds already minimize rebuild latency. Deferred until V2.
-- **Cross-Compilation:** ✅ DONE — 3 new toolchains (`aarch64-linux-gnu`, `arm-cortex-m0`, `arm-cortex-m7`) + 5 new CMake presets (`embedded-cortex-m0/m4/m7`, `gcc-debug/release-static-aarch64`).
-- **Embedded Targets:** ✅ DONE — `cmake/EmbeddedUtils.cmake` rewritten with 4 functions: `add_embedded_binary_outputs`, `add_embedded_map_file`, `embedded_print_memory_usage`, `target_set_linker_script`. 3 new toolchains + 3 new embedded presets.
-- **Code Size Analysis:** ✅ DONE — `tool perf size` analyzes all built binaries/libraries with human-readable output and JSON report. Auto-detects active preset build directory. Uses `size` (berkeley format) for section breakdown.
-- **Build Time Analysis:** ✅ DONE — `tool perf build-time` analyzes Ninja `.ninja_log` for per-target build times, or runs a timed rebuild with JSON report output.
-- **Compiler Explorer Integration:** ✅ IMPL — `tool perf godbolt --source <file> [--compiler <id>] [--flags <flags>] [--save] [--json]` compiles via the Godbolt REST API and streams assembly to the terminal. `tool perf vec` covers local vectorization analysis.
-- **Performance Profiling Integration:** ✅ DONE — `tool perf stat` wraps Linux `perf stat` (with `time -v` fallback) for CPU/cache counter profiling; `tool perf record` flag generates `perf.data` for flame graphs.
-- **Automated Performance Regression Detection:** ✅ DONE — `.github/workflows/perf_regression.yml` runs on every push/PR: builds release preset, restores cached baseline, runs `tool perf check-budget` (10% size / 25% time thresholds), uploads size+build-time reports as artifacts. Weekly schedule refreshes the baseline.
-- **Documentation of Performance Best Practices:** ✅ DONE — `docs/PERFORMANCE.md` created with comprehensive guide covering ccache/sccache, LTO, thin LTO, PGO two-phase workflow, `perf size`, `perf build-time`, CMake configure summary table, and recommended release profile. `docs/BUILD_SETTINGS.md` and `docs/BUILD_INFO.md` also updated.
-- **Performance Annotations:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` shows real compute-heavy benchmarks: Sieve of Eratosthenes (cache-friendly), Monte Carlo π (branch-heavy), matrix multiply naïve vs. cache-tiled (cache locality), Newton-Raphson √ (FPU-bound convergence), recursive Fibonacci (recursion depth, LTO gain). Cross-platform `ATTR_HOT`/`ATTR_NOINLINE` macros, `SetBytesProcessed`/`SetItemsProcessed` throughput reporting. Build with `--preset gcc-release-static-x86_64 -DENABLE_BENCHMARKS=ON` to compare optimization levels.
-- **Compiler-Specific Optimizations:** ✅ DONE — `ATTR_HOT`/`ATTR_NOINLINE` macros in `bench_greet.cpp` with GCC/Clang/MSVC guards. Integrated into benchmark targets via `cmake/Benchmark.cmake`. BOLT workflow documented in `cmake/PGO.cmake` (LLVM ≥ 14).
-- **Runtime Performance Metrics:** ✅ DONE — `apps/demo_app/src/main.cpp` demonstrates `perf::ScopedTimer` (µs wall-clock RAII) and `perf::ThroughputCounter` (ops/s) using `std::chrono::high_resolution_clock`. Zero-dependency, header-inline, cross-platform.
-- **Automated Performance Tuning:** _(V2 / Long-term)_ — PGO + BOLT (already implemented) cover the primary automated tuning strategies. Auto-tuning frameworks (e.g., OpenTuner, Halide scheduling) are out of scope for V1.
-- **Performance-Focused Code Reviews:** ✅ DONE — `docs/PERFORMANCE.md` contains a comprehensive guide covering ccache, LTO, PGO, vectorization, `perf stat`, flame graphs, and benchmark best practices.
-- **Memory Usage Analysis:** ✅ DONE — `tool perf valgrind [--vg-tool memcheck|massif] [--target <binary>]` runs Valgrind and saves XML/massif output. `ms_print` summary displayed for massif.
-- **Concurrency Analysis:** ✅ DONE — `tool perf concurrency --binary <bin> [--tool helgrind|drd]` runs Valgrind helgrind/DRD with XML report. `tool build --sanitizers tsan` provides compile-time TSan (preferred for CI).
-- **Cache Optimization:** ✅ DONE — `tool perf stat` reports `cache-misses` and `cache-references` counters via `perf stat -e`. Build caching (ccache/sccache) is handled by `cmake/BuildCache.cmake`.
-- **Vectorization Analysis:** ✅ DONE — `tool perf vec --source <file>` emits compiler vectorization remarks (`-Rpass=loop-vectorize` on Clang, `-fopt-info-vec` on GCC) and saves a report. CMake option: `-DENABLE_VEC_REPORT=ON` applies flags project-wide.
-- **Auto-Parallelization:** ✅ DONE — `cmake/OpenMP.cmake` provides `enable_openmp()`, `enable_openmp_simd()`, `enable_auto_parallelization()` per-target helpers. GCC: `-floop-parallelize-all -ftree-parallelize-loops=N` (N=CPU count). Clang: Polly `-mllvm -polly -polly-parallel` with libgomp linkage (or -fopenmp-simd fallback). MSVC: `/Qpar`. Global options: `-DENABLE_OPENMP=ON`, `-DENABLE_OPENMP_SIMD=ON`, `-DENABLE_AUTO_PARALLEL=ON`. CLI: `tool build --openmp | --openmp-simd | --auto-parallel`.
-- **GPU Offloading:** _(Phase 8 — Near-term)_ — CMake has built-in CUDA support (`enable_language(CUDA)`). A CUDA preset + `cmake/CUDA.cmake` module can be added. Roadmapped for Phase 8 when a concrete GPU target exists. Metal (Apple), HIP (AMD), SYCL (Intel) also viable paths.
-- **Memory Pooling & Custom Allocators:** _(Future / User-Land)_ — Template does not prescribe allocators by design. `tool perf valgrind --vg-tool massif` profiles heap usage. Users may link `mimalloc` or `jemalloc` via vcpkg/conan. CMake helper `target_use_allocator()` could be added per user request.
-- **Zero-Cost Abstractions:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` demonstrates `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` cross-platform macros. `docs/PERFORMANCE.md` covers the guidelines.
-
-### Phase 6: Ecosystem & UI — ✅ DONE
-
-- **TUI as Wrapper:** ✅ DONE — `tool tui` dispatches to `scripts/tui.py`. `tui/` app already wired via CORE_COMMANDS `"tui": "tui"`.
-- **Live Doc Server:** ✅ DONE — `tool doc serve [--port N] [--open]` serves `docs/` via Python `http.server`. `tool doc list` shows all 15 documents. `tool doc build` supports mkdocs/sphinx.
-
-### Phase 7: Configuration & State Management — ✅ DONE
-
-- **`tool.toml`:** ✅ DONE — `tool.toml` at project root contains 9 sections (`[tool]`, `[build]`, `[perf]`, `[security]`, `[lib]`, `[doc]`, `[release]`, `[hooks]`, `[embedded]`). Read by `scripts/core/utils/config_loader.py` via `tomllib` (Python 3.11+) with `tomli` fallback and minimal built-in parser. Values flow into `GlobalConfig` at dispatcher startup. CLI args always take precedence.
-- **State Persistence:** ✅ DONE — `.session.json` at project root stores session history (last preset, verbose/json/yes/dry_run flags, default command). Managed by `scripts/core/commands/session.py` via `load_session()`, `save_session()`, `backup_session()` in `core.utils.common`. Both `tool.py` and `tui.py` share this single file – `tool session save/load/set` subcommands expose it via CLI.
-
-### Phase 8: GUI, GPU & Tooling Evolution — ✅ DONE
-
-#### Framework Support
-
-- **Qt5/Qt6 Support:** ✅ DONE — `cmake/Qt.cmake` auto-detects Qt6 (falls back to Qt5). Provides `target_link_qt(<target> [QML] [NETWORK] [MULTIMEDIA] [OPENGL] [SVG])` helper: sets AUTOMOC/AUTOUIC/AUTORCC, links all requested components, defines `FEATURE_QT=1` and `QT_VERSION_MAJOR`. Global option: `-DENABLE_QT=ON [-DENABLE_QML=ON]`. CLI: `tool build --qt [--qml]`. Cross-compile (AArch64): pass `-DQT_HOST_PATH=` + `-DCMAKE_PREFIX_PATH=`. Bare-metal targets (Cortex-M*) forcibly disable Qt. `apps/gui_app/CMakeLists.txt` updated to use `target_link_qt()` and `apply_openmp_defaults()`.
-- **OpenMP & Auto-Parallelization:** ✅ DONE — see Phase 5.
-
-#### GPU & Heterogeneous Computing
-
-- **CUDA / GPU Offloading:** ✅ DONE — `cmake/CUDA.cmake`: WSL-aware nvcc detection (`/usr/bin`, `/usr/local/cuda/bin`, `/usr/lib/cuda/bin`). `enable_cuda_support()`, `target_add_cuda(<target> [SEPARABLE])`, `set_cuda_architectures(<target> native|all-major|<list>)`. `ENABLE_CUDA=ON` option. `CMAKE_CUDA_ARCHITECTURES=native` (auto GPU detect). Clang-as-CUDA fallback (`CUDA_COMPILER=clang`). `CUDA_SEPARABLE_COMPILATION` global toggle. CLI: `tool build --cuda`.
-- **CUDA-Version-Aware C++ Standard:** ✅ DONE — `cuda_compatible_cxx_standard()` in `cmake/CxxStandard.cmake` maps CUDA toolkit version → maximum device-code C++ standard (CUDA <9→C++11, 9–10→C++14, 11–12.1→C++17, ≥12.2→C++20). `CMAKE_CUDA_STANDARD` auto-set from toolkit; warning emitted when host C++ std exceeds device limit. Per-target override: `set_target_properties(<t> PROPERTIES CUDA_STANDARD 20)`.
-- **AMD HIP / Intel SYCL / Apple Metal:** _(V2 / Long-term)_ — Architecture is in place; add `cmake/HIP.cmake`, `cmake/SYCL.cmake` when concrete targets exist.
-
-#### Compiler & C++ Standard Intelligence
-
-- **Auto-Detect C++ Standard:** ✅ DONE — `cmake/CxxStandard.cmake` probes `CMAKE_CXX_COMPILE_FEATURES` at configure time and sets `CMAKE_CXX_STANDARD` to the highest standard the compiler supports (C++23 → C++20 → C++17 → …). No-op when the user sets an explicit value via CLI or preset. Exposed as `CXX_STANDARD_DETECTED` (non-cache) for downstream logic. See `docs/BUILD_SETTINGS.md § C++ Standard Auto-Detection`. CLI: status logged as `[CxxStd] Auto-detected C++ standard: C++XX`.
-
-#### Preset Generation (Python-driven, key V1 goal)
-
-- **CMakePresets.json Generator:** ✅ DONE — `tool presets generate` reads `tool.toml [presets]` (compilers, build_types, linkages, arches) and generates the **entire** `CMakePresets.json` (hidden bases + configurePresets + buildPresets + testPresets). Supports per-dimension filters: `--compiler`, `--build-type`, `--linkage`, `--arch`. Constraint matrix enforced (CUDA → static linkage, etc.; extensible via `skip_combinations` patterns). Auto-backup `CMakePresets.json.bak` before overwrite. `--dry-run` and `--no-backup` flags. `cuda_architectures = "native"` from `tool.toml [presets]`. Validated: `cmake --list-presets` → 12/12 presets OK.
-- **`tool presets list`:** ✅ DONE — lists visible presets with display names.
-- **`tool presets validate`:** ✅ DONE — runs `cmake --list-presets` and reports status.
-
-#### Tooling Quality
-
-- **Compiler Explorer (Godbolt) Integration:** ✅ IMPL — `tool perf godbolt --source <file> [--compiler <id>] [--flags <flags>] [--save] [--json]` POSTs to `https://godbolt.org/api/compiler/<id>/compile`. `tool perf vec` covers local vectorization analysis.
-
-### Phase 9: C++ Modernity, Tooling DX & Ecosystem — 🔜 Planned
-
-Priority-ordered backlog. Items marked _(quick)_ are low-effort and high-value.
-
-#### Quick Wins
-
-- **`lib upgrade-std`** _(quick, ✅ IMPL)_ — `tool lib upgrade-std <lib> --std 20 [--dry-run]` sets C++ standard for one library's CMakeLists.txt. Scoped to `libs/<lib>/`. Complements `sol upgrade-std` which operates project-wide.
-- **`sol upgrade-std`** _(quick, ✅ IMPL)_ — `tool sol upgrade-std --std 20 [--target <lib>]` traverses `libs/` and `apps/` CMakeLists.txt, bumps `CXX_STANDARD` to the requested value. `--target <lib>` scopes the change to one library. Dry-run by default.
-- **`sol cmake-version`** _(quick, ✅ IMPL)_ — `tool sol cmake-version detect` prints the installed CMake version and the project's `cmake_minimum_required` value. `tool sol cmake-version set <VERSION> [--dry-run]` updates `cmake_minimum_required(VERSION …)` in every `CMakeLists.txt` (skipping `external/`, `build/`, `_deps/`).
-- **`.clangd` Auto-Generation** _(quick, ✅ IMPL)_ — `tool sol clangd [--dry-run]` locates `compile_commands.json` and emits a `.clangd` file with the correct `CompilationDatabase`, `InlayHints`, and `Diagnostics` sections. Ensures clangd picks up the active preset without manual editor config.
-- **Binary Size Delta Tracking** _(quick, ✅ IMPL)_ — `tool perf size-diff [--base <file>] [--fail-on-growth <bytes>] [--json]` reads the saved `perf_baseline.json` (from `tool perf track`) and compares `.text` / `.data` / `.bss` sections against the current build. `--fail-on-growth` is opt-in; CI does not block by default. Writes `build_logs/size_report.json`.
-
-#### Language & Compiler Evolution
-
-- ✅ **IMPL** **C++20 Modules support** _(medium)_ — `cmake/CxxModules.cmake`: `enable_cxx_modules(<target>)` guarded by `CXX_STANDARD >= 20`; sets `CXX_SCAN_FOR_MODULES ON` (CMake 3.28+); GCC: `-fmodules-ts`; Clang: native. `tool lib add --modules` generates a `.cppm` module-interface+implementation unit stub, skips classic `include/`, registers `FILE_SET CXX_MODULES` in CMakeLists.txt, generates a module-import test. Requires CMake ≥ 3.28, Clang ≥ 16 or GCC ≥ 13.
-- **Stdlib-Aware C++ Detection** _(quick, ✅ IMPL)_ — `cmake/CxxStandard.cmake` extended with a three-strategy detection pipeline. **Strategy A** (fast, no compile): checks `CMAKE_CXX_COMPILE_FEATURES` for `cxx_std_XX` — used as a diagnostic, not a hard gate. **Strategy B** (authoritative): `_cxx_compile_probe()` compiles a canary source with `-std=c++XX`; validates both language support AND stdlib header availability; runs regardless of Strategy A result, catching cross-toolchains where CMake under-populates the feature list. **Strategy C** (last resort): `_compiler_version_max_std()` compiler-version heuristic table (GCC/Clang/MSVC/Intel); emits a `WARNING`; only activated if all compile probes fail. Supported range: **C++98/03 · 11 · 14 · 17 · 20 · 23** (C++03 maps to `98`; each std has a tailored canary source). Cache key: `CXX_COMPILE_PROBE_<std>_OK`.
-
-#### Developer Experience (DX)
-
-- ✅ **IMPL** **IWYU (Include What You Use)** _(medium)_ — `cmake/IWYU.cmake`: `find_program(IWYU_EXECUTABLE names include-what-you-use iwyu)` + `enable_iwyu(<target>)` sets `CXX_INCLUDE_WHAT_YOU_USE`; `cmake/iwyu_mappings.imp` starter mapping file. CLI: `tool format iwyu [--target <lib>] [--fix]` drives `iwyu_tool -p build/` (reads `compile_commands.json`); pipes to `fix_includes` when `--fix` given; falls back to raw `iwyu` binary when `iwyu_tool` absent.
-- ✅ **IMPL** **Compiler Explorer (Godbolt) Integration** _(medium)_ — `tool perf godbolt --source <file> [--compiler <id>] [--flags <flags>] [--save] [--json]` POSTs to `https://godbolt.org/api/compiler/<id>/compile` via `urllib.request` (no external deps). Formats and prints the assembly; `--save` writes to `build_logs/godbolt_<name>.asm`; `--json` prints raw API response. Default compiler: `g131`.
-- ✅ **IMPL** **Binary Reproducibility** _(medium)_ — `cmake/Reproducibility.cmake`: `enable_reproducible_build([TARGET t...])` sets `-ffile-prefix-map=<src>=.` + `-D__DATE__="redacted"` + `-D__TIME__="redacted"`, derives `SOURCE_DATE_EPOCH` from `git log -1 --format=%ct`, forces `ar -D` (deterministic archive member timestamps). `tool build build --reproducible` / `tool build check --reproducible` pass `-DENABLE_REPRODUCIBLE=ON`.
-
-#### Performance & Auto-Tuning
-
-- **Auto-Tuner** _(medium, ✅ IMPL)_ — `tool perf autotune [--strategy hill|grid|random|anneal] [--oracle speed|size|instructions] [--rounds N] [--list-tools] [--T-init T] [--T-alpha α] [--json]` sweeps a compiler-flag search space defined in `tool.toml [autotuner]`. **Oracles:** `speed` (Google Benchmark `cpu_time` sum, default); `size` (`size --format=berkeley` .text+.data bytes, uses `size_flag_candidates`; `bloaty` fallback); `instructions` (`perf stat -e instructions`; `valgrind --tool=callgrind` fallback; falls back to `speed` if neither present). **Strategies:** `hill` (flip one flag per round, keep if improvement); `grid` (cartesian product up to `--rounds`); `random` (sample random combinations); `anneal` (simulated annealing, escapes local optima). `--list-tools` prints tool availability without running trials. Tool detection via `_detect_available_tools()` (probes nm, size, objdump, bloaty, perf, valgrind, hyperfine, gprof). Output: `build_logs/autotune_results.json` + terminal table. Pairs with `libs/dummy_lib/benchmarks/bench_greet.cpp`.
-
-#### Ecosystem & Integration
-
-- ✅ **IMPL** **Conan 2.0 Profile Generation from Presets** _(medium)_ — `tool deps conan-profile generate [--output-dir DIR] [--dry-run]` maps `tool.toml [presets]` matrix (compilers × build_types × linkages × arches) to Conan 2 profiles (`[settings]` compiler, version, cppstd, libcxx, build_type, arch). Respects `skip_combinations` patterns. Auto-detects compiler version via `g++/clang++ --version`. Writes to `~/.conan2/profiles/` when conan is installed; prints to stdout otherwise.
-- ✅ **IMPL** **`tool build docker`** _(medium)_ — `tool build docker [--preset <p>] [--image ubuntu:24.04] [--extra-args ...]` mounts workspace as `/workspace` and runs `python3 scripts/tool.py build build [--preset <p>]` inside the container (`docker run --rm -v $PWD:/workspace`). Forwards extra args to the inner build command.
-- ✅ **IMPL** **Package Publishing** _(long-term)_ — `tool release publish --to github|conan|vcpkg` and `tool release unpublish --to github|conan|vcpkg`. GitHub: `gh release create v<version> [artifacts...]` (CPack products auto-discovered in `build/`; draft created when none found). Conan: `conan upload <ref> --remote <remote> --confirm`. vcpkg: scaffolds `ports/<name>/portfile.cmake` + `ports/<name>/vcpkg.json` overlay port. Each target supports `--dry-run`. unpublish: `gh release delete --cleanup-tag` (GitHub), `conan remove --confirm` (Conan), `shutil.rmtree ports/<name>/` (vcpkg). All helpers guard against missing CLI tools with a clear error message.
-
-#### Tooling Quality
-
-- ✅ **IMPL** **Cross-Compile Sysroot Management** _(medium)_ — `tool sol sysroot add <arch> [--url <tarball-url>] [--dry-run]` creates `sysroots/<arch>/`, downloads+extracts the tarball (when `--url` given) or installs apt cross packages for known arches (aarch64, armv7), writes `sysroots/registry.json`, and patches `cmake/toolchains/<arch>*.cmake` to set `CMAKE_SYSROOT`. `tool sol sysroot list` shows registered sysroots.
-- ✅ **IMPL** **LibFuzzer Native Integration** _(medium)_ — `cmake/Fuzzing.cmake` extended with `enable_libfuzzer(<target>)`: applies `-fsanitize=fuzzer-no-link -fsanitize=address` to an existing library target (Clang only), propagates `-fsanitize=address` link options. Complements `add_fuzz_target()` (which links the full driver); `enable_libfuzzer()` is for instrumented libraries tested by separate harnesses providing `LLVMFuzzerTestOneInput`.
-- ✅ **IMPL** **AMD HIP Support** _(generated; untestable without ROCm SDK)_ — `cmake/HIP.cmake` mirroring `cmake/CUDA.cmake` structure: `enable_hip_support()`, `target_add_hip(<target>)`, `set_hip_architectures(<target> <gfx*-list>)`. Auto-detects GPU via `rocm_agent_enumerator`; falls back to gfx906. `ENABLE_HIP=OFF` by default — the file is silently skipped unless `-DENABLE_HIP=ON` is passed. **Caveat:** the CMake and build logic is correct per ROCm ≥ 5.x conventions but cannot be compiled or tested on this system (no HIP SDK / ROCm stack installed). CI validation requires a ROCm-capable runner.
-
-## Versioning & Release Workflow
-
-We standardize on a single source-of-truth `VERSION` file at the repository root.
-The format is: `<major>.<middle>.<minor>+<revision>` (e.g. `1.2.3+45`). The
-`+<revision>` part is optional and used for build metadata (CI run number or
-build counter).
-
-Key elements:
-
-- `VERSION` (root): canonical version string used by `scripts/release.py` and
-  consumed by `scripts/tool.py` via `GlobalConfig.VERSION` at runtime.
-- `scripts/release.py`: CLI helper to `bump`, `set`, `set-revision`, and
-  `tag`.
-- `tool release`: wrapper that delegates to `scripts/release.py` so releases can
-  be run via the unified CLI (e.g. `python3 scripts/tool.py release bump minor`).
-- `CMakeLists.txt`: reads `VERSION` and uses the three-part base version for the
-  `project(... VERSION ...)` invocation; build metadata (`+revision`) is not
-  passed to CMake project but is available to packaging and docs.
-- CI: `.github/workflows/release.yml` derives a revision (GitHub `run_number`) and
-  runs `scripts/release.py` on tag push or via `workflow_dispatch` (dry-run by
-  default; set `apply: true` on dispatch to perform commit/tag/push).
-
-Workflow summary:
-
-1. Developer runs `python3 scripts/tool.py release bump patch` (or `bump minor/major`).
-2. `scripts/release.py` updates `VERSION`, synchronizes `pyproject.toml`,
-   `extension/package.json`, and top-level `CMakeLists.txt`, then commits.
-3. Optionally `scripts/release.py tag --push` will create and push `v<major>.<middle>.<minor>`.
-4. CI (`release.yml`) can be used to set the `+revision` metadata automatically
-   and optionally publish artifacts.
-
-This approach centralizes version management, reduces accidental drift, and
-provides both manual CLI and CI-driven release paths.
-
-- **Lock Files:** ✅ DONE — `tool deps lock [--managers vcpkg|conan|pip] [--dry-run]` generates `vcpkg.lock.json` (manifest-hash + resolved entries), `conan.lock` (`conan lock create` or snapshot), and `requirements-dev.lock.txt` (`pip-compile` or `pip freeze`). `tool deps verify` checks staleness. `tool deps list` lists all manifests.
-
-## Git leak detection (gitleaks) — ✅ DONE
-
-- **Pre-Commit Hook:** ✅ DONE — `.pre-commit-config.yaml` with gitleaks v8.18.4 hook (blocks commits with secrets), plus pre-commit-hooks, ruff, cmake-format, clang-format.
-- **CI Integration:** ✅ DONE — `.github/workflows/gitleaks.yml` scans all push/PR events + weekly schedule. SARIF upload on failure. PR commenting via `GITLEAKS_ENABLE_COMMENTS`.
-- **Custom Rules:** ✅ DONE — `.gitleaks.toml` with 3 custom rules (CMake private key, SSH credentials, API Bearer tokens) and project-specific allowlists.
-- **Reporting & Alerts:** ✅ DONE — SARIF reports uploaded to GitHub Security; CI workflow fails on detected secrets.
+Template does not prescribe allocators by design. `tool perf valgrind --vg-tool massif` profiles heap usage. Users may link `mimalloc` or `jemalloc` via vcpkg/conan. CMake helper `target_use_allocator()` could be added per user request.
 
 ---
 

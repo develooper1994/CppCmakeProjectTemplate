@@ -2,8 +2,15 @@ add_library(secure_ops STATIC
   src/secure_ops.cpp
 )
 
+include(GenerateExportHeader)
+generate_export_header(secure_ops
+  BASE_NAME SECURE_OPS
+  EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/secure_ops/secure_ops_export.h"
+)
+
 target_include_directories(secure_ops PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
   $<INSTALL_INTERFACE:include>
 )
 

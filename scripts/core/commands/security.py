@@ -33,9 +33,8 @@ def _check_tool(name: str, install_cmd: str, auto_install: bool = False) -> bool
     if auto_install:
         Logger.info(f"Attempting to install '{name}' using: {install_cmd}")
         try:
-            # Split command for run_proc or use shell if it contains pipes/redirects
-            import subprocess
-            subprocess.run(install_cmd, shell=True, check=True)
+            import subprocess, shlex
+            subprocess.run(shlex.split(install_cmd), check=True)
             if shutil.which(name):
                 Logger.success(f"Successfully installed '{name}'.")
                 return True
