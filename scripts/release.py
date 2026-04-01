@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -135,6 +136,212 @@ def update_files(v: Version, dry_run: bool = False) -> None:
             raise
 
 
+# ---------------------------------------------------------------------------
+# Publish / unpublish helpers
+# ---------------------------------------------------------------------------
+
+def _get_project_name() -> str:
+    """Extract project name from top-level CMakeLists.txt."""
+    cmake = PROJECT_ROOT / "CMakeLists.txt"
+    if cmake.exists():
+        m = re.search(r'project\(\s*(\w+)', cmake.read_text(encoding="utf-8"))
+        if m:
+            return m.group(1)
+    return PROJECT_ROOT.name
+
+
+def _require_tool(name: str) -> str:
+    """Return the full path of *name* or raise a clear error."""
+    found = shutil.which(name)
+    if not found:
+        raise RuntimeError(
+            f"Required tool '{name}' not found in PATH.\n"
+            f"Install it and make sure it is on PATH before running this command."
+        )
+    return found
+
+
+def _find_cpack_artifacts(build_dir: Path) -> list[Path]:
+    """Return CPack-generated packages located in *build_dir*."""
+    artifacts: list[Path] = []
+    for pat in ("*.tar.gz", "*.tar.xz", "*.zip", "*.deb", "*.rpm", "*.pkg.tar.zst"):
+        artifacts.extend(build_dir.glob(pat))
+    return sorted(artifacts)
+
+
+# --- GitHub ------------------------------------------------------------------
+
+def publish_github(
+    v: Version,
+    dry_run: bool,
+    signing_key: str | None,
+    notes: str | None,
+    build_dir: Path,
+) -> None:
+    tag = f"v{v.base()}"
+    gh = _require_tool("gh")
+
+    artifacts = _find_cpack_artifacts(build_dir)
+    if artifacts:
+        Logger.info(f"Found {len(artifacts)} CPack artifact(s):")
+        for a in artifacts:
+            Logger.info(f"  {a.name}")
+    else:
+        Logger.warn(
+            "No CPack artifacts found in build/.\n"
+            "Run: cmake --build --preset <preset> --target package\n"
+            "Continuing — release will be created as a draft without binaries."
+        )
+
+    cmd = [
+        gh, "release", "create", tag,
+        "--title", tag,
+        "--notes", notes or f"Release {tag}",
+    ]
+    if not artifacts:
+        cmd.append("--draft")
+    else:
+        cmd.extend(str(a) for a in artifacts)
+
+    Logger.info(f"GitHub: gh release create {tag} ...")
+    if dry_run:
+        Logger.info(f"[DRY-RUN] Would run: {' '.join(cmd)}")
+        return
+    subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
+    Logger.success(f"GitHub release {tag} created.")
+
+
+def unpublish_github(v: Version, dry_run: bool, keep_tag: bool) -> None:
+    tag = f"v{v.base()}"
+    gh = _require_tool("gh")
+
+    cmd = [gh, "release", "delete", tag, "--yes"]
+    if not keep_tag:
+        cmd.append("--cleanup-tag")
+
+    Logger.info(f"GitHub: deleting release {tag} ...")
+    if dry_run:
+        Logger.info(f"[DRY-RUN] Would run: {' '.join(cmd)}")
+        return
+    subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
+    Logger.success(f"GitHub release {tag} deleted{'' if keep_tag else ' (tag removed)'}.")
+
+
+# --- Conan -------------------------------------------------------------------
+
+def _conan_ref(v: Version, user: str, channel: str) -> str:
+    name = _get_project_name().lower().replace("-", "_")
+    if user and channel:
+        return f"{name}/{v.base()}@{user}/{channel}"
+    return f"{name}/{v.base()}"
+
+
+def publish_conan(
+    v: Version,
+    dry_run: bool,
+    remote: str,
+    user: str,
+    channel: str,
+) -> None:
+    ref = _conan_ref(v, user, channel)
+    conan = _require_tool("conan")
+
+    cmd = [conan, "upload", ref, "--remote", remote, "--confirm"]
+    Logger.info(f"Conan: uploading {ref} → {remote} ...")
+    if dry_run:
+        Logger.info(f"[DRY-RUN] Would run: {' '.join(cmd)}")
+        return
+    subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
+    Logger.success(f"Conan package {ref} uploaded to '{remote}'.")
+
+
+def unpublish_conan(
+    v: Version,
+    dry_run: bool,
+    remote: str,
+    user: str,
+    channel: str,
+) -> None:
+    ref = _conan_ref(v, user, channel)
+    conan = _require_tool("conan")
+
+    cmd = [conan, "remove", ref, "--remote", remote, "--confirm"]
+    Logger.info(f"Conan: removing {ref} from '{remote}' ...")
+    if dry_run:
+        Logger.info(f"[DRY-RUN] Would run: {' '.join(cmd)}")
+        return
+    subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
+    Logger.success(f"Conan package {ref} removed from '{remote}'.")
+
+
+# --- vcpkg overlay port ------------------------------------------------------
+
+def publish_vcpkg(v: Version, dry_run: bool) -> None:
+    project = _get_project_name()
+    name_lower = project.lower()
+    port_dir = PROJECT_ROOT / "ports" / name_lower
+
+    portfile_content = f"""\
+# Auto-generated vcpkg overlay port for {project} {v.base()}
+# Fill in the SHA512 after the first download, then remove this comment.
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO "<owner>/{project}"
+    REF "v{v.base()}"
+    SHA512 0  # TODO: replace with actual SHA512
+    HEAD_REF main
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH "${{SOURCE_PATH}}"
+)
+vcpkg_cmake_install()
+vcpkg_cmake_config_fixup()
+
+file(REMOVE_RECURSE "${{CURRENT_PACKAGES_DIR}}/debug/include")
+vcpkg_install_copyright(FILE_LIST "${{SOURCE_PATH}}/LICENSE")
+"""
+
+    vcpkg_manifest = {
+        "name": name_lower,
+        "version": v.base(),
+        "description": f"{project} — generated vcpkg overlay port",
+        "dependencies": [],
+    }
+
+    Logger.info(f"vcpkg: scaffolding overlay port at {port_dir}/")
+    if dry_run:
+        Logger.info(f"[DRY-RUN] Would create {port_dir}/portfile.cmake")
+        Logger.info(f"[DRY-RUN] Would create {port_dir}/vcpkg.json")
+        return
+
+    port_dir.mkdir(parents=True, exist_ok=True)
+    (port_dir / "portfile.cmake").write_text(portfile_content, encoding="utf-8")
+    (port_dir / "vcpkg.json").write_text(
+        json.dumps(vcpkg_manifest, indent=2) + "\n", encoding="utf-8"
+    )
+    Logger.success(f"vcpkg overlay port scaffolded at {port_dir}/")
+    Logger.info("Next steps: fill in the SHA512 in portfile.cmake, then submit to a vcpkg registry.")
+
+
+def unpublish_vcpkg(v: Version, dry_run: bool) -> None:
+    name_lower = _get_project_name().lower()
+    port_dir = PROJECT_ROOT / "ports" / name_lower
+
+    if not port_dir.exists():
+        Logger.warn(f"vcpkg port directory not found: {port_dir} — nothing to remove.")
+        return
+
+    Logger.info(f"vcpkg: removing overlay port at {port_dir}/")
+    if dry_run:
+        Logger.info(f"[DRY-RUN] Would remove: {port_dir}/")
+        return
+    shutil.rmtree(port_dir)
+    Logger.success(f"vcpkg overlay port removed: {port_dir}/")
+
+
+# ---------------------------------------------------------------------------
+
 def create_tag(v: Version, push: bool = False, signing_key: str | None = None) -> None:
     tag_name = f"v{v.base()}"  # tag only with base version, omit +revision
     try:
@@ -177,10 +384,39 @@ def main(argv: Optional[list[str]] = None) -> int:
     pt.add_argument("--signing-key", default=None, metavar="KEY_ID",
                     help="GPG key ID for signing the tag (uses git tag -s)")
 
-    pp = sub.add_parser("publish", help="Publish release artifacts")
+    pp = sub.add_parser("publish", help="Publish release artifacts to a target registry")
+    pp.add_argument(
+        "--to", dest="target", required=True,
+        choices=["github", "conan", "vcpkg"],
+        help="Publish target: github | conan | vcpkg",
+    )
     pp.add_argument("--dry-run", action="store_true")
     pp.add_argument("--signing-key", default=None, metavar="KEY_ID",
-                    help="GPG key ID for signing artifacts")
+                    help="GPG key ID for signing artifacts (GitHub only, future use)")
+    pp.add_argument("--notes", default=None, metavar="TEXT",
+                    help="Release notes text (GitHub only)")
+    pp.add_argument("--build-dir", default=None, metavar="DIR",
+                    help="Directory to search for CPack artifacts (default: build/)")
+    pp.add_argument("--remote", default="conancenter", metavar="REMOTE",
+                    help="Conan remote name (default: conancenter)")
+    pp.add_argument("--conan-user", default="", metavar="USER",
+                    help="Conan package user (leave empty for no user/channel)")
+    pp.add_argument("--conan-channel", default="", metavar="CHANNEL",
+                    help="Conan package channel (leave empty for no user/channel)")
+
+    pu = sub.add_parser("unpublish", help="Delete/retract a previously published release")
+    pu.add_argument(
+        "--to", dest="target", required=True,
+        choices=["github", "conan", "vcpkg"],
+        help="Target to delete from: github | conan | vcpkg",
+    )
+    pu.add_argument("--dry-run", action="store_true")
+    pu.add_argument("--keep-tag", action="store_true",
+                    help="GitHub: keep the git tag when deleting the release")
+    pu.add_argument("--remote", default="conancenter", metavar="REMOTE",
+                    help="Conan remote name (default: conancenter)")
+    pu.add_argument("--conan-user", default="", metavar="USER")
+    pu.add_argument("--conan-channel", default="", metavar="CHANNEL")
 
     args = p.parse_args(argv)
 
@@ -223,15 +459,49 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     if args.cmd == "publish":
-        Logger.info("Publish: packaging release artifacts...")
-        signing_key = getattr(args, "signing_key", None)
-        if signing_key:
-            Logger.info(f"Signing with GPG key: {signing_key}")
-        if getattr(args, "dry_run", False):
-            Logger.info("[DRY-RUN] Would publish release artifacts")
-        else:
-            Logger.info("Release artifact publishing is configured via CI. "
-                        "Use 'tool build extension --publish' or the release CI workflow.")
+        dry = bool(args.dry_run)
+        target = args.target
+        try:
+            if target == "github":
+                bd = Path(args.build_dir) if args.build_dir else PROJECT_ROOT / "build"
+                publish_github(
+                    current, dry_run=dry,
+                    signing_key=args.signing_key,
+                    notes=args.notes,
+                    build_dir=bd,
+                )
+            elif target == "conan":
+                publish_conan(
+                    current, dry_run=dry,
+                    remote=args.remote,
+                    user=args.conan_user,
+                    channel=args.conan_channel,
+                )
+            elif target == "vcpkg":
+                publish_vcpkg(current, dry_run=dry)
+        except RuntimeError as e:
+            Logger.error(str(e))
+            return 1
+        return 0
+
+    if args.cmd == "unpublish":
+        dry = bool(args.dry_run)
+        target = args.target
+        try:
+            if target == "github":
+                unpublish_github(current, dry_run=dry, keep_tag=bool(args.keep_tag))
+            elif target == "conan":
+                unpublish_conan(
+                    current, dry_run=dry,
+                    remote=args.remote,
+                    user=args.conan_user,
+                    channel=args.conan_channel,
+                )
+            elif target == "vcpkg":
+                unpublish_vcpkg(current, dry_run=dry)
+        except RuntimeError as e:
+            Logger.error(str(e))
+            return 1
         return 0
 
     return 0

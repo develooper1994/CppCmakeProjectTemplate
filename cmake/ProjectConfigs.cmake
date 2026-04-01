@@ -38,6 +38,9 @@ option(ENABLE_QML           "Enable Qt QML/Quick (requires ENABLE_QT)"         O
 # --- CUDA / GPU Options ---
 option(ENABLE_CUDA          "Enable CUDA language and GPU target support"       OFF)
 
+# --- AMD HIP / ROCm Options ---
+option(ENABLE_HIP           "Enable AMD HIP language and GPU target support (requires ROCm)" OFF)
+
 # --- Master list — drives FeatureFlags.cmake dynamic generation ---
 # Add new options here; FeatureFlags.h will update automatically on next cmake run.
 set(PROJECT_ALL_OPTIONS
@@ -52,7 +55,7 @@ set(PROJECT_ALL_OPTIONS
     # Parallelization
     OPENMP OPENMP_SIMD AUTO_PARALLEL
     # Frameworks
-    QT QML CUDA BOOST
+    QT QML CUDA HIP BOOST
     # Misc
     DOCS
     CACHE STRING "All ENABLE_* toggle options (drives FeatureFlags.h generation)" FORCE

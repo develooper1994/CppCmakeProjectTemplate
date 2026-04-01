@@ -52,6 +52,7 @@ include(Benchmark)
 include(OpenMP)
 include(Qt)
 include(CUDA)
+include(HIP)
 generate_feature_flags()
 
 # INTERFACE library — attach once, all targets inherit FeatureFlags.h
