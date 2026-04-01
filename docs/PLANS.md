@@ -100,7 +100,7 @@ This document lists the project's current capabilities, governance policies, and
 
   8. Granular Control: expose per-target and per-script toggles in `core.utils.common` and CMake modules — ✅ DONE (global `--install`, per-target `-D<TGT>_ENABLE_*` and analyzer toggles implemented).
 
-  Notes: Remaining follow-ups are maintenance and incremental improvements (corpus triage automation, crash minimization, alerting and retention policy tuning). These are lower-priority operational tasks tracked in the repo's issue tracker.
+  Notes: Remaining follow-ups are maintenance and incremental improvements. Initial implementations for corpus triage automation and crash minimization have been added (see `scripts/fuzz/triage.py` and `scripts/fuzz/findings_collector.py`). Alerting and retention policy tuning remain as operational tasks tracked in the repo's issue tracker.
 
 - **Dynamic Static Analysis:** ✅ DONE — `.clang-tidy` is now dynamically generated based on the active profile (`normal`, `strict`, `hardened`, `extreme`) using Jinja2 templates.
   - `hardened/extreme` profiles enforce `WarningsAsErrors: "*"`.
