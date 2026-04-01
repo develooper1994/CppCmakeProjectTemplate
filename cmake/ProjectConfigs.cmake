@@ -25,6 +25,12 @@ option(ENABLE_LTO               "Enable Link-Time Optimization"             OFF)
 option(ENABLE_CCACHE            "Enable compiler caching (ccache/sccache)"  ON)
 option(ENABLE_BENCHMARKS        "Build Google Benchmark targets"             OFF)
 option(ENABLE_VEC_REPORT        "Emit vectorization info (-fopt-info-vec / -Rpass)" OFF)
+set(ENABLE_ALLOCATOR "default" CACHE STRING
+    "Allocator backend (default|mimalloc|jemalloc|tcmalloc)")
+set_property(CACHE ENABLE_ALLOCATOR PROPERTY STRINGS default mimalloc jemalloc tcmalloc)
+option(ENABLE_ALLOCATOR_OVERRIDE_ALL
+    "Apply selected allocator backend to all executables/benchmarks"
+    OFF)
 
 # --- Parallelization Options ---
 option(ENABLE_OPENMP        "Enable OpenMP threading (links libgomp)"         OFF)

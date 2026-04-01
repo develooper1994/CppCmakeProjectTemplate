@@ -9,6 +9,10 @@ target_link_libraries(main_app
         dummy_lib
         project_feature_flags)
 
+if(COMMAND project_apply_allocator)
+    project_apply_allocator(main_app)
+endif()
+
 # Apply project-wide warnings
 set_project_warnings(main_app)
 

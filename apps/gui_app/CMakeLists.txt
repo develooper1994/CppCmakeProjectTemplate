@@ -21,6 +21,10 @@ endif()
 # Also link our own library
 target_link_libraries(gui_app PRIVATE dummy_lib)
 
+if(COMMAND project_apply_allocator)
+    project_apply_allocator(gui_app)
+endif()
+
 # Apply project-wide warnings
 set_project_warnings(gui_app)
 

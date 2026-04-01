@@ -1,5 +1,8 @@
 add_executable(test_fuzzable test_fuzzable.cpp)
 target_link_libraries(test_fuzzable PRIVATE fuzzable gtest_main project_feature_flags)
+if(COMMAND project_apply_allocator)
+	project_apply_allocator(test_fuzzable)
+endif()
 # Tests are allowed to run with a relaxed analyzer configuration so they do not
 # fail hardened builds but analyzers still provide useful feedback.
 apply_relaxed_analyzers(test_fuzzable)

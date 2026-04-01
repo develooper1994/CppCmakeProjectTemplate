@@ -92,6 +92,9 @@ install(TARGETS dummy_lib
 if(ENABLE_BENCHMARKS AND TARGET benchmark::benchmark)
     add_executable(bench_greet benchmarks/bench_greet.cpp)
     target_link_libraries(bench_greet PRIVATE dummy_lib)
+    if(COMMAND project_apply_allocator)
+        project_apply_allocator(bench_greet)
+    endif()
     target_apply_benchmark_options(bench_greet)
 
     message(STATUS "[dummy_lib] Benchmark target 'bench_greet' registered.")

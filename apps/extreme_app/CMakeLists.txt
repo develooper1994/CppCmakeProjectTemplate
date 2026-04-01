@@ -6,6 +6,10 @@ target_include_directories(extreme_app PRIVATE
 
 target_link_libraries(extreme_app PRIVATE secure_ops)
 
+if(COMMAND project_apply_allocator)
+  project_apply_allocator(extreme_app)
+endif()
+
 # Ensure extreme-app is built with project hardening in CI; it should be
 # written to avoid exceptions/RTTI so it passes `extreme` profile.
 set_target_properties(extreme_app PROPERTIES EXCLUDE_FROM_ALL FALSE)

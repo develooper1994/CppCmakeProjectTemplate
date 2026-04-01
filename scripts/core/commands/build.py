@@ -232,6 +232,13 @@ def _impl_cmd_build(args) -> None:
         extra_args.append("-DENABLE_REPRODUCIBLE=ON")
         Logger.info("Reproducible build enabled (source paths stripped, deterministic ar)")
 
+    # Optional allocator backend
+    allocator = getattr(args, "allocator", "default")
+    if allocator and allocator != "default":
+        extra_args.append(f"-DENABLE_ALLOCATOR={allocator}")
+        extra_args.append("-DENABLE_ALLOCATOR_OVERRIDE_ALL=ON")
+        Logger.info(f"Allocator backend enabled: {allocator}")
+
     # 1. Profile Logic (Hardening & Warnings)
     if profile == "extreme":
         Logger.warn("EXTREME profile active: Maximum hardening, no-exceptions, no-rtti, full RELRO.")
@@ -584,6 +591,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--qml", action="store_true", help="Enable Qt QML/Quick (-DENABLE_QT=ON -DENABLE_QML=ON)")
     p.add_argument("--reproducible", action="store_true",
                    help="Enable binary reproducibility (-DENABLE_REPRODUCIBLE=ON)")
+    p.add_argument("--allocator", choices=["default", "mimalloc", "jemalloc", "tcmalloc"],
+                   default="default",
+                   help="Optional allocator backend (default keeps system allocator)")
     p.set_defaults(func=cmd_build)
 
     # check
@@ -612,6 +622,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--qml", action="store_true", help="Enable Qt QML/Quick")
     p.add_argument("--reproducible", action="store_true",
                    help="Enable binary reproducibility (-DENABLE_REPRODUCIBLE=ON)")
+    p.add_argument("--allocator", choices=["default", "mimalloc", "jemalloc", "tcmalloc"],
+                   default="default",
+                   help="Optional allocator backend (default keeps system allocator)")
     p.add_argument("--no-sync", action="store_true")
     p.set_defaults(func=cmd_check)
 
