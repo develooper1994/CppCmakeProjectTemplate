@@ -202,6 +202,11 @@ def _impl_cmd_build(args) -> None:
             extra_args.append(f"-DPGO_PROFILE_DIR={pgo_dir}")
         Logger.info(f"PGO mode: {pgo_mode}")
 
+    # BOLT
+    if getattr(args, "bolt", False):
+        extra_args.append("-DENABLE_BOLT=ON")
+        Logger.info("BOLT post-link optimization targets enabled (use bolt-instrument-<target> / bolt-optimize-<target> targets)")
+
     # 1. Profile Logic (Hardening & Warnings)
     if profile == "extreme":
         Logger.warn("EXTREME profile active: Maximum hardening, no-exceptions, no-rtti, full RELRO.")
@@ -498,6 +503,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Profile-Guided Optimization mode")
     p.add_argument("--pgo-dir", default=None, metavar="DIR",
                    help="PGO profile data directory (default: build/pgo-profiles)")
+    p.add_argument("--bolt", action="store_true",
+                   help="Enable LLVM BOLT post-link optimization targets (requires llvm-bolt)")
     p.set_defaults(func=cmd_build)
 
     # check
@@ -515,6 +522,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Profile-Guided Optimization mode")
     p.add_argument("--pgo-dir", default=None, metavar="DIR",
                    help="PGO profile data directory")
+    p.add_argument("--bolt", action="store_true",
+                   help="Enable LLVM BOLT post-link optimization targets (requires llvm-bolt)")
     p.add_argument("--no-sync", action="store_true")
     p.set_defaults(func=cmd_check)
 

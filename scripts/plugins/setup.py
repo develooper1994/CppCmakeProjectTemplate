@@ -2,11 +2,22 @@
 """
 plugins/setup.py — Dependency checker/installer plugin.
 
-Usage: tool setup [--install] [--all] [--env [DIR]] [--install-env] [--recreate]
+Usage: tool setup [--install] [--do-install] [--all] [--env [DIR]] [--install-env] [--recreate]
+
+  --install      Show the install command (informational)
+  --do-install   Actually run 'sudo apt install ...' / 'brew install ...' to install
+  --all          Include optional packages in the check/install
+  --env [DIR]    Create/activate a Python venv (default dir: .venv)
+  --install-env  Install requirements-dev.txt into the venv
+  --recreate     Recreate venv if it already exists
 """
 from __future__ import annotations
 
 import argparse
+import platform
+import shlex
+import subprocess
+import sys
 from pathlib import Path
 from core.utils.common import (
     Logger,
@@ -23,50 +34,123 @@ PLUGIN_META = {
 }
 
 MANDATORY_SYS = {
-    "cmake": "cmake",
-    "ninja": "ninja-build",
-    "git": "git",
+    "cmake":   "cmake",
+    "ninja":   "ninja-build",
+    "git":     "git",
     "python3": "python3",
 }
 
 OPTIONAL_SYS = {
-    "lcov": "lcov",
-    "doxygen": "doxygen",
-    "clang": "clang",
-    "cppcheck": "cppcheck",
+    "lcov":        "lcov",
+    "doxygen":     "doxygen",
+    "clang":       "clang",
+    "clang-tidy":  "clang-tidy",
+    "cppcheck":    "cppcheck",
     "osv-scanner": "osv-scanner",
+    "valgrind":    "valgrind",
+    "ccache":      "ccache",
+    "gitleaks":    "gitleaks",
+}
+
+# Map from package name to Homebrew formula (macOS)
+_BREW_MAP: dict[str, str] = {
+    "cmake":       "cmake",
+    "ninja-build": "ninja",
+    "git":         "git",
+    "python3":     "python",
+    "lcov":        "lcov",
+    "doxygen":     "doxygen",
+    "clang":       "llvm",
+    "clang-tidy":  "llvm",
+    "cppcheck":    "cppcheck",
+    "valgrind":    "valgrind",
+    "ccache":      "ccache",
+    "gitleaks":    "gitleaks",
 }
 
 
+def _detect_package_manager() -> str:
+    """Return 'apt', 'brew', 'dnf', 'pacman', or 'unknown'."""
+    sys_name = platform.system().lower()
+    if sys_name == "darwin":
+        if shutil.which("brew"):
+            return "brew"
+    for pm in ("apt-get", "dnf", "pacman"):
+        if shutil.which(pm):
+            return pm.split("-")[0]  # 'apt-get' -> 'apt'
+    return "unknown"
+
+
+def _build_install_cmd(pkg_manager: str, packages: list[str]) -> list[str] | None:
+    """Return a ready-to-run install command list, or None if unsupported."""
+    if pkg_manager == "apt":
+        return ["sudo", "apt-get", "install", "-y"] + packages
+    if pkg_manager == "brew":
+        brew_pkgs = [_BREW_MAP.get(p, p) for p in packages]
+        return ["brew", "install"] + list(dict.fromkeys(brew_pkgs))  # deduplicate
+    if pkg_manager == "dnf":
+        return ["sudo", "dnf", "install", "-y"] + packages
+    if pkg_manager == "pacman":
+        return ["sudo", "pacman", "-S", "--noconfirm"] + packages
+    return None
+
+
+import shutil  # noqa: E402 (after function def to avoid issue)
+
+
 def main(argv: list[str]) -> None:
-    parser = argparse.ArgumentParser(prog="tool setup")
-    parser.add_argument("--install", action="store_true", help="(informational) show installation command")
-    parser.add_argument("--all", action="store_true", help="Include optional packages in the check")
-    parser.add_argument("--env", nargs="?", const=".venv", default=None, help="Create Python venv (optional dir, default: .venv)")
-    parser.add_argument("--install-env", action="store_true", help="Install requirements-dev.txt into created venv")
-    parser.add_argument("--recreate", action="store_true", help="Recreate venv if it exists")
+    parser = argparse.ArgumentParser(prog="tool setup",
+                                     description="Check and install project dependencies.")
+    parser.add_argument("--install", action="store_true",
+                        help="Show installation command (informational)")
+    parser.add_argument("--do-install", action="store_true", dest="do_install",
+                        help="Actually run the package manager to install missing packages")
+    parser.add_argument("--all", action="store_true",
+                        help="Include optional packages in the check/install")
+    parser.add_argument("--env", nargs="?", const=".venv", default=None,
+                        help="Create Python venv (optional dir, default: .venv)")
+    parser.add_argument("--install-env", action="store_true", dest="install_env",
+                        help="Install requirements-dev.txt into the created venv")
+    parser.add_argument("--recreate", action="store_true",
+                        help="Recreate venv if it already exists")
     args = parser.parse_args(argv)
 
-    # 1. System Dependencies
-    missing = find_missing_binaries(MANDATORY_SYS)
+    # ── 1. System Dependencies ──────────────────────────────────────────────
+    deps_to_check = dict(MANDATORY_SYS)
     if args.all:
-        missing.update(find_missing_binaries(OPTIONAL_SYS))
+        deps_to_check.update(OPTIONAL_SYS)
+
+    missing = find_missing_binaries(deps_to_check)
 
     if not missing:
-        Logger.success("All system dependencies appear to be installed.")
+        Logger.success("All system dependencies are installed.")
     else:
-        Logger.warn("Missing system dependencies detected:")
-        for k, v in missing.items():
-            print(f" - {k}  (package: {v})")
-        
-        pkgs = " ".join(sorted(set(missing.values())))
-        cmd = f"sudo apt install -y {pkgs}"
-        if args.install:
-            print(f"\nSuggested command to install on Debian/Ubuntu:\n{cmd}")
-        else:
-            print("\nRun with --install to show install command.")
+        Logger.warn("Missing system dependencies:")
+        for bin_name, pkg in missing.items():
+            print(f"  - {bin_name:<18} (package: {pkg})")
 
-    # 2. Python Venv
+        pm = _detect_package_manager()
+        pkg_list = sorted(set(missing.values()))
+        install_cmd = _build_install_cmd(pm, pkg_list)
+
+        if install_cmd is None:
+            Logger.warn(f"Unsupported package manager '{pm}'. Install manually:")
+            for p in pkg_list:
+                print(f"  {p}")
+        elif args.do_install:
+            Logger.info(f"Running: {shlex.join(install_cmd)}")
+            rc = subprocess.run(install_cmd).returncode
+            if rc == 0:
+                Logger.success("System packages installed successfully.")
+            else:
+                Logger.error(f"Install failed with exit code {rc}.")
+                sys.exit(rc)
+        elif args.install:
+            print(f"\nInstall command ({pm}):\n  {shlex.join(install_cmd)}")
+        else:
+            print(f"\nRe-run with --install to see the install command, or --do-install to run it.")
+
+    # ── 2. Python Venv ──────────────────────────────────────────────────────
     if args.env is not None:
         env_path = PROJECT_ROOT / args.env
         py_exe = create_venv(env_path, recreate=args.recreate)

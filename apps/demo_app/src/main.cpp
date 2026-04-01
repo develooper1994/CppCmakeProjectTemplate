@@ -22,7 +22,7 @@ public:
 
     ~ScopedTimer() {
         auto end = std::chrono::high_resolution_clock::now();
-        auto us  = std::chrono::duration_cast<std::chrono::microseconds>(end - start_).count();
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start_).count();
         std::cout << "[perf] " << label_ << ": " << us << " µs\n";
     }
 
@@ -33,31 +33,29 @@ public:
     }
 
 private:
-    const char*                                          label_;
-    std::chrono::high_resolution_clock::time_point       start_;
+    const char* label_;
+    std::chrono::high_resolution_clock::time_point start_;
 };
 
 /// Simple throughput counter: records N iterations and prints ops/s.
 class ThroughputCounter {
 public:
     explicit ThroughputCounter(const char* label, std::int64_t iterations)
-        : label_(label), iters_(iterations),
-          start_(std::chrono::high_resolution_clock::now()) {}
+        : label_(label), iters_(iterations), start_(std::chrono::high_resolution_clock::now()) {}
 
     ~ThroughputCounter() {
         auto end = std::chrono::high_resolution_clock::now();
         double secs = std::chrono::duration<double>(end - start_).count();
         double ops_per_s = (secs > 0.0) ? static_cast<double>(iters_) / secs : 0.0;
-        std::cout << "[perf] " << label_
-                  << ": " << iters_ << " ops in "
+        std::cout << "[perf] " << label_ << ": " << iters_ << " ops in "
                   << static_cast<std::int64_t>(secs * 1000) << " ms"
                   << "  →  " << static_cast<std::int64_t>(ops_per_s) << " ops/s\n";
     }
 
 private:
-    const char*                                          label_;
-    std::int64_t                                         iters_;
-    std::chrono::high_resolution_clock::time_point       start_;
+    const char* label_;
+    std::int64_t iters_;
+    std::chrono::high_resolution_clock::time_point start_;
 };
 
 } // namespace perf

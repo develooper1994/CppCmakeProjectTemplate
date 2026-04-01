@@ -61,7 +61,7 @@ This document lists the project's current capabilities, governance policies, and
 
 - **Jinja2 Migration:** ✅ DONE — Integrated for `libpkg` and `sol` subsystems with fallback behavior.
 - **Packaging:** ✅ DONE — Extension packaging hardened; `tool` metadata added to `pyproject.toml`.
-- **Bootstrap (`tool setup`):** ✅ DONE — Venv bootstrap and dependency installation supported.
+- **Bootstrap (`tool setup`):** ✅ DONE — `tool setup [--install] [--do-install] [--all] [--env] [--install-env] [--recreate]`. Checks mandatory (cmake, ninja, git, python3) and optional (lcov, doxygen, clang, clang-tidy, cppcheck, osv-scanner, valgrind, ccache, gitleaks) system dependencies. `--install` shows the install command; `--do-install` actually runs it via apt/brew/dnf/pacman auto-detection. Creates/populates Python venv.
 - **Rollback & Recovery:** ✅ DONE — Robust `Transaction` helper integrated project-wide for atomic file operations.
 
 ### Phase 3: Test Strategy & Structured CI (Status & progress) - Completed
@@ -145,7 +145,7 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 
 - **Performance Tracking:** ✅ DONE — `tool perf track` saves a size+build-time baseline to `build_logs/perf_baseline.json` (13+ artifacts tracked).
 - **Performance Budget:** ✅ DONE — `tool perf check-budget [--size-threshold N] [--time-threshold N]` compares current build vs baseline, fails CI on regressions.
-- **Profile-Guided Optimization (PGO):** ✅ DONE — `cmake/PGO.cmake` supports two-phase PGO (generate/use) for GCC, Clang, and MSVC. CLI: `tool build --pgo generate|use --pgo-dir <dir>`. Per-target override: `-D<TARGET>_ENABLE_PGO=ON/OFF`.
+- **Profile-Guided Optimization (PGO):** ✅ DONE — `cmake/PGO.cmake` supports two-phase PGO (generate/use) for GCC, Clang, and MSVC. CLI: `tool build --pgo generate|use --pgo-dir <dir>`. Per-target override: `-D<TARGET>_ENABLE_PGO=ON/OFF`. **BOLT post-link optimization** also supported via `ENABLE_BOLT=ON` (adds `bolt-instrument-<target>` / `bolt-optimize-<target>` CMake targets; requires `llvm-bolt ≥ 14`). CLI: `tool build --bolt`.
 - **Link-Time Optimization (LTO):** ✅ DONE — `cmake/LTO.cmake` with `CheckIPOSupported`, per-target support, thin LTO for Clang. CLI: `tool build --lto`. Per-target override: `-D<TARGET>_ENABLE_LTO=ON/OFF`.
 - **Build Caching:** ✅ DONE — `cmake/BuildCache.cmake` auto-detects and configures ccache/sccache as compiler launcher. `-DENABLE_CCACHE=ON` (default). Override: `-DCACHE_PROGRAM=/path/to/ccache`.
 - **Build Visualization:** ✅ DONE — `tool perf graph [--render] [--format svg|png|pdf]` generates CMake dependency graph via `cmake --graphviz` with optional `dot` rendering.
@@ -158,8 +158,8 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 - **Performance Profiling Integration:** ✅ DONE — `tool perf stat` wraps Linux `perf stat` (with `time -v` fallback) for CPU/cache counter profiling; `tool perf record` flag generates `perf.data` for flame graphs.
 - **Automated Performance Regression Detection:** ✅ DONE — `.github/workflows/perf_regression.yml` runs on every push/PR: builds release preset, restores cached baseline, runs `tool perf check-budget` (10% size / 25% time thresholds), uploads size+build-time reports as artifacts. Weekly schedule refreshes the baseline.
 - **Documentation of Performance Best Practices:** ✅ DONE — `docs/PERFORMANCE.md` created with comprehensive guide covering ccache/sccache, LTO, thin LTO, PGO two-phase workflow, `perf size`, `perf build-time`, CMake configure summary table, and recommended release profile. `docs/BUILD_SETTINGS.md` and `docs/BUILD_INFO.md` also updated.
-- **Performance Annotations:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` demonstrates `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` cross-platform macros, `SetBytesProcessed`, `SetItemsProcessed`.
-- **Compiler-Specific Optimizations:** ✅ DONE — `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` macros in `bench_greet.cpp` with GCC/Clang/MSVC guards. Integrated into benchmark targets via `cmake/Benchmark.cmake`.
+- **Performance Annotations:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` shows real compute-heavy benchmarks: Sieve of Eratosthenes (cache-friendly), Monte Carlo π (branch-heavy), matrix multiply naïve vs. cache-tiled (cache locality), Newton-Raphson √ (FPU-bound convergence), recursive Fibonacci (recursion depth, LTO gain). Cross-platform `ATTR_HOT`/`ATTR_NOINLINE` macros, `SetBytesProcessed`/`SetItemsProcessed` throughput reporting. Build with `--preset gcc-release-static-x86_64 -DENABLE_BENCHMARKS=ON` to compare optimization levels.
+- **Compiler-Specific Optimizations:** ✅ DONE — `ATTR_HOT`/`ATTR_NOINLINE` macros in `bench_greet.cpp` with GCC/Clang/MSVC guards. Integrated into benchmark targets via `cmake/Benchmark.cmake`. BOLT workflow documented in `cmake/PGO.cmake` (LLVM ≥ 14).
 - **Runtime Performance Metrics:** ✅ DONE — `apps/demo_app/src/main.cpp` demonstrates `perf::ScopedTimer` (µs wall-clock RAII) and `perf::ThroughputCounter` (ops/s) using `std::chrono::high_resolution_clock`. Zero-dependency, header-inline, cross-platform.
 - **Automated Performance Tuning:** _(Future Work)_ — PGO (already implemented) is the primary automated tuning strategy. Auto-tuning frameworks (e.g., OpenTuner) are out of scope for V1.
 - **Performance-Focused Code Reviews:** ✅ DONE — `docs/PERFORMANCE.md` contains a comprehensive guide covering ccache, LTO, PGO, vectorization, `perf stat`, flame graphs, and benchmark best practices.
@@ -180,7 +180,7 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 ### Phase 7: Configuration & State Management — ✅ DONE
 
 - **`tool.toml`:** ✅ DONE — `tool.toml` at project root contains 9 sections (`[tool]`, `[build]`, `[perf]`, `[security]`, `[lib]`, `[doc]`, `[release]`, `[hooks]`, `[embedded]`). Read by `scripts/core/utils/config_loader.py` via `tomllib` (Python 3.11+) with `tomli` fallback and minimal built-in parser. Values flow into `GlobalConfig` at dispatcher startup. CLI args always take precedence.
-- **State Persistence:** ✅ DONE — `.tool/state.json` session history managed by `scripts/core/commands/session.py`.
+- **State Persistence:** ✅ DONE — `.session.json` at project root stores session history (last preset, verbose/json/yes/dry_run flags, default command). Managed by `scripts/core/commands/session.py` via `load_session()`, `save_session()`, `backup_session()` in `core.utils.common`. Both `tool.py` and `tui.py` share this single file – `tool session save/load/set` subcommands expose it via CLI.
 
 ## Versioning & Release Workflow
 

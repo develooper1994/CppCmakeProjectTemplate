@@ -277,6 +277,23 @@ def save_session(data: dict) -> None:
     # Do not write a separate TUI session file; prefer the shared `SESSION_FILE` only.
 
 
+def backup_session() -> Path | None:
+    """Create a timestamped backup of the current session file.
+
+    Returns the backup path on success, or None if no session file exists.
+    """
+    if not SESSION_FILE.exists():
+        return None
+    try:
+        import time as _time
+        ts = int(_time.time())
+        bak = SESSION_FILE.with_suffix(f".{ts}.bak.json")
+        bak.write_bytes(SESSION_FILE.read_bytes())
+        return bak
+    except Exception:
+        return None
+
+
 def find_missing_binaries(binaries: dict[str, str]) -> dict[str, str]:
     """Check for existence of binaries. Returns dict of missing {bin: pkg_name}."""
     missing = {}
