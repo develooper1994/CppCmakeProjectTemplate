@@ -238,6 +238,10 @@ def _impl_cmd_build(args) -> None:
         extra_args.append(f"-DENABLE_ALLOCATOR={allocator}")
         extra_args.append("-DENABLE_ALLOCATOR_OVERRIDE_ALL=ON")
         Logger.info(f"Allocator backend enabled: {allocator}")
+    else:
+        # Avoid sticky cache state from previous non-default allocator runs.
+        extra_args.append("-DENABLE_ALLOCATOR=default")
+        extra_args.append("-DENABLE_ALLOCATOR_OVERRIDE_ALL=OFF")
 
     # 1. Profile Logic (Hardening & Warnings)
     if profile == "extreme":

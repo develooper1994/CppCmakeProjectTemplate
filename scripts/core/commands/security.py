@@ -5,6 +5,7 @@ core/commands/security.py — Security audit and CVE scanning.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -77,18 +78,54 @@ def _impl_cmd_scan(args) -> None:
     if not args.no_static:
         if _check_tool("cppcheck", "sudo apt install cppcheck"):
             Logger.info("Running Cppcheck (Security Focus)...")
-            # Focus on security, warning, and portability
+            checks = getattr(args, 'cppcheck_checks', 'full')
+            if getattr(args, 'fast', False):
+                checks = "minimal"
+
+            # Auto-detect jobs unless user set --cppcheck-jobs
+            jobs = getattr(args, 'cppcheck_jobs', 0)
+            if jobs <= 0:
+                jobs = max(1, os.cpu_count() or 1)
+
             cmd = [
                 "cppcheck",
-                "--enable=warning,style,performance,portability",
-                "--inconclusive",
-                "--force",
                 "--inline-suppr",
                 "--suppress=missingIncludeSystem",
-                "--project=" + str(PROJECT_ROOT / "build" / "compile_commands.json") if (PROJECT_ROOT / "build" / "compile_commands.json").exists() else str(PROJECT_ROOT),
+                "-j", str(jobs),
                 "-i", "build",
-                "-i", "extension/templates"
+                "-i", "extension/templates",
             ]
+
+            if checks == "full":
+                cmd.extend([
+                    "--enable=warning,style,performance,portability",
+                    "--inconclusive",
+                    "--force",
+                ])
+            else:
+                # Faster CI-friendly mode with reduced signal/noise cost.
+                cmd.extend([
+                    "--enable=warning,performance,portability",
+                    "--force",
+                ])
+
+            compile_db = PROJECT_ROOT / "build" / "compile_commands.json"
+            if compile_db.exists():
+                cmd.append("--project=" + str(compile_db))
+                # Narrow scope when requested, while still using compile database.
+                for p in getattr(args, 'cppcheck_paths', []) or []:
+                    rel = Path(p)
+                    if not rel.is_absolute():
+                        rel = PROJECT_ROOT / rel
+                    rel_str = rel.resolve().as_posix()
+                    cmd.append("--file-filter=" + rel_str + "/*")
+                    cmd.append("--file-filter=" + rel_str + "/**")
+            else:
+                scoped_paths = getattr(args, 'cppcheck_paths', []) or []
+                if scoped_paths:
+                    cmd.extend([str((PROJECT_ROOT / p).resolve()) for p in scoped_paths])
+                else:
+                    cmd.append(str(PROJECT_ROOT))
             # Add user-provided suppressions file
             suppressions = getattr(args, 'suppressions', None)
             if suppressions:
@@ -166,6 +203,14 @@ def security_parser() -> argparse.ArgumentParser:
                    help="Output format for scan results (default: text)")
     p.add_argument("--suppressions", default=None, metavar="FILE",
                    help="Path to a suppressions file for cppcheck")
+    p.add_argument("--cppcheck-jobs", type=int, default=0, metavar="N",
+                   help="Cppcheck parallel jobs (0=auto)")
+    p.add_argument("--cppcheck-checks", choices=["full", "minimal"], default="full",
+                   help="Cppcheck check profile: full or minimal (faster)")
+    p.add_argument("--cppcheck-paths", nargs="+", default=[], metavar="PATH",
+                   help="Limit cppcheck to specific project paths (for incremental scans)")
+    p.add_argument("--fast", action="store_true",
+                   help="Enable faster static scan profile (equivalent to --cppcheck-checks minimal)")
     p.add_argument("--force", action="store_true", help="Continue even if vulnerabilities are found")
     p.set_defaults(func=cmd_scan)
 
