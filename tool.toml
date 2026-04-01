@@ -152,7 +152,9 @@ linkages    = ["static", "dynamic"]
 # Target architectures.
 # Common values: x86_64 | x86 | aarch64 | armv7 | <free-string>
 # Free-string arches must have a matching cmake/toolchains/<arch>.cmake file.
+# Uncomment x86_64-linux-musl for fully static musl libc builds.
 arches      = ["x86_64"]
+# arches    = ["x86_64", "x86_64-linux-musl"]
 
 # CMake minimum version required in the generated file.
 cmake_minimum_major = 3
@@ -174,6 +176,7 @@ generator = "Ninja"
 skip_combinations = [
     "msvc-*-dynamic-aarch64",   # MSVC has no ARM64 dynamic-link preset here
     "cuda-*-dynamic-*",          # CUDA forces static linkage
+    "*-*-dynamic-*musl*",        # musl targets are static-only
 ]
 
 # ---------------------------------------------------------------------------
