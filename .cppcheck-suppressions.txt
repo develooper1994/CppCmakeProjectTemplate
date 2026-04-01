@@ -1,0 +1,13 @@
+# .cppcheck-suppressions.txt — Centralized cppcheck suppression list
+# ====================================================================
+# Keep this file curated: only add well-justified suppressions.
+# Review periodically and remove stale entries.
+#
+# Syntax:   <error-id>[:<filename>[:<line>]]
+# See: https://cppcheck.sourceforge.io/manual.html#inline-suppressions
+
+# System headers — never relevant to project code.
+missingIncludeSystem
+
+# ── Project-specific suppressions ────────────────────────────────────
+# (Add justified entries below with a comment explaining why.)

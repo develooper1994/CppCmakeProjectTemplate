@@ -5,6 +5,8 @@ on:
     branches: [main]
   push:
     branches: [main]
+  schedule:
+    - cron: "0 3 * * *" # Nightly full scan at 03:00 UTC
   workflow_dispatch: {}
 
 jobs:
@@ -32,12 +34,25 @@ jobs:
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 
+      - name: Restore cppcheck cache
+        uses: actions/cache@v4
+        with:
+          path: build/cppcheck-cache
+          key: cppcheck-${{ runner.os }}-${{ hashFiles('libs/**/*.cpp', 'libs/**/*.h', 'apps/**/*.cpp', 'apps/**/*.h') }}
+          restore-keys: |
+            cppcheck-${{ runner.os }}-
+
       - name: Run security scan (OSV + Cppcheck)
         id: security
         continue-on-error: true
         run: |
           set -o pipefail
-          python3 scripts/tool.py security scan --install 2>&1 | tee security-scan.log || true
+          SCAN_FLAGS="--install"
+          # PR runs get fast mode; pushes/nightly get full scan
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            SCAN_FLAGS="$SCAN_FLAGS --fast"
+          fi
+          python3 scripts/tool.py security scan $SCAN_FLAGS 2>&1 | tee security-scan.log || true
           # We capture output and continue; next step evaluates policy
 
       - name: Evaluate security policy (fail on CRITICAL; warn on HIGH)

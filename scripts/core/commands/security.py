@@ -96,6 +96,11 @@ def _impl_cmd_scan(args) -> None:
                 "-i", "extension/templates",
             ]
 
+            # Cppcheck build-dir caching: reuse previous analysis of unchanged TUs.
+            cppcheck_builddir = PROJECT_ROOT / "build" / "cppcheck-cache"
+            cppcheck_builddir.mkdir(parents=True, exist_ok=True)
+            cmd.extend(["--cppcheck-build-dir=" + str(cppcheck_builddir)])
+
             if checks == "full":
                 cmd.extend([
                     "--enable=warning,style,performance,portability",
@@ -126,8 +131,12 @@ def _impl_cmd_scan(args) -> None:
                     cmd.extend([str((PROJECT_ROOT / p).resolve()) for p in scoped_paths])
                 else:
                     cmd.append(str(PROJECT_ROOT))
-            # Add user-provided suppressions file
+            # Add user-provided suppressions file (or fall back to project default)
             suppressions = getattr(args, 'suppressions', None)
+            if not suppressions:
+                default_supp = PROJECT_ROOT / ".cppcheck-suppressions.txt"
+                if default_supp.exists():
+                    suppressions = str(default_supp)
             if suppressions:
                 supp_path = Path(suppressions)
                 if supp_path.exists():
