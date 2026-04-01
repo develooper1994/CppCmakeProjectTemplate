@@ -40,3 +40,5 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 message(STATUS "[Toolchain] ARM Cortex-M0+ (ARMv6-M bare-metal)")
+# Qt is not supported on bare-metal targets (no OS, no display server).
+# ENABLE_QT is forced OFF for Generic (bare-metal) builds in CMakeLists.txt.

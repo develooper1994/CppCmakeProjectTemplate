@@ -48,6 +48,8 @@ include(LTO)
 include(PGO)
 include(BuildCache)
 include(Benchmark)
+include(OpenMP)
+include(Qt)
 generate_feature_flags()
 
 # INTERFACE library — attach once, all targets inherit FeatureFlags.h

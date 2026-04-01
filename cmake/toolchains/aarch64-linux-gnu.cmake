@@ -31,6 +31,25 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
+# ---------------------------------------------------------------------------
+# Qt cross-compilation support (optional)
+# ---------------------------------------------------------------------------
+# To cross-compile with Qt for AArch64 Linux (e.g. Raspberry Pi, Jetson):
+#
+#   1. Build Qt from source for AArch64 or use a pre-built sysroot.
+#   2. Pass -DQT_HOST_PATH=/path/to/host/Qt/6.x/gcc_64
+#      and  -DCMAKE_PREFIX_PATH=/path/to/sysroot/usr/local/qt6
+#   3. cmake --preset gcc-release-static-aarch64 \
+#            -DENABLE_QT=ON \
+#            -DQT_HOST_PATH=/opt/Qt/6.7.0/gcc_64 \
+#            -DCMAKE_PREFIX_PATH=/path/to/aarch64-sysroot/opt/Qt/6.7.0/gcc_arm64
+#
+# Reference: https://doc.qt.io/qt-6/configure-linux-device.html
+if(DEFINED QT_HOST_PATH)
+    set(QT_HOST_PATH "${QT_HOST_PATH}" CACHE PATH "Qt host tools path for cross-compilation")
+    message(STATUS "[Toolchain/AArch64] Qt cross-compile: QT_HOST_PATH=${QT_HOST_PATH}")
+endif()
+
 # Verify toolchain is available
 find_program(_aarch64_cc aarch64-linux-gnu-gcc)
 if(NOT _aarch64_cc)

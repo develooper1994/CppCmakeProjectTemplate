@@ -20,10 +20,9 @@
  *       --benchmark_out=build_logs/bench_results.json
  */
 
-#include <benchmark/benchmark.h>
-
 #include <algorithm>
 #include <array>
+#include <benchmark/benchmark.h>
 #include <cmath>
 #include <cstdint>
 #include <numeric>
@@ -32,11 +31,11 @@
 
 // ── compiler hints ──────────────────────────────────────────────────────────
 #ifdef __GNUC__
-#  define ATTR_HOT      __attribute__((hot))
-#  define ATTR_NOINLINE __attribute__((noinline))
+#define ATTR_HOT      __attribute__((hot))
+#define ATTR_NOINLINE __attribute__((noinline))
 #else
-#  define ATTR_HOT
-#  define ATTR_NOINLINE
+#define ATTR_HOT
+#define ATTR_NOINLINE
 #endif
 
 // ===========================================================================
@@ -159,7 +158,8 @@ static void BM_MatMul32_Naive(benchmark::State& state) {
         benchmark::DoNotOptimize(C);
     }
     // Report GFLOPS
-    state.SetBytesProcessed(static_cast<long long>(state.iterations()) * N * N * N * 2 * sizeof(double));
+    state.SetBytesProcessed(static_cast<long long>(state.iterations()) * N * N * N * 2 *
+                            sizeof(double));
 }
 BENCHMARK(BM_MatMul32_Naive);
 
@@ -175,7 +175,8 @@ static void BM_MatMul32_Tiled(benchmark::State& state) {
         auto C = matmul_tiled<N>(A, B);
         benchmark::DoNotOptimize(C);
     }
-    state.SetBytesProcessed(static_cast<long long>(state.iterations()) * N * N * N * 2 * sizeof(double));
+    state.SetBytesProcessed(static_cast<long long>(state.iterations()) * N * N * N * 2 *
+                            sizeof(double));
 }
 BENCHMARK(BM_MatMul32_Tiled);
 
@@ -185,7 +186,8 @@ BENCHMARK(BM_MatMul32_Tiled);
 // ===========================================================================
 
 ATTR_HOT static double newton_sqrt(double x) noexcept {
-    if (x <= 0.0) return 0.0;
+    if (x <= 0.0)
+        return 0.0;
     double guess = x * 0.5;
     // 5 iterations → < 1 ULP error for positive doubles
     for (int i = 0; i < 5; ++i)
@@ -215,7 +217,8 @@ BENCHMARK(BM_NewtonSqrt)->Arg(1'000)->Arg(100'000)->Arg(1'000'000);
 // ===========================================================================
 
 ATTR_NOINLINE static std::uint64_t fib(unsigned n) noexcept {
-    if (n <= 1) return n;
+    if (n <= 1)
+        return n;
     return fib(n - 1) + fib(n - 2);
 }
 

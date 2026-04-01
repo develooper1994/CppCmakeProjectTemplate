@@ -31,3 +31,5 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+# Qt is not supported on bare-metal targets (no OS, no display server).
+# ENABLE_QT is forced OFF for Generic (bare-metal) builds in CMakeLists.txt.

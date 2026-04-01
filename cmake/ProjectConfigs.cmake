@@ -26,6 +26,15 @@ option(ENABLE_CCACHE            "Enable compiler caching (ccache/sccache)"  ON)
 option(ENABLE_BENCHMARKS        "Build Google Benchmark targets"             OFF)
 option(ENABLE_VEC_REPORT        "Emit vectorization info (-fopt-info-vec / -Rpass)" OFF)
 
+# --- Parallelization Options ---
+option(ENABLE_OPENMP        "Enable OpenMP threading (links libgomp)"         OFF)
+option(ENABLE_OPENMP_SIMD   "Enable OpenMP SIMD-only (no runtime dep)"         OFF)
+option(ENABLE_AUTO_PARALLEL "Enable compiler auto-parallelization of loops"    OFF)
+
+# --- Qt Options ---
+option(ENABLE_QT            "Enable Qt5/Qt6 support (requires Qt install)"     OFF)
+option(ENABLE_QML           "Enable Qt QML/Quick (requires ENABLE_QT)"         OFF)
+
 # --- Master list — drives FeatureFlags.cmake dynamic generation ---
 # Add new options here; FeatureFlags.h will update automatically on next cmake run.
 set(PROJECT_ALL_OPTIONS
@@ -37,6 +46,8 @@ set(PROJECT_ALL_OPTIONS
     CLANG_TIDY CPPCHECK COVERAGE
     # Performance
     LTO BENCHMARKS VEC_REPORT
+    # Parallelization
+    OPENMP OPENMP_SIMD AUTO_PARALLEL
     # Frameworks
     QT QML BOOST
     # Misc

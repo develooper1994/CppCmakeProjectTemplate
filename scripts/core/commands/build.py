@@ -207,6 +207,26 @@ def _impl_cmd_build(args) -> None:
         extra_args.append("-DENABLE_BOLT=ON")
         Logger.info("BOLT post-link optimization targets enabled (use bolt-instrument-<target> / bolt-optimize-<target> targets)")
 
+    # OpenMP
+    if getattr(args, "openmp", False):
+        extra_args.append("-DENABLE_OPENMP=ON")
+        Logger.info("OpenMP threading enabled")
+    if getattr(args, "openmp_simd", False):
+        extra_args.append("-DENABLE_OPENMP_SIMD=ON")
+        Logger.info("OpenMP SIMD-only enabled")
+    if getattr(args, "auto_parallel", False):
+        extra_args.append("-DENABLE_AUTO_PARALLEL=ON")
+        Logger.info("Auto-parallelization enabled")
+
+    # Qt
+    if getattr(args, "qt", False):
+        extra_args.append("-DENABLE_QT=ON")
+        Logger.info("Qt support enabled (auto-detects Qt6/Qt5)")
+    if getattr(args, "qml", False):
+        extra_args.append("-DENABLE_QT=ON")
+        extra_args.append("-DENABLE_QML=ON")
+        Logger.info("Qt QML/Quick support enabled")
+
     # 1. Profile Logic (Hardening & Warnings)
     if profile == "extreme":
         Logger.warn("EXTREME profile active: Maximum hardening, no-exceptions, no-rtti, full RELRO.")
@@ -505,6 +525,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="PGO profile data directory (default: build/pgo-profiles)")
     p.add_argument("--bolt", action="store_true",
                    help="Enable LLVM BOLT post-link optimization targets (requires llvm-bolt)")
+    p.add_argument("--openmp", action="store_true", help="Enable OpenMP threading (-DENABLE_OPENMP=ON)")
+    p.add_argument("--openmp-simd", action="store_true", dest="openmp_simd",
+                   help="Enable OpenMP SIMD only — no libgomp runtime dep (-DENABLE_OPENMP_SIMD=ON)")
+    p.add_argument("--auto-parallel", action="store_true", dest="auto_parallel",
+                   help="Enable compiler auto-parallelization (-DENABLE_AUTO_PARALLEL=ON)")
+    p.add_argument("--qt", action="store_true", help="Enable Qt support (-DENABLE_QT=ON)")
+    p.add_argument("--qml", action="store_true", help="Enable Qt QML/Quick (-DENABLE_QT=ON -DENABLE_QML=ON)")
     p.set_defaults(func=cmd_build)
 
     # check
@@ -524,6 +551,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="PGO profile data directory")
     p.add_argument("--bolt", action="store_true",
                    help="Enable LLVM BOLT post-link optimization targets (requires llvm-bolt)")
+    p.add_argument("--openmp", action="store_true", help="Enable OpenMP threading")
+    p.add_argument("--openmp-simd", action="store_true", dest="openmp_simd",
+                   help="Enable OpenMP SIMD only")
+    p.add_argument("--auto-parallel", action="store_true", dest="auto_parallel",
+                   help="Enable compiler auto-parallelization")
+    p.add_argument("--qt", action="store_true", help="Enable Qt support")
+    p.add_argument("--qml", action="store_true", help="Enable Qt QML/Quick")
     p.add_argument("--no-sync", action="store_true")
     p.set_defaults(func=cmd_check)
 
