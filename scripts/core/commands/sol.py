@@ -817,6 +817,188 @@ def cmd_clangd(args):
     return _wrap(_impl_cmd_clangd, args)
 
 
+def _cmd_sysroot_list() -> CLIResult:
+    registry_file = PROJECT_ROOT / "sysroots" / "registry.json"
+    if not registry_file.exists():
+        Logger.info("No sysroots registered yet. Run 'tool sol sysroot add <arch>'.")
+        return CLIResult(success=True)
+    registry = json.loads(registry_file.read_text(encoding="utf-8"))
+    if not registry:
+        Logger.info("Registry is empty.")
+    else:
+        for arch, path in sorted(registry.items()):
+            exists = "✓" if Path(path).exists() else "✗ (missing)"
+            Logger.info(f"  {arch:15s} → {path}  {exists}")
+    return CLIResult(success=True)
+
+
+def cmd_sysroot_add(args) -> CLIResult:
+    try:
+        _impl_sysroot_add(args)
+        return CLIResult(success=True, message="Sysroot registered.")
+    except SystemExit as e:
+        return CLIResult(success=(e.code == 0), code=e.code or 1, message="Sysroot add failed.")
+
+
+def _impl_sysroot_add(args) -> None:
+    """Download/install a cross-compile sysroot and register it for CMake.
+
+    Steps:
+    1. Create sysroots/<arch>/ directory in the project root.
+    2. If --url is given: download the tarball and extract it there.
+       Otherwise, for known arches (aarch64, armv7), suggest/run apt install.
+    3. Write sysroots/registry.json  with {arch: path} entries.
+    4. Patch cmake/toolchains/<arch>*.cmake to point CMAKE_SYSROOT at the local
+       directory (idempotent: only writes if path differs).
+    """
+    import shutil
+    import tarfile
+    import urllib.request
+    import urllib.error
+
+    arch: str = args.arch
+    url: str | None = getattr(args, "url", None)
+    dry_run: bool = getattr(args, "dry_run", False)
+
+    sysroots_dir = PROJECT_ROOT / "sysroots"
+    sysroot_path = sysroots_dir / arch
+    registry_file = sysroots_dir / "registry.json"
+
+    Logger.info(f"[Sysroot] Architecture : {arch}")
+    Logger.info(f"[Sysroot] Target path  : {sysroot_path}")
+
+    if dry_run:
+        Logger.info("[Sysroot] DRY-RUN — no files will be written.")
+
+    # ── Step 1: create directory ──────────────────────────────────────────────
+    if not dry_run:
+        sysroot_path.mkdir(parents=True, exist_ok=True)
+
+    # ── Step 2: populate sysroot ──────────────────────────────────────────────
+    if url:
+        Logger.info(f"[Sysroot] Downloading: {url}")
+        tarball = sysroots_dir / f"{arch}_sysroot.tar.gz"
+        if not dry_run:
+            try:
+                with urllib.request.urlopen(url, timeout=120) as resp, \
+                        open(tarball, "wb") as fh:
+                    total = int(resp.headers.get("Content-Length", 0))
+                    downloaded = 0
+                    chunk = 65536
+                    while True:
+                        block = resp.read(chunk)
+                        if not block:
+                            break
+                        fh.write(block)
+                        downloaded += len(block)
+                        if total:
+                            pct = downloaded * 100 // total
+                            print(f"\r  Downloading … {pct}%", end="", flush=True)
+                print()
+                Logger.success(f"[Sysroot] Downloaded → {tarball}")
+            except urllib.error.URLError as e:
+                Logger.error(f"[Sysroot] Download failed: {e.reason}")
+                raise SystemExit(1)
+
+            Logger.info("[Sysroot] Extracting tarball …")
+            try:
+                with tarfile.open(tarball) as tf:
+                    tf.extractall(path=sysroot_path)  # noqa: S202 — path is local/controlled
+                tarball.unlink()
+                Logger.success(f"[Sysroot] Extracted → {sysroot_path}")
+            except tarfile.TarError as e:
+                Logger.error(f"[Sysroot] Extraction failed: {e}")
+                raise SystemExit(1)
+    else:
+        # Try apt for known arches
+        _apt_packages: dict[str, list[str]] = {
+            "aarch64": ["gcc-aarch64-linux-gnu", "g++-aarch64-linux-gnu",
+                        "binutils-aarch64-linux-gnu", "libc6-dev-arm64-cross"],
+            "armv7":   ["gcc-arm-linux-gnueabihf", "g++-arm-linux-gnueabihf",
+                        "binutils-arm-linux-gnueabihf", "libc6-dev-armhf-cross"],
+        }
+        if arch in _apt_packages:
+            pkgs = _apt_packages[arch]
+            Logger.info(f"[Sysroot] Installing cross toolchain via apt: {' '.join(pkgs)}")
+            if dry_run:
+                Logger.info(f"  [DRY-RUN] would run: sudo apt-get install -y {' '.join(pkgs)}")
+            else:
+                apt_ok = shutil.which("apt-get")
+                if apt_ok:
+                    import subprocess
+                    rc = subprocess.call(["sudo", "apt-get", "install", "-y"] + pkgs)
+                    if rc != 0:
+                        Logger.warn("[Sysroot] apt-get failed — sysroot may be incomplete.")
+                    # Typical apt sysroot location for aarch64 cross
+                    apt_sysroot = Path(f"/usr/{arch.replace('aarch64', 'aarch64')}-linux-gnu")
+                    if not apt_sysroot.exists():
+                        apt_sysroot = Path(f"/usr/{arch}-linux-gnu")
+                    if apt_sysroot.exists() and not sysroot_path.exists():
+                        sysroot_path.symlink_to(apt_sysroot)
+                        Logger.success(f"[Sysroot] Symlinked {sysroot_path} → {apt_sysroot}")
+                    elif apt_sysroot.exists():
+                        Logger.info(f"[Sysroot] apt sysroot: {apt_sysroot}")
+                else:
+                    Logger.warn("[Sysroot] apt-get not found. Populate sysroots/{arch} manually.")
+        else:
+            Logger.warn(
+                f"[Sysroot] No --url given and no known package set for arch '{arch}'.\n"
+                f"  Populate {sysroot_path} manually and re-run without --url."
+            )
+
+    # ── Step 3: update registry ───────────────────────────────────────────────
+    registry: dict[str, str] = {}
+    if registry_file.exists():
+        try:
+            registry = json.loads(registry_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    registry[arch] = str(sysroot_path)
+    if not dry_run:
+        registry_file.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+        Logger.success(f"[Sysroot] Registry updated: {registry_file}")
+    else:
+        Logger.info(f"[Sysroot] Would write registry: {registry_file}")
+
+    # ── Step 4: patch toolchain cmake ─────────────────────────────────────────
+    tc_candidates = list(TOOLCHAINS_DIR.glob(f"{arch}*.cmake"))
+    if not tc_candidates:
+        Logger.info(
+            f"[Sysroot] No cmake/toolchains/{arch}*.cmake found.\n"
+            f"  Pass -DCMAKE_SYSROOT={sysroot_path} to cmake manually, or create the toolchain file."
+        )
+    else:
+        for tc_file in tc_candidates:
+            content = tc_file.read_text(encoding="utf-8")
+            new_line = f"set(CMAKE_SYSROOT \"{sysroot_path}\")"
+            # If there's already a local sysroot line that matches, skip
+            if str(sysroot_path) in content:
+                Logger.info(f"[Sysroot] {tc_file.name}: CMAKE_SYSROOT already set to this path.")
+                continue
+            # Replace existing CMAKE_SYSROOT lines or append
+            import re as _re
+            if _re.search(r"^\s*set\(CMAKE_SYSROOT", content, _re.MULTILINE):
+                new_content = _re.sub(
+                    r"^(\s*)set\(CMAKE_SYSROOT[^\)]*\)",
+                    lambda m: f"{m.group(1)}{new_line}  # auto-patched by tool sol sysroot add",
+                    content,
+                    flags=_re.MULTILINE,
+                )
+            else:
+                new_content = content + f"\n# Auto-added by tool sol sysroot add\n{new_line}\n"
+            if not dry_run:
+                tc_file.write_text(new_content, encoding="utf-8")
+                Logger.success(f"[Sysroot] Patched {tc_file.name}: CMAKE_SYSROOT → {sysroot_path}")
+            else:
+                Logger.info(f"[Sysroot] Would patch {tc_file.name}: CMAKE_SYSROOT → {sysroot_path}")
+
+    Logger.success(
+        f"[Sysroot] Done. Use cmake with:\n"
+        f"  -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/<your-{arch}-toolchain>.cmake\n"
+        f"  -DCMAKE_SYSROOT={sysroot_path}"
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tool sol",
@@ -949,6 +1131,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dry-run", action="store_true",
                    help="Print generated .clangd content without writing")
     p.set_defaults(func=cmd_clangd)
+
+    # sysroot
+    sysroot = sub.add_parser("sysroot", help="Cross-compile sysroot management")
+    sys_sub = sysroot.add_subparsers(dest="sysroot_action", required=True)
+    p = sys_sub.add_parser("add", help="Download/install a sysroot and register it for CMake")
+    p.add_argument("arch", help="Target architecture (e.g. aarch64, armv7)")
+    p.add_argument("--url", default=None,
+                   help="URL of a sysroot tarball to download (optional; omit to use apt/package manager)")
+    p.add_argument("--dry-run", action="store_true", dest="dry_run",
+                   help="Preview changes without writing anything")
+    p.set_defaults(func=cmd_sysroot_add)
+    p = sys_sub.add_parser("list", help="List registered sysroots")
+    p.set_defaults(func=lambda a: _cmd_sysroot_list())
+    sysroot.set_defaults(func=lambda a: sysroot.print_help())
 
     return parser
 

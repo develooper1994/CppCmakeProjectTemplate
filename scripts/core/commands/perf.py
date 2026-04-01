@@ -1293,6 +1293,131 @@ def _cmd_size_diff(args) -> CLIResult:
                      data=output)
 
 
+def _cmd_godbolt(args: argparse.Namespace) -> CLIResult:
+    """Entry point for `tool perf godbolt`."""
+    try:
+        _impl_godbolt(args)
+        return CLIResult(success=True, message="Godbolt compile complete.")
+    except SystemExit as e:
+        return CLIResult(success=(e.code == 0), code=e.code or 1, message="Godbolt failed.")
+
+
+def _impl_godbolt(args) -> None:
+    """Compile a source file via the Godbolt Compiler Explorer REST API.
+
+    Sends the source to https://godbolt.org/api/compiler/<id>/compile and
+    prints the resulting assembly to stdout.  When --save is set the output
+    is also written to build_logs/godbolt_<basename>.asm.
+
+    Compiler IDs: g131 = GCC 13.1, clang1800 = Clang 18.0.0, etc.
+    Full list: curl -s https://godbolt.org/api/compilers | python3 -m json.tool | grep '"id"'
+    """
+    import urllib.request
+    import urllib.error
+
+    src_path = Path(args.source)
+    if not src_path.is_absolute():
+        src_path = PROJECT_ROOT / src_path
+    if not src_path.exists():
+        Logger.error(f"Source file not found: {src_path}")
+        raise SystemExit(1)
+
+    source_code = src_path.read_text(encoding="utf-8")
+    flags: str = getattr(args, "flags", "-O2 -std=c++17") or "-O2 -std=c++17"
+    compiler_id: str = getattr(args, "compiler", None) or "g131"
+    save: bool = getattr(args, "save", False)
+    json_out: bool = getattr(args, "json_out", False)
+
+    url = f"https://godbolt.org/api/compiler/{compiler_id}/compile"
+    payload = json.dumps({
+        "source": source_code,
+        "options": {
+            "userArguments": flags,
+            "compilerOptions": {},
+            "filters": {
+                "binary": False,
+                "commentOnly": True,
+                "demangle": True,
+                "directives": True,
+                "intel": True,
+                "labels": True,
+                "trim": True,
+            },
+        },
+        "lang": "c++",
+    }).encode("utf-8")
+
+    Logger.info(f"[Godbolt] Compiling '{src_path.name}' with compiler '{compiler_id}' flags '{flags}'")
+    Logger.info(f"[Godbolt] Endpoint: {url}")
+
+    try:
+        req = urllib.request.Request(
+            url, data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        Logger.error(f"[Godbolt] HTTP {e.code}: {e.reason}")
+        raise SystemExit(1)
+    except urllib.error.URLError as e:
+        Logger.error(f"[Godbolt] Network error: {e.reason}. Check internet connectivity.")
+        raise SystemExit(1)
+
+    if json_out:
+        print(body)
+        return
+
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        Logger.error("[Godbolt] Failed to parse response JSON.")
+        print(body)
+        raise SystemExit(1)
+
+    # Format the assembly output
+    asm_lines = data.get("asm", [])
+    stderr_lines = data.get("stderr", [])
+    stdout_lines = data.get("stdout", [])
+    exit_code = data.get("code", 0)
+
+    if stdout_lines:
+        print("──── stdout ────")
+        for line in stdout_lines:
+            print(line.get("text", ""))
+    if stderr_lines:
+        print("──── stderr ────")
+        for line in stderr_lines:
+            print(line.get("text", ""))
+
+    if not asm_lines:
+        Logger.warn("[Godbolt] No assembly output returned (compilation may have failed).")
+        if exit_code != 0:
+            Logger.error(f"[Godbolt] Compiler exited with code {exit_code}")
+            raise SystemExit(1)
+        return
+
+    asm_text = "\n".join(line.get("text", "") for line in asm_lines)
+    print("\n──── assembly ────")
+    print(asm_text)
+
+    if save:
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        out_file = LOGS_DIR / f"godbolt_{src_path.stem}.asm"
+        header = (
+            f"; Godbolt Compiler Explorer output\n"
+            f"; Source   : {src_path}\n"
+            f"; Compiler : {compiler_id}\n"
+            f"; Flags    : {flags}\n\n"
+        )
+        out_file.write_text(header + asm_text, encoding="utf-8")
+        Logger.success(f"[Godbolt] Assembly saved to {out_file}")
+
+
 def perf_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="tool perf", description="Performance analysis tools")
     sub = parser.add_subparsers(dest="subcommand")
@@ -1407,6 +1532,21 @@ def perf_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true",
                    help="Print full diff JSON to stdout")
     p.set_defaults(func=_cmd_size_diff)
+
+    # godbolt
+    p = sub.add_parser("godbolt",
+                       help="Compile a source file via Godbolt Compiler Explorer and print assembly")
+    p.add_argument("--source", required=True,
+                   help="Source file to compile (relative or absolute path)")
+    p.add_argument("--compiler", default=None,
+                   help="Godbolt compiler ID (e.g. g131, clang1800). Default: auto-select")
+    p.add_argument("--flags", default="-O2 -std=c++17",
+                   help="Compiler flags (default: '-O2 -std=c++17')")
+    p.add_argument("--save", action="store_true",
+                   help="Save the assembly output to build_logs/godbolt_<name>.asm")
+    p.add_argument("--json", action="store_true", dest="json_out",
+                   help="Print raw Godbolt JSON response instead of formatted assembly")
+    p.set_defaults(func=_cmd_godbolt)
 
     return parser
 

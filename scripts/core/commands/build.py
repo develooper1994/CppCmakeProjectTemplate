@@ -227,6 +227,11 @@ def _impl_cmd_build(args) -> None:
         extra_args.append("-DENABLE_QML=ON")
         Logger.info("Qt QML/Quick support enabled")
 
+    # Reproducible build
+    if getattr(args, "reproducible", False):
+        extra_args.append("-DENABLE_REPRODUCIBLE=ON")
+        Logger.info("Reproducible build enabled (source paths stripped, deterministic ar)")
+
     # 1. Profile Logic (Hardening & Warnings)
     if profile == "extreme":
         Logger.warn("EXTREME profile active: Maximum hardening, no-exceptions, no-rtti, full RELRO.")
@@ -498,6 +503,51 @@ def cmd_extension(args: argparse.Namespace) -> CLIResult:
         return CLIResult(success=(e.code == 0), code=e.code or 1, message="Extension build failed.")
 
 
+def cmd_docker(args: argparse.Namespace) -> CLIResult:
+    if GlobalConfig.DRY_RUN:
+        Logger.info("[DRY-RUN] Would run: docker run ... python3 scripts/tool.py build build")
+        return CLIResult(success=True, message="[DRY-RUN] docker skipped")
+    try:
+        _impl_cmd_docker(args)
+        return CLIResult(success=True, message="Docker build complete.")
+    except SystemExit as e:
+        return CLIResult(success=(e.code == 0), code=e.code or 1, message="Docker build failed.")
+
+
+def _impl_cmd_docker(args) -> None:
+    """Run the project build inside a Docker container.
+
+    Mounts the workspace read-write at /workspace inside the container, then
+    calls `python3 scripts/tool.py build build [--preset <preset>] [extra]`.
+    The container is removed after the run (--rm).
+    """
+    docker_bin = shutil.which("docker")
+    if not docker_bin:
+        Logger.error("docker not found in PATH.  Install Docker to use this subcommand.")
+        raise SystemExit(1)
+
+    image = getattr(args, "image", "ubuntu:24.04") or "ubuntu:24.04"
+    preset = getattr(args, "preset", None)
+    extra_args: list[str] = list(getattr(args, "extra_args", []) or [])
+
+    inner_cmd = ["python3", "scripts/tool.py", "build", "build"]
+    if preset:
+        inner_cmd += ["--preset", preset]
+    inner_cmd.extend(extra_args)
+
+    docker_cmd = [
+        docker_bin, "run", "--rm",
+        "-v", f"{PROJECT_ROOT}:/workspace",
+        "-w", "/workspace",
+        image,
+    ] + inner_cmd
+
+    Logger.info(f"[Docker] Image : {image}")
+    Logger.info(f"[Docker] Preset: {preset or '(auto)'}")
+    Logger.info(f"[Docker] Cmd   : {' '.join(inner_cmd)}")
+    run_proc(docker_cmd)
+
+
 # ── Parser (mirrors previous build parser) ───────────────────────────────────
 
 
@@ -532,6 +582,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Enable compiler auto-parallelization (-DENABLE_AUTO_PARALLEL=ON)")
     p.add_argument("--qt", action="store_true", help="Enable Qt support (-DENABLE_QT=ON)")
     p.add_argument("--qml", action="store_true", help="Enable Qt QML/Quick (-DENABLE_QT=ON -DENABLE_QML=ON)")
+    p.add_argument("--reproducible", action="store_true",
+                   help="Enable binary reproducibility (-DENABLE_REPRODUCIBLE=ON)")
     p.set_defaults(func=cmd_build)
 
     # check
@@ -558,6 +610,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Enable compiler auto-parallelization")
     p.add_argument("--qt", action="store_true", help="Enable Qt support")
     p.add_argument("--qml", action="store_true", help="Enable Qt QML/Quick")
+    p.add_argument("--reproducible", action="store_true",
+                   help="Enable binary reproducibility (-DENABLE_REPRODUCIBLE=ON)")
     p.add_argument("--no-sync", action="store_true")
     p.set_defaults(func=cmd_check)
 
@@ -579,6 +633,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--install", action="store_true")
     p.add_argument("--publish", action="store_true")
     p.set_defaults(func=cmd_extension)
+
+    # docker
+    p = sub.add_parser("docker", help="Build inside a Docker container")
+    p.add_argument("--preset", default=None, help="CMake preset to pass (default: auto-detected)")
+    p.add_argument("--image", default="ubuntu:24.04",
+                   help="Docker image to use (default: ubuntu:24.04)")
+    p.add_argument("--extra-args", nargs=argparse.REMAINDER, default=[],
+                   metavar="ARG", dest="extra_args",
+                   help="Extra arguments forwarded to 'tool build build' inside container")
+    p.set_defaults(func=cmd_docker)
 
     return parser
 

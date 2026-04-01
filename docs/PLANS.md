@@ -154,7 +154,7 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 - **Embedded Targets:** ✅ DONE — `cmake/EmbeddedUtils.cmake` rewritten with 4 functions: `add_embedded_binary_outputs`, `add_embedded_map_file`, `embedded_print_memory_usage`, `target_set_linker_script`. 3 new toolchains + 3 new embedded presets.
 - **Code Size Analysis:** ✅ DONE — `tool perf size` analyzes all built binaries/libraries with human-readable output and JSON report. Auto-detects active preset build directory. Uses `size` (berkeley format) for section breakdown.
 - **Build Time Analysis:** ✅ DONE — `tool perf build-time` analyzes Ninja `.ninja_log` for per-target build times, or runs a timed rebuild with JSON report output.
-- **Compiler Explorer Integration:** _(Phase 8 — Nice-to-have)_ — `tool perf vec` already shows vectorization info. Full Compiler Explorer (godbolt.org API) integration via `tool perf godbolt --source <file>` could stream asm to terminal. Interim: use `objdump -d` or `llvm-objdump` locally.
+- **Compiler Explorer Integration:** ✅ IMPL — `tool perf godbolt --source <file> [--compiler <id>] [--flags <flags>] [--save] [--json]` compiles via the Godbolt REST API and streams assembly to the terminal. `tool perf vec` covers local vectorization analysis.
 - **Performance Profiling Integration:** ✅ DONE — `tool perf stat` wraps Linux `perf stat` (with `time -v` fallback) for CPU/cache counter profiling; `tool perf record` flag generates `perf.data` for flame graphs.
 - **Automated Performance Regression Detection:** ✅ DONE — `.github/workflows/perf_regression.yml` runs on every push/PR: builds release preset, restores cached baseline, runs `tool perf check-budget` (10% size / 25% time thresholds), uploads size+build-time reports as artifacts. Weekly schedule refreshes the baseline.
 - **Documentation of Performance Best Practices:** ✅ DONE — `docs/PERFORMANCE.md` created with comprehensive guide covering ccache/sccache, LTO, thin LTO, PGO two-phase workflow, `perf size`, `perf build-time`, CMake configure summary table, and recommended release profile. `docs/BUILD_SETTINGS.md` and `docs/BUILD_INFO.md` also updated.
@@ -207,7 +207,7 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 
 #### Tooling Quality
 
-- **Compiler Explorer (Godbolt) Integration:** _(Phase 9 — Roadmapped)_ — `tool perf godbolt --source <file>` streams compiled asm via godbolt.org API. `tool perf vec` covers local vectorization analysis in the interim.
+- **Compiler Explorer (Godbolt) Integration:** ✅ IMPL — `tool perf godbolt --source <file> [--compiler <id>] [--flags <flags>] [--save] [--json]` POSTs to `https://godbolt.org/api/compiler/<id>/compile`. `tool perf vec` covers local vectorization analysis.
 
 ### Phase 9: C++ Modernity, Tooling DX & Ecosystem — 🔜 Planned
 
@@ -228,9 +228,9 @@ Priority-ordered backlog. Items marked _(quick)_ are low-effort and high-value.
 
 #### Developer Experience (DX)
 
-- **IWYU (Include What You Use)** _(medium)_ — `cmake/IWYU.cmake` wrapper: `find_program(iwyu ...)` + `set_target_properties(<t> PROPERTIES CXX_INCLUDE_WHAT_YOU_USE ${iwyu})`. CLI: `tool format iwyu [--target <lib>] [--fix]`. CI job reports unnecessary includes as annotations.
-- **Compiler Explorer (Godbolt) Integration** _(medium)_ — `tool perf godbolt --source <file> [--compiler gcc-13] [--flags -O2]` uploads a snippet via the Compiler Explorer REST API and streams the assembly diff to the terminal. Pair with `tool perf vec` for local analysis.
-- **Binary Reproducibility** _(medium)_ — Enforce `-ffile-prefix-map=$(pwd)=.`, `SOURCE_DATE_EPOCH` from `git log -1 --format=%ct`, and deterministic archive creation (`ar -D`). `tool build --reproducible` preset toggle. Validate with `diffoscope`. Documented in `docs/BUILDING.md`.
+- ✅ **IMPL** **IWYU (Include What You Use)** _(medium)_ — `cmake/IWYU.cmake`: `find_program(IWYU_EXECUTABLE names include-what-you-use iwyu)` + `enable_iwyu(<target>)` sets `CXX_INCLUDE_WHAT_YOU_USE`; `cmake/iwyu_mappings.imp` starter mapping file. CLI: `tool format iwyu [--target <lib>] [--fix]` drives `iwyu_tool -p build/` (reads `compile_commands.json`); pipes to `fix_includes` when `--fix` given; falls back to raw `iwyu` binary when `iwyu_tool` absent.
+- ✅ **IMPL** **Compiler Explorer (Godbolt) Integration** _(medium)_ — `tool perf godbolt --source <file> [--compiler <id>] [--flags <flags>] [--save] [--json]` POSTs to `https://godbolt.org/api/compiler/<id>/compile` via `urllib.request` (no external deps). Formats and prints the assembly; `--save` writes to `build_logs/godbolt_<name>.asm`; `--json` prints raw API response. Default compiler: `g131`.
+- ✅ **IMPL** **Binary Reproducibility** _(medium)_ — `cmake/Reproducibility.cmake`: `enable_reproducible_build([TARGET t...])` sets `-ffile-prefix-map=<src>=.` + `-D__DATE__="redacted"` + `-D__TIME__="redacted"`, derives `SOURCE_DATE_EPOCH` from `git log -1 --format=%ct`, forces `ar -D` (deterministic archive member timestamps). `tool build build --reproducible` / `tool build check --reproducible` pass `-DENABLE_REPRODUCIBLE=ON`.
 
 #### Performance & Auto-Tuning
 
@@ -238,14 +238,14 @@ Priority-ordered backlog. Items marked _(quick)_ are low-effort and high-value.
 
 #### Ecosystem & Integration
 
-- **Conan 2.0 Profile Generation from Presets** _(medium)_ — `tool deps conan-profile generate` maps `tool.toml [presets]` matrix to Conan 2 profiles (`[settings] compiler=gcc compiler.version=13 …`). Enables `conan install` without manual profile authoring.
-- **`tool build docker`** _(medium)_ — `tool build docker --preset gcc-release-static-x86_64 [--image ubuntu:24.04]` builds the project inside a container for hermetic, reproducible artifacts. Dockerfile auto-generated from `tool.toml` build dependencies detected by `tool setup`.
+- ✅ **IMPL** **Conan 2.0 Profile Generation from Presets** _(medium)_ — `tool deps conan-profile generate [--output-dir DIR] [--dry-run]` maps `tool.toml [presets]` matrix (compilers × build_types × linkages × arches) to Conan 2 profiles (`[settings]` compiler, version, cppstd, libcxx, build_type, arch). Respects `skip_combinations` patterns. Auto-detects compiler version via `g++/clang++ --version`. Writes to `~/.conan2/profiles/` when conan is installed; prints to stdout otherwise.
+- ✅ **IMPL** **`tool build docker`** _(medium)_ — `tool build docker [--preset <p>] [--image ubuntu:24.04] [--extra-args ...]` mounts workspace as `/workspace` and runs `python3 scripts/tool.py build build [--preset <p>]` inside the container (`docker run --rm -v $PWD:/workspace`). Forwards extra args to the inner build command.
 - **Package Publishing** _(long-term)_ — `tool release publish [--to github|conan|vcpkg]` automates packaging and upload. GitHub Releases via `gh` CLI; Conan Center Index PR generation; vcpkg overlay port scaffolding.
 
 #### Tooling Quality
 
-- **Cross-Compile Sysroot Management** _(medium)_ — `tool sol sysroot add <arch> [--url <img>]` downloads/unpacks a sysroot tarball, registers it in `tool.toml [sysroots]`, and patches the toolchain cmake file. Simplifies AArch64 / RISC-V cross builds without a manual `CMAKE_SYSROOT` path.
-- **LibFuzzer Native Integration** _(medium)_ — `cmake/Fuzzing.cmake` already has AFL++. Extend with libFuzzer: `-fsanitize=fuzzer-no-link` + per-target `enable_libfuzzer()`. CI nightly job runs both AFL++ and libFuzzer corpora, merges coverage, and uploads findings.
+- ✅ **IMPL** **Cross-Compile Sysroot Management** _(medium)_ — `tool sol sysroot add <arch> [--url <tarball-url>] [--dry-run]` creates `sysroots/<arch>/`, downloads+extracts the tarball (when `--url` given) or installs apt cross packages for known arches (aarch64, armv7), writes `sysroots/registry.json`, and patches `cmake/toolchains/<arch>*.cmake` to set `CMAKE_SYSROOT`. `tool sol sysroot list` shows registered sysroots.
+- ✅ **IMPL** **LibFuzzer Native Integration** _(medium)_ — `cmake/Fuzzing.cmake` extended with `enable_libfuzzer(<target>)`: applies `-fsanitize=fuzzer-no-link -fsanitize=address` to an existing library target (Clang only), propagates `-fsanitize=address` link options. Complements `add_fuzz_target()` (which links the full driver); `enable_libfuzzer()` is for instrumented libraries tested by separate harnesses providing `LLVMFuzzerTestOneInput`.
 - **AMD HIP Support** _(deferred — requires HIP SDK, not installed on this system)_ — `cmake/HIP.cmake` mirroring `cmake/CUDA.cmake` structure. Implement when HIP SDK is available.
 
 ## Versioning & Release Workflow

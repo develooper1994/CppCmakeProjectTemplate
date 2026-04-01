@@ -59,3 +59,55 @@ function(add_fuzz_target name)
     # Keep fuzz targets out of regular test runs by default
     set_target_properties(${name} PROPERTIES EXCLUDE_FROM_ALL TRUE)
 endfunction()
+
+# ── enable_libfuzzer(<target>) ───────────────────────────────────────────────
+# Applies libFuzzer-compatible instrumentation to an EXISTING library or
+# executable target WITHOUT linking the fuzzer driver.
+#
+# This is the right choice when:
+#   - The target is a library that multiple fuzz harnesses test.
+#   - The caller supplies their own main() / LLVMFuzzerTestOneInput.
+#   - You want to keep instrumentation decoupled from the fuzzing entry-point.
+#
+# Contrast with add_fuzz_target() which creates a new executable and links
+# -fsanitize=fuzzer (driver + entry-point) directly.
+#
+# Example:
+#   add_library(my_lib src/my_lib.cpp)
+#   enable_libfuzzer(my_lib)
+#
+#   add_executable(fuzz_my_lib fuzz/fuzz_my_lib.cpp)
+#   target_link_libraries(fuzz_my_lib PRIVATE my_lib)
+#   target_link_options(fuzz_my_lib PRIVATE -fsanitize=fuzzer)
+#
+function(enable_libfuzzer target)
+    if(NOT TARGET ${target})
+        message(FATAL_ERROR "enable_libfuzzer: '${target}' is not a valid CMake target.")
+    endif()
+
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(WARNING "enable_libfuzzer: -fsanitize=fuzzer-no-link is a Clang feature. "
+                        "Current compiler is ${CMAKE_CXX_COMPILER_ID}; skipping instrumentation.")
+        return()
+    endif()
+
+    # -fsanitize=fuzzer-no-link: instruments the TU for coverage feedback
+    # (guards on every edge) but does NOT link the libFuzzer driver runtime.
+    # This lets the resulting library be linked into any harness that provides
+    # LLVMFuzzerTestOneInput (or a custom main).
+    target_compile_options(${target} PRIVATE
+        -g
+        -O1
+        -fno-omit-frame-pointer
+        -fsanitize=fuzzer-no-link
+        -fsanitize=address
+    )
+    # Address sanitizer runtime must be linked by the final executable.
+    # We propagate the requirement through an interface link library so the
+    # linker picks it up automatically.
+    target_link_options(${target} PUBLIC -fsanitize=address)
+    target_compile_definitions(${target} PRIVATE FUZZ_LIBFUZZER=1)
+
+    message(STATUS "[Fuzzing] enable_libfuzzer applied to target '${target}' "
+                   "(-fsanitize=fuzzer-no-link -fsanitize=address)")
+endfunction()
