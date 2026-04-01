@@ -1,7 +1,15 @@
 """
-core/utils/config_loader.py — Load and merge tool.toml into GlobalConfig.
+core/utils/config_loader.py — Central configuration manager for all tooling.
 
-Priority (highest → lowest):
+Responsibilities
+----------------
+  1. Read and cache ``tool.toml`` (``load_tool_config``, ``get_config``).
+  2. Apply tool.toml values into ``GlobalConfig`` (``apply_to_global_config``).
+  3. Manage the ``[session]`` section in tool.toml as the single runtime-state
+     store for all scripts (``load_session``, ``save_session``, ``backup_session``).
+
+Priority (highest → lowest)
+----------------------------
   1. CLI flags
   2. Environment variables  (TOOL_<SECTION>_<KEY>=value)
   3. tool.toml values
@@ -9,12 +17,14 @@ Priority (highest → lowest):
 
 Usage
 -----
-    from core.utils.config_loader import load_tool_config, get_config
-    cfg = load_tool_config()           # reads tool.toml from project root
+    from core.utils.config_loader import load_tool_config, get_config, load_session
+    cfg    = load_tool_config()          # reads / caches tool.toml
     preset = get_config("build", "preset")
+    sess   = load_session()             # reads [session] section
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -171,3 +181,168 @@ def _coerce(val: str) -> Any:
     except ValueError:
         pass
     return val
+
+
+# ---------------------------------------------------------------------------
+# Session persistence — read/write the [session] section of tool.toml.
+#
+# Every script reads and writes only its own keys.  All TOML I/O is
+# centralised here so that common.py stays focused on process utilities.
+# ---------------------------------------------------------------------------
+
+def _ensure_tool_toml() -> Path:
+    """Create a minimal tool.toml when the file does not exist yet."""
+    if not TOOL_TOML.exists():
+        TOOL_TOML.write_text(
+            "# tool.toml — auto-generated minimal configuration\n\n"
+            "[session]\n",
+            encoding="utf-8",
+        )
+    return TOOL_TOML
+
+
+def _read_toml_text() -> str:
+    """Return the raw text of tool.toml, creating the file if absent."""
+    _ensure_tool_toml()
+    return TOOL_TOML.read_text(encoding="utf-8")
+
+
+def _write_toml_text(text: str) -> None:
+    """Write *text* back to tool.toml and invalidate the in-process read cache."""
+    global _loaded
+    TOOL_TOML.write_text(text, encoding="utf-8")
+    _loaded = False  # next load_tool_config() call re-reads from disk
+
+
+def load_session() -> dict:
+    """Load the ``[session]`` section from tool.toml.
+
+    Returns an empty dict when no session section exists or parsing fails.
+    """
+    try:
+        _ensure_tool_toml()
+        try:
+            import tomlkit
+            doc = tomlkit.parse(_read_toml_text())
+            sess = doc.get("session")
+            return {} if sess is None else {k: v for k, v in sess.items()}
+        except ImportError:
+            pass
+        if tomllib is not None:
+            data = tomllib.loads(_read_toml_text())
+            return dict(data.get("session", {}))
+        return _minimal_session_read()
+    except Exception:
+        return {}
+
+
+def save_session(data: dict) -> None:
+    """Write *data* into the ``[session]`` section of tool.toml.
+
+    Uses ``tomlkit`` for comment-preserving writes when available; falls back
+    to a line-based updater so the rest of the file is never corrupted.
+    """
+    try:
+        _ensure_tool_toml()
+        try:
+            import tomlkit
+            doc = tomlkit.parse(_read_toml_text())
+            if "session" not in doc:
+                doc.add(tomlkit.nl())
+                doc.add(tomlkit.comment(
+                    " [session] — Runtime session state (managed by tool)"))
+                doc.add("session", tomlkit.table())
+            tbl = doc["session"]
+            for k in list(tbl):
+                del tbl[k]
+            for k, v in data.items():
+                tbl[k] = v
+            _write_toml_text(tomlkit.dumps(doc))
+            return
+        except ImportError:
+            pass
+        _minimal_session_write(data)
+    except Exception:
+        pass
+
+
+def backup_session() -> Path | None:
+    """Create a timestamped backup of tool.toml.
+
+    Returns the backup path on success, or *None* when the file is absent.
+    """
+    if not TOOL_TOML.exists():
+        return None
+    try:
+        import time as _time
+        ts = int(_time.time())
+        bak = TOOL_TOML.with_suffix(f".{ts}.bak.toml")
+        bak.write_bytes(TOOL_TOML.read_bytes())
+        return bak
+    except Exception:
+        return None
+
+
+def _minimal_session_read() -> dict:
+    """Extract ``[session]`` key-value pairs without a full TOML parser."""
+    result: dict = {}
+    in_session = False
+    for raw_line in _read_toml_text().splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("["):
+            in_session = stripped == "[session]"
+            continue
+        if not in_session:
+            continue
+        line = stripped.split("#")[0].strip()
+        if not line or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        result[k.strip()] = _coerce(v.strip())
+    return result
+
+
+def _minimal_session_write(data: dict) -> None:
+    """Replace (or append) the ``[session]`` section using plain text ops."""
+    lines = _read_toml_text().splitlines(keepends=True)
+    new_lines: list[str] = []
+    in_session = False
+    session_written = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "[session]":
+            in_session = True
+            session_written = True
+            new_lines.append(line)
+            for k, v in data.items():
+                new_lines.append(f"{k} = {_toml_value(v)}\n")
+            continue
+        if in_session:
+            if stripped.startswith("["):
+                in_session = False
+                new_lines.append(line)
+            # skip old session key lines
+            continue
+        new_lines.append(line)
+    if not session_written:
+        if new_lines and not new_lines[-1].endswith("\n"):
+            new_lines.append("\n")
+        new_lines.append("\n[session]\n")
+        for k, v in data.items():
+            new_lines.append(f"{k} = {_toml_value(v)}\n")
+    _write_toml_text("".join(new_lines))
+
+
+def _toml_value(v: object) -> str:
+    """Format a Python value as a TOML literal."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, float):
+        return str(v)
+    if isinstance(v, str):
+        return json.dumps(v)
+    if isinstance(v, list):
+        return "[" + ", ".join(_toml_value(i) for i in v) + "]"
+    return json.dumps(str(v))
