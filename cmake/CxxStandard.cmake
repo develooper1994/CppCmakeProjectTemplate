@@ -39,6 +39,64 @@
 #   https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#c-cplusplus-language-support
 
 cmake_minimum_required(VERSION 3.25)  # require for DEFINED CACHE{} syntax
+include(CheckCXXSourceCompiles)
+
+# ---------------------------------------------------------------------------
+# _check_cxx_stdlib_available(<std_int> <out_var>)
+#
+# Performs a try_compile-style probe to verify that the standard library
+# headers for the requested C++ standard are actually available.  This
+# catches compilers that advertise cxx_std_XX in compile-features but ship
+# an incomplete or absent stdlib (e.g. a bare cross-toolchain).
+#
+# Results are cached in CXX_STDLIB_<std>_OK so the probe only runs once
+# per CMake configure invocation.
+#
+# Canary sources:
+#   C++17 — #include <optional> + #include <variant>
+#   C++20 — #include <concepts> + #include <ranges>
+#   C++23 — #include <expected>
+#   ≤C++14 — always TRUE (headers are universally available)
+# ---------------------------------------------------------------------------
+function(_check_cxx_stdlib_available std out_var)
+    # Standards ≤14 need no heavy canary; assume headers present.
+    if(std LESS_EQUAL 14)
+        set(${out_var} TRUE PARENT_SCOPE)
+        return()
+    endif()
+
+    # Return cached result if already probed this configure run.
+    if(DEFINED CACHE{CXX_STDLIB_${std}_OK})
+        set(${out_var} "${CXX_STDLIB_${std}_OK}" PARENT_SCOPE)
+        return()
+    endif()
+
+    if(std EQUAL 23)
+        set(_src [[
+#include <expected>
+int main() { std::expected<int,int> e{42}; return e.value(); }
+]])
+    elseif(std EQUAL 20)
+        set(_src [[
+#include <concepts>
+#include <ranges>
+int main() { auto v = std::views::iota(0,4); return 0; }
+]])
+    else()  # std == 17
+        set(_src [[
+#include <optional>
+#include <variant>
+int main() { std::optional<int> x{1}; std::variant<int> y{2}; return 0; }
+]])
+    endif()
+
+    set(_saved_flags "${CMAKE_REQUIRED_FLAGS}")
+    set(CMAKE_REQUIRED_FLAGS "-std=c++${std}")
+    check_cxx_source_compiles("${_src}" CXX_STDLIB_${std}_OK)
+    set(CMAKE_REQUIRED_FLAGS "${_saved_flags}")
+
+    set(${out_var} "${CXX_STDLIB_${std}_OK}" PARENT_SCOPE)
+endfunction()
 
 # ---------------------------------------------------------------------------
 # detect_cxx_standard([MIN <std>] [MAX <std>] [QUIET])
@@ -75,8 +133,18 @@ function(detect_cxx_standard)
             break()   # list is descending — no point continuing
         endif()
         if("cxx_std_${_std}" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
-            set(_selected ${_std})
-            break()
+            _check_cxx_stdlib_available(${_std} _stdlib_ok)
+            if(_stdlib_ok)
+                if(NOT _DCS_QUIET)
+                    message(STATUS "[CxxStd] stdlib probe C++${_std}: OK")
+                endif()
+                set(_selected ${_std})
+                break()
+            else()
+                if(NOT _DCS_QUIET)
+                    message(STATUS "[CxxStd] stdlib probe C++${_std}: FAIL (skipping)")
+                endif()
+            endif()
         endif()
     endforeach()
 

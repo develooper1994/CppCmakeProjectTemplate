@@ -48,7 +48,7 @@ This document lists the project's current capabilities, governance policies, and
 
 ## 🚀 Roadmap
 
-### Phase 1: Foundation & Unified CLI — Completed
+### Phase 1: Foundation & Unified CLI — ✅ DONE
 
 - **Modular Dispatcher:** ✅ DONE
 - **Command Contracts:** ✅ DONE
@@ -57,14 +57,14 @@ This document lists the project's current capabilities, governance policies, and
 - **Migration & Cleanup:** ✅ DONE (legacy scripts consolidated)
 - **Refactoring & Core Migration:** ✅ DONE (command logic moved under `core/commands`)
 
-### Phase 2: Distribution & Template Engine — Completed
+### Phase 2: Distribution & Template Engine — ✅ DONE
 
 - **Jinja2 Migration:** ✅ DONE — Integrated for `libpkg` and `sol` subsystems with fallback behavior.
 - **Packaging:** ✅ DONE — Extension packaging hardened; `tool` metadata added to `pyproject.toml`.
 - **Bootstrap (`tool setup`):** ✅ DONE — `tool setup [--install] [--do-install] [--all] [--env] [--install-env] [--recreate]`. Checks mandatory (cmake, ninja, git, python3) and optional (lcov, doxygen, clang, clang-tidy, cppcheck, osv-scanner, valgrind, ccache, gitleaks) system dependencies. `--install` shows the install command; `--do-install` actually runs it via apt/brew/dnf/pacman auto-detection. Creates/populates Python venv.
 - **Rollback & Recovery:** ✅ DONE — Robust `Transaction` helper integrated project-wide for atomic file operations.
 
-### Phase 3: Test Strategy & Structured CI (Status & progress) - Completed
+### Phase 3: Test Strategy & Structured CI (Status & progress) - ✅ DONE
 
 - **Comprehensive Testing (in-progress):** ✅ DONE - Library management commands (`rename`, `move`, `remove`) are now transactional and include project-wide CMake reference updates. Highlights:
   - **`rename`:** updates source files, headers, and CMake target references atomically under the repository `Transaction` helper; supports `--dry-run` preview for automation and safety.
@@ -76,7 +76,7 @@ This document lists the project's current capabilities, governance policies, and
 - **Deterministic CI:** ✅ DONE — Optimized CI with caching, conditional builds, and cross-platform verification.
 - **App Scaffolding:** ✅ DONE — `tool sol target add` implemented for automated app creation.
 
-### Phase 4: Safety, Hardening & Sanitizers (Rust-like C++ Safety) — Completed
+### Phase 4: Safety, Hardening & Sanitizers (Rust-like C++ Safety) — ✅ DONE
 
 - **Multi-Tiered Security Profiles:** ✅ DONE — Implementation of progressive safety levels.
   - **`normal`**: Base warnings (`-Wall -Wextra`).
@@ -172,6 +172,16 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 - **Memory Pooling & Custom Allocators:** _(Future / User-Land)_ — Template does not prescribe allocators by design. `tool perf valgrind --vg-tool massif` profiles heap usage. Users may link `mimalloc` or `jemalloc` via vcpkg/conan. CMake helper `target_use_allocator()` could be added per user request.
 - **Zero-Cost Abstractions:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` demonstrates `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` cross-platform macros. `docs/PERFORMANCE.md` covers the guidelines.
 
+### Phase 6: Ecosystem & UI — ✅ DONE
+
+- **TUI as Wrapper:** ✅ DONE — `tool tui` dispatches to `scripts/tui.py`. `tui/` app already wired via CORE_COMMANDS `"tui": "tui"`.
+- **Live Doc Server:** ✅ DONE — `tool doc serve [--port N] [--open]` serves `docs/` via Python `http.server`. `tool doc list` shows all 15 documents. `tool doc build` supports mkdocs/sphinx.
+
+### Phase 7: Configuration & State Management — ✅ DONE
+
+- **`tool.toml`:** ✅ DONE — `tool.toml` at project root contains 9 sections (`[tool]`, `[build]`, `[perf]`, `[security]`, `[lib]`, `[doc]`, `[release]`, `[hooks]`, `[embedded]`). Read by `scripts/core/utils/config_loader.py` via `tomllib` (Python 3.11+) with `tomli` fallback and minimal built-in parser. Values flow into `GlobalConfig` at dispatcher startup. CLI args always take precedence.
+- **State Persistence:** ✅ DONE — `.session.json` at project root stores session history (last preset, verbose/json/yes/dry_run flags, default command). Managed by `scripts/core/commands/session.py` via `load_session()`, `save_session()`, `backup_session()` in `core.utils.common`. Both `tool.py` and `tui.py` share this single file – `tool session save/load/set` subcommands expose it via CLI.
+
 ### Phase 8: GUI, GPU & Tooling Evolution — ✅ DONE
 
 #### Framework Support
@@ -203,39 +213,39 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 
 Priority-ordered backlog. Items marked _(quick)_ are low-effort and high-value.
 
+#### Quick Wins
+
+- **`lib upgrade-std`** _(quick, ✅ IMPL)_ — `tool lib upgrade-std <lib> --std 20 [--dry-run]` sets C++ standard for one library's CMakeLists.txt. Scoped to `libs/<lib>/`. Complements `sol upgrade-std` which operates project-wide.
+- **`sol upgrade-std`** _(quick)_ — `tool sol upgrade-std --std 20 [--target <lib>]` traverses `libs/` and `apps/` CMakeLists.txt, bumps `target_compile_features` and `CXX_STANDARD` to the requested value, validates with `tool build check --no-sync`. Dry-run by default.
+- **`.clangd` Auto-Generation** _(quick)_ — `tool sol clangd` reads `compile_commands.json` and emits a `.clangd` file with the correct `CompilationDatabase`, `InlayHints`, and `Diagnostics` sections. Ensures clangd picks up the active preset without manual editor config.
+- **Binary Size Delta Tracking** _(quick, optional)_ — `tool perf size-diff [--base HEAD~1] [--head HEAD] [--fail-on-growth <bytes>]` compares `.text` / `.data` / `.bss` sections between two commits. `--fail-on-growth` is opt-in; CI does not block by default. Integrates with `build_logs/size_report.json`.
+
 #### Language & Compiler Evolution
 
 - **C++20 Modules support** _(medium)_ — CMake ≥ 3.28 `cmake_minimum_required(3.28)` + `SCAN_FOR_MODULES=ON` target property for `.ixx` / `.cppm` module units. `tool lib add --modules` flag that emits a module-unit stub instead of a classic header. Requires Clang ≥ 16 or GCC ≥ 14 with `-fmodules-ts`. Impact: eliminates textual inclusion overhead, enables true encapsulation.
-- **`sol upgrade-std`** _(quick)_ — `tool sol upgrade-std --std 20 [--target <lib>]` traverses `libs/` and `apps/` CMakeLists.txt, bumps `target_compile_features` and `CXX_STANDARD` to the requested value, validates with `tool build check --no-sync`. Dry-run by default.
+- **Stdlib-Aware C++ Detection** _(quick, ✅ IMPL)_ — `cmake/CxxStandard.cmake` extended with `_check_cxx_stdlib_available()`: probes `CheckCXXSourceCompiles` with canary sources (`<optional>+<variant>` for C++17, `<concepts>+<ranges>` for C++20, `<expected>` for C++23). Both compile-features AND stdlib must pass. Cache key: `CXX_STDLIB_<std>_OK`.
 
 #### Developer Experience (DX)
 
-- **`.clangd` Auto-Generation** _(quick)_ — `tool sol clangd` reads `compile_commands.json` and emits a `.clangd` file with the correct `CompilationDatabase`, `InlayHints`, and `Diagnostics` sections. Ensures clangd picks up the active preset without manual editor config.
 - **IWYU (Include What You Use)** _(medium)_ — `cmake/IWYU.cmake` wrapper: `find_program(iwyu ...)` + `set_target_properties(<t> PROPERTIES CXX_INCLUDE_WHAT_YOU_USE ${iwyu})`. CLI: `tool format iwyu [--target <lib>] [--fix]`. CI job reports unnecessary includes as annotations.
 - **Compiler Explorer (Godbolt) Integration** _(medium)_ — `tool perf godbolt --source <file> [--compiler gcc-13] [--flags -O2]` uploads a snippet via the Compiler Explorer REST API and streams the assembly diff to the terminal. Pair with `tool perf vec` for local analysis.
 - **Binary Reproducibility** _(medium)_ — Enforce `-ffile-prefix-map=$(pwd)=.`, `SOURCE_DATE_EPOCH` from `git log -1 --format=%ct`, and deterministic archive creation (`ar -D`). `tool build --reproducible` preset toggle. Validate with `diffoscope`. Documented in `docs/BUILDING.md`.
+
+#### Performance & Auto-Tuning
+
+- **Auto-Tuner** _(medium, ✅ IMPL)_ — `tool perf autotune [--bench <binary>] [--strategy hill|grid] [--rounds N] [--json]` sweeps a compiler-flag search space defined in `tool.toml [autotuner]` (e.g., `-O2/-O3`, `-march=native/-march=x86-64`, `-funroll-loops`). Oracle: Google Benchmark JSON output (median throughput). Strategy `hill` (default): flip one flag per round, keep if improvement. Strategy `grid`: enumerate all combinations up to `--rounds` limit. Output: `build_logs/autotune_results.json` + terminal summary table. Pairs with benchmark suite in `libs/dummy_lib/benchmarks/bench_greet.cpp` (Sudoku, Mandelbrot, Convolution).
 
 #### Ecosystem & Integration
 
 - **Conan 2.0 Profile Generation from Presets** _(medium)_ — `tool deps conan-profile generate` maps `tool.toml [presets]` matrix to Conan 2 profiles (`[settings] compiler=gcc compiler.version=13 …`). Enables `conan install` without manual profile authoring.
 - **`tool build docker`** _(medium)_ — `tool build docker --preset gcc-release-static-x86_64 [--image ubuntu:24.04]` builds the project inside a container for hermetic, reproducible artifacts. Dockerfile auto-generated from `tool.toml` build dependencies detected by `tool setup`.
-- **Binary Size Delta Tracking** _(quick)_ — `tool perf size-diff [--base HEAD~1] [--head HEAD]` compares `.text` / `.data` / `.bss` sections between two commits and fails CI if growth exceeds threshold. Integrates with `build_logs/size_report.json`.
 - **Package Publishing** _(long-term)_ — `tool release publish [--to github|conan|vcpkg]` automates packaging and upload. GitHub Releases via `gh` CLI; Conan Center Index PR generation; vcpkg overlay port scaffolding.
 
 #### Tooling Quality
 
 - **Cross-Compile Sysroot Management** _(medium)_ — `tool sol sysroot add <arch> [--url <img>]` downloads/unpacks a sysroot tarball, registers it in `tool.toml [sysroots]`, and patches the toolchain cmake file. Simplifies AArch64 / RISC-V cross builds without a manual `CMAKE_SYSROOT` path.
 - **LibFuzzer Native Integration** _(medium)_ — `cmake/Fuzzing.cmake` already has AFL++. Extend with libFuzzer: `-fsanitize=fuzzer-no-link` + per-target `enable_libfuzzer()`. CI nightly job runs both AFL++ and libFuzzer corpora, merges coverage, and uploads findings.
-
-### Phase 6: Ecosystem & UI — ✅ DONE
-
-- **TUI as Wrapper:** ✅ DONE — `tool tui` dispatches to `scripts/tui.py`. `tui/` app already wired via CORE_COMMANDS `"tui": "tui"`.
-- **Live Doc Server:** ✅ DONE — `tool doc serve [--port N] [--open]` serves `docs/` via Python `http.server`. `tool doc list` shows all 15 documents. `tool doc build` supports mkdocs/sphinx.
-
-### Phase 7: Configuration & State Management — ✅ DONE
-
-- **`tool.toml`:** ✅ DONE — `tool.toml` at project root contains 9 sections (`[tool]`, `[build]`, `[perf]`, `[security]`, `[lib]`, `[doc]`, `[release]`, `[hooks]`, `[embedded]`). Read by `scripts/core/utils/config_loader.py` via `tomllib` (Python 3.11+) with `tomli` fallback and minimal built-in parser. Values flow into `GlobalConfig` at dispatcher startup. CLI args always take precedence.
-- **State Persistence:** ✅ DONE — `.session.json` at project root stores session history (last preset, verbose/json/yes/dry_run flags, default command). Managed by `scripts/core/commands/session.py` via `load_session()`, `save_session()`, `backup_session()` in `core.utils.common`. Both `tool.py` and `tui.py` share this single file – `tool session save/load/set` subcommands expose it via CLI.
+- **AMD HIP Support** _(deferred — requires HIP SDK, not installed on this system)_ — `cmake/HIP.cmake` mirroring `cmake/CUDA.cmake` structure. Implement when HIP SDK is available.
 
 ## Versioning & Release Workflow
 

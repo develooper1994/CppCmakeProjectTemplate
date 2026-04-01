@@ -82,3 +82,67 @@ The modules `scripts/build.py`, `scripts/toollib.py`, and `scripts/toolsolution.
 - Conservative modularization: prefer grouping related code together. Only split files when a clear separation of concerns or testability benefit exists.
 - Avoid the "lowest common denominator" trap: don't split purely for potential reuse across unrelated components.
 - Agents must follow this guideline when modifying or refactoring repository code — prefer fewer, cohesive modules and ask the maintainer before aggressive decomposition.
+
+## Large-Scale Change Workflow
+
+For changes that touch multiple files, introduce new subsystems, or carry meaningful risk of regression, agents **MUST** follow this workflow without exception.
+
+### Status Marks
+
+| Mark | Meaning |
+|------|---------|
+| ✅ DONE | Verified complete — tests pass, committed |
+| ⏳ IN PROGRESS | Currently being worked on |
+| 🔜 DEFERRED | Planned but not started |
+| 🚧 PARTIAL | Started but blocked or incomplete |
+| ❌ FAILED | Attempted and could not complete; reason noted |
+
+### Step-by-Step Protocol
+
+1. **Plan first.** Before touching any file, write a plan (in session memory or inline). List every file to be changed, what changes are needed, and the execution order. Note dependencies between steps.
+
+2. **Open a feature branch.** Never commit large-scope changes directly to `main`.
+
+   ```bash
+   git checkout -b feature/<short-description>
+   ```
+
+3. **Work in small, testable increments.** Complete one logical unit at a time. Mark it ✅ DONE or 🚧 PARTIAL in the plan before moving on.
+
+4. **Read before every edit.** Before modifying a file, re-read the relevant section. Confirm the context matches expectations. If something looks different from the plan, re-evaluate before proceeding.
+
+5. **Test after every step.**
+   - Prefer `python3 scripts/tool.py build check --no-sync` for quick validation.
+   - If the changed component has unit tests, run them specifically first.
+   - If no tests exist for new functionality, write meaningful ones before committing.
+   - A failing test means either the code or the test is wrong — check both.
+
+6. **Commit when a step is verified green.**
+
+   ```bash
+   git add <files>
+   git commit -m "feat/fix: <scope>: <description>"
+   ```
+
+   Do not batch multiple logical changes into a single commit.
+
+7. **Repeat steps 3–6** for each remaining plan item. Re-read the plan after each commit to confirm alignment.
+
+8. **Merge to main only when everything is ✅ DONE.**
+
+   ```bash
+   git checkout main
+   git merge --no-ff feature/<short-description>
+   git branch -d feature/<short-description>
+   ```
+
+9. **Delete the feature branch.** Do not leave stale branches.
+
+### Scope Threshold — When This Workflow Applies
+
+Apply this workflow when any of the following is true:
+
+- More than 2 files are modified in a single logical change.
+- A new subsystem, CLI command, or CMake module is introduced.
+- Changes affect the build system, CI, or test infrastructure.
+- The change involves non-trivial algorithm or data-structure work.

@@ -729,6 +729,198 @@ def _cmd_vec(args) -> CLIResult:
     return CLIResult(success=True, message="Vectorization flags shown above. Rebuild to see report.", data={})
 
 
+# ---------------------------------------------------------------------------
+# Compiler-flag auto-tuner (hill-climb / grid search)
+# ---------------------------------------------------------------------------
+
+def _impl_cmd_autotune(args) -> CLIResult:
+    """Sweep compiler flags to find the best combination for benchmark performance.
+
+    Reads ``tool.toml [autotuner].flag_candidates`` (list of lists of strings).
+    Each inner list is a *flag group* — at most one flag from each group is
+    active at a time.  Empty string ``""`` means "no flag" (the baseline
+    choice).
+
+    Strategies
+    ----------
+    hill  (default)
+        Start with the first flag in every group (baseline).  For each group,
+        try alternates one at a time; keep the change if it lowers the total
+        benchmark ``cpu_time``.  Repeat until no improvement or ``--rounds``
+        budget is exhausted.
+    grid
+        Enumerate the cartesian product of all flag groups up to ``--rounds``
+        trials; pick the combination with the lowest score.
+
+    Output: ``build_logs/autotune_results.json`` + terminal summary table.
+    """
+    import itertools
+    from core.utils.config_loader import load_tool_config
+
+    rounds   = int(getattr(args, "rounds", 16))
+    strategy = getattr(args, "strategy", "hill")
+    bench_filter = getattr(args, "filter", None)
+    as_json  = getattr(args, "json", False)
+
+    # ── Load [autotuner] from tool.toml ──────────────────────────────────
+    cfg = load_tool_config()
+    at_cfg: dict = cfg.get("autotuner", {})
+    flag_groups: list[list[str]] = at_cfg.get("flag_candidates", [])
+    if not flag_groups:
+        Logger.error("No flag_candidates defined in tool.toml [autotuner]. "
+                     "Add a section like:\n  [autotuner]\n  flag_candidates = [[\"-O2\",\"-O3\"],[...]]")
+        return CLIResult(success=False, code=1, message="No flag_candidates configured")
+
+    AUTOTUNE_DIR = BUILD_DIR / "autotune"
+    AUTOTUNE_DIR.mkdir(parents=True, exist_ok=True)
+
+    def _score_flags(flags: list[str], trial_name: str) -> "float | None":
+        """Configure, build, benchmark.  Returns total cpu_time (lower=better), or None."""
+        trial_dir = AUTOTUNE_DIR / trial_name
+        flags_str = " ".join(f for f in flags if f)  # skip empty-string placeholders
+        Logger.info(f"  [{trial_name}] CXX_FLAGS=[{flags_str or '(defaults)'}]")
+
+        cfg_cmd = [
+            "cmake",
+            "-S", str(PROJECT_ROOT),
+            "-B", str(trial_dir),
+            "-DCMAKE_BUILD_TYPE=Release",
+            f"-DCMAKE_CXX_FLAGS={flags_str}",
+            "-DENABLE_BENCHMARKS=ON",
+            "-DBUILD_TESTING=OFF",
+            "-DBUILD_SHARED_LIBS=OFF",
+        ]
+        r = subprocess.run(cfg_cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
+        if r.returncode != 0:
+            Logger.warn(f"    Configure failed: {r.stderr[-300:].strip()}")
+            return None
+
+        bld_cmd = ["cmake", "--build", str(trial_dir), "--parallel"]
+        r = subprocess.run(bld_cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
+        if r.returncode != 0:
+            Logger.warn(f"    Build failed: {r.stderr[-300:].strip()}")
+            return None
+
+        # Discover ELF benchmark binaries in this trial build dir
+        bench_bins: list[Path] = []
+        for p in trial_dir.rglob("*"):
+            if not p.is_file():
+                continue
+            name = p.name.lower()
+            if ("bench" in name or "benchmark" in name) and (p.stat().st_mode & 0o111):
+                try:
+                    with open(p, "rb") as fh:
+                        if fh.read(4) == b"\x7fELF":
+                            bench_bins.append(p)
+                except OSError:
+                    pass
+
+        if not bench_bins:
+            Logger.warn("    No benchmark binaries found. Build with ENABLE_BENCHMARKS=ON.")
+            return None
+
+        total_time = 0.0
+        for bb in bench_bins:
+            bench_cmd = [str(bb), "--benchmark_format=json", "--benchmark_min_time=0.1"]
+            if bench_filter:
+                bench_cmd.append(f"--benchmark_filter={bench_filter}")
+            try:
+                r = subprocess.run(bench_cmd, capture_output=True, text=True, timeout=180)
+                if r.returncode == 0 and r.stdout.strip():
+                    data = json.loads(r.stdout)
+                    for bm in data.get("benchmarks", []):
+                        total_time += bm.get("cpu_time", 0.0)
+            except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as exc:
+                Logger.warn(f"    Benchmark error: {exc}")
+        return total_time if total_time > 0.0 else None
+
+    # ── Run selected strategy ─────────────────────────────────────────────
+    results: list[dict] = []
+    best_flags: list[str] = [g[0] for g in flag_groups]
+    best_score: float = float("inf")
+
+    if strategy == "hill":
+        Logger.info("Autotune: hill-climb strategy")
+        score = _score_flags(best_flags, "baseline")
+        if score is None:
+            return CLIResult(success=False, code=1, message="Baseline build/run failed")
+        best_score = score
+        results.append({"trial": "baseline", "flags": list(best_flags), "score": best_score})
+        Logger.info(f"  Baseline score: {best_score:.1f} ns")
+
+        iteration = 0
+        improved = True
+        while improved and iteration < rounds:
+            improved = False
+            for gi, group in enumerate(flag_groups):
+                for alt_flag in group[1:]:
+                    if iteration >= rounds:
+                        break
+                    trial_flags = list(best_flags)
+                    trial_flags[gi] = alt_flag
+                    trial_name = f"hill_{iteration:02d}"
+                    new_score = _score_flags(trial_flags, trial_name)
+                    iteration += 1
+                    if new_score is not None:
+                        results.append({"trial": trial_name,
+                                        "flags": trial_flags,
+                                        "score": new_score})
+                        if new_score < best_score:
+                            best_score = new_score
+                            best_flags = trial_flags
+                            improved = True
+                            Logger.info(f"  ↑ Improved → {best_score:.1f} ns  flags={trial_flags}")
+
+    elif strategy == "grid":
+        Logger.info("Autotune: grid search strategy")
+        combos = list(itertools.product(*flag_groups))[:rounds]
+        for i, combo in enumerate(combos):
+            trial_flags = list(combo)
+            new_score = _score_flags(trial_flags, f"grid_{i:02d}")
+            if new_score is not None:
+                results.append({"trial": f"grid_{i:02d}",
+                                "flags": trial_flags,
+                                "score": new_score})
+                if new_score < best_score:
+                    best_score = new_score
+                    best_flags = trial_flags
+                    Logger.info(f"  Best so far → {best_score:.1f} ns  flags={trial_flags}")
+
+    else:
+        return CLIResult(success=False, code=1,
+                         message=f"Unknown strategy: {strategy!r}. Use 'hill' or 'grid'.")
+
+    # ── Persist + report ─────────────────────────────────────────────────
+    results.sort(key=lambda e: e.get("score", float("inf")))
+    best_flag_str = " ".join(f for f in best_flags if f) or "(defaults)"
+    output = {
+        "strategy": strategy,
+        "best_flags": best_flags,
+        "best_score": best_score if best_score < float("inf") else None,
+        "trials": results,
+    }
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    out_file = LOGS_DIR / "autotune_results.json"
+    out_file.write_text(json.dumps(output, indent=2), encoding="utf-8")
+
+    Logger.info(f"\nAutotune complete — {len(results)} trial(s) run.")
+    Logger.info(f"Best flags : {best_flag_str}")
+    Logger.info(f"Best score : {best_score:.1f} ns (cpu_time sum, lower is better)")
+    Logger.info(f"Results    → {out_file}")
+
+    Logger.info(f"\n{'Trial':<15} {'Flags':<45} {'Score (ns)':>12}")
+    Logger.info("-" * 75)
+    for entry in results[:10]:
+        flag_str = " ".join(f for f in entry["flags"] if f) or "(defaults)"
+        score_s  = f"{entry['score']:.1f}" if entry.get("score") is not None else "N/A"
+        Logger.info(f"{entry['trial']:<15} {flag_str:<45} {score_s:>12}")
+
+    if as_json:
+        print(json.dumps(output, indent=2))
+
+    return CLIResult(success=True, message="Autotune complete", data=output)
+
+
 def perf_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="tool perf", description="Performance analysis tools")
     sub = parser.add_subparsers(dest="subcommand")
@@ -803,6 +995,19 @@ def perf_parser() -> argparse.ArgumentParser:
     p.add_argument("--source", required=True, help="Source file path (relative or absolute)")
     p.add_argument("--preset", default=None, help="CMake preset to use for rebuild")
     p.set_defaults(func=_cmd_vec)
+
+    # autotune
+    p = sub.add_parser("autotune",
+                       help="Sweep compiler flags to find the best combination (hill or grid search)")
+    p.add_argument("--strategy", choices=["hill", "grid"], default="hill",
+                   help="Search strategy: 'hill' (default, fast) or 'grid' (exhaustive)")
+    p.add_argument("--rounds", type=int, default=16, metavar="N",
+                   help="Maximum number of build+run trials (default: 16)")
+    p.add_argument("--filter", default=None, metavar="REGEX",
+                   help="Benchmark filter regex passed to --benchmark_filter")
+    p.add_argument("--json", action="store_true",
+                   help="Print full results JSON to stdout in addition to summary")
+    p.set_defaults(func=_impl_cmd_autotune)
 
     return parser
 
