@@ -134,6 +134,49 @@ gitleaks_on_commit = true
 clangformat_on_commit = true
 
 # ---------------------------------------------------------------------------
+# [presets] — CMakePresets.json generator defaults (`tool presets generate`)
+# ---------------------------------------------------------------------------
+[presets]
+# Compilers included in the generated preset matrix.
+# Supported values: gcc | clang | cuda | msvc
+compilers   = ["gcc", "clang"]
+
+# Build types (maps to CMAKE_BUILD_TYPE).
+# Supported values: debug | release | relwithdebinfo | minsizerel
+build_types = ["debug", "release", "relwithdebinfo"]
+
+# Linkage variants.
+# Supported values: static | dynamic
+linkages    = ["static", "dynamic"]
+
+# Target architectures.
+# Common values: x86_64 | x86 | aarch64 | armv7 | <free-string>
+# Free-string arches must have a matching cmake/toolchains/<arch>.cmake file.
+arches      = ["x86_64"]
+
+# CMake minimum version required in the generated file.
+cmake_minimum_major = 3
+cmake_minimum_minor = 25
+
+# Preset selected when neither --preset nor a session preset is set.
+default_preset = "gcc-debug-static-x86_64"
+
+# CUDA GPU architecture spec written into cuda-* presets.
+# Supported values: native | all-major | 75;86;89 | <explicit SM list>
+cuda_architectures = "native"
+
+# Generator used in generated configurePresets (empty = system default, i.e. Ninja)
+generator = "Ninja"
+
+# Constraint matrix: combinations to skip (emit a warning, not a fatal error).
+# Format: list of "compiler-buildtype-linkage-arch" glob patterns.
+# Wildcards: * (any segment)
+skip_combinations = [
+    "msvc-*-dynamic-aarch64",   # MSVC has no ARM64 dynamic-link preset here
+    "cuda-*-dynamic-*",          # CUDA forces static linkage
+]
+
+# ---------------------------------------------------------------------------
 # [embedded] — cross-compilation / embedded defaults
 # ---------------------------------------------------------------------------
 [embedded]

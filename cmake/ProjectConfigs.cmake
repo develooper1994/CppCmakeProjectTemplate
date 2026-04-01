@@ -35,6 +35,9 @@ option(ENABLE_AUTO_PARALLEL "Enable compiler auto-parallelization of loops"    O
 option(ENABLE_QT            "Enable Qt5/Qt6 support (requires Qt install)"     OFF)
 option(ENABLE_QML           "Enable Qt QML/Quick (requires ENABLE_QT)"         OFF)
 
+# --- CUDA / GPU Options ---
+option(ENABLE_CUDA          "Enable CUDA language and GPU target support"       OFF)
+
 # --- Master list — drives FeatureFlags.cmake dynamic generation ---
 # Add new options here; FeatureFlags.h will update automatically on next cmake run.
 set(PROJECT_ALL_OPTIONS
@@ -49,7 +52,7 @@ set(PROJECT_ALL_OPTIONS
     # Parallelization
     OPENMP OPENMP_SIMD AUTO_PARALLEL
     # Frameworks
-    QT QML BOOST
+    QT QML CUDA BOOST
     # Misc
     DOCS
     CACHE STRING "All ENABLE_* toggle options (drives FeatureFlags.h generation)" FORCE
@@ -82,8 +85,9 @@ option(ENABLE_BOOST_TEST    "Use Boost.Test as test framework"   OFF)
 # QTest is enabled automatically when ENABLE_QT=ON (no separate option needed)
 
 # --- Qt & GUI Options ---
-option(ENABLE_QT            "Build Qt-based GUI applications"    OFF)
-option(ENABLE_QML           "Build QML support for Qt apps"      OFF)
+# Note: ENABLE_QT and ENABLE_QML are declared above — these are aliases kept
+# for backward compatibility with older presets (CMake ignores re-declarations
+# when the value is already cached).
 
 # --- Boost Options ---
 option(ENABLE_BOOST         "Enable Boost libraries"             OFF)

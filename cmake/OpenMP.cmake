@@ -18,10 +18,8 @@
 # Usage from CLI:
 #   cmake --preset gcc-release-static-x86_64 -DENABLE_OPENMP=ON
 #   tool build --openmp   (sets -DENABLE_OPENMP=ON)
-
-option(ENABLE_OPENMP        "Enable OpenMP threading support (links libgomp)"    OFF)
-option(ENABLE_OPENMP_SIMD   "Enable OpenMP SIMD pragmas only (no runtime dep)"   OFF)
-option(ENABLE_AUTO_PARALLEL "Enable compiler auto-parallelization (-floop-parallelize-all / -ftree-parallelize-loops)" OFF)
+# Note: ENABLE_OPENMP / ENABLE_OPENMP_SIMD / ENABLE_AUTO_PARALLEL options are
+# declared in cmake/ProjectConfigs.cmake — do not redeclare them here.
 
 # ---------------------------------------------------------------------------
 # enable_openmp(<target>)
