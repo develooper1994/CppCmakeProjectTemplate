@@ -223,7 +223,7 @@ Priority-ordered backlog. Items marked _(quick)_ are low-effort and high-value.
 #### Language & Compiler Evolution
 
 - **C++20 Modules support** _(medium)_ — CMake ≥ 3.28 `cmake_minimum_required(3.28)` + `SCAN_FOR_MODULES=ON` target property for `.ixx` / `.cppm` module units. `tool lib add --modules` flag that emits a module-unit stub instead of a classic header. Requires Clang ≥ 16 or GCC ≥ 14 with `-fmodules-ts`. Impact: eliminates textual inclusion overhead, enables true encapsulation.
-- **Stdlib-Aware C++ Detection** _(quick, ✅ IMPL)_ — `cmake/CxxStandard.cmake` extended with `_check_cxx_stdlib_available()`: probes `CheckCXXSourceCompiles` with canary sources (`<optional>+<variant>` for C++17, `<concepts>+<ranges>` for C++20, `<expected>` for C++23). Both compile-features AND stdlib must pass. Cache key: `CXX_STDLIB_<std>_OK`.
+- **Stdlib-Aware C++ Detection** _(quick, ✅ IMPL)_ — `cmake/CxxStandard.cmake` extended with a three-strategy detection pipeline. **Strategy A** (fast, no compile): checks `CMAKE_CXX_COMPILE_FEATURES` for `cxx_std_XX` — used as a diagnostic, not a hard gate. **Strategy B** (authoritative): `_cxx_compile_probe()` compiles a canary source with `-std=c++XX`; validates both language support AND stdlib header availability; runs regardless of Strategy A result, catching cross-toolchains where CMake under-populates the feature list. **Strategy C** (last resort): `_compiler_version_max_std()` compiler-version heuristic table (GCC/Clang/MSVC/Intel); emits a `WARNING`; only activated if all compile probes fail. Supported range: **C++98/03 · 11 · 14 · 17 · 20 · 23** (C++03 maps to `98`; each std has a tailored canary source). Cache key: `CXX_COMPILE_PROBE_<std>_OK`.
 
 #### Developer Experience (DX)
 
