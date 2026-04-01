@@ -8,12 +8,13 @@ on:
   pull_request:
 
 jobs:
+  setup:
+    uses: ./.github/workflows/reusable-ci.yml
+
   afl-fuzz:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
-      - name: Common CI setup
-        uses: ./.github/actions/common-ci
-
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -50,13 +51,10 @@ name: AFL++ Fuzz (manual dispatch)
 on:
   workflow_dispatch: {}
 
-jobs:
   afl-smoke:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
-      - name: Common CI setup
-        uses: ./.github/actions/common-ci
-
       - name: Install dependencies
         run: |
           sudo apt-get update
