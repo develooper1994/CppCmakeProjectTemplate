@@ -177,6 +177,23 @@ skip_combinations = [
 ]
 
 # ---------------------------------------------------------------------------
+# [autotuner] — `tool perf autotune` compiler-flag search space
+# ---------------------------------------------------------------------------
+[autotuner]
+# Default strategy: "hill" (fast, single-flag perturbation) or "grid" (exhaustive)
+strategy = "hill"
+# Maximum number of build+run trials before stopping
+rounds = 16
+# Flag candidates: each inner list is a *group* — exactly one flag from each
+# group is active at a time.  Use "" (empty string) for "no flag" (baseline).
+flag_candidates = [
+    ["-O2", "-O3"],
+    ["-march=x86-64", "-march=native"],
+    ["", "-funroll-loops"],
+    ["", "-fomit-frame-pointer"],
+]
+
+# ---------------------------------------------------------------------------
 # [embedded] — cross-compilation / embedded defaults
 # ---------------------------------------------------------------------------
 [embedded]

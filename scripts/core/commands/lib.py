@@ -364,6 +364,30 @@ def _impl_cmd_export(args) -> None:
     print("Tip: include or add this to your top-level install step or CPack configuration.")
 
 
+def _impl_cmd_lib_upgrade_std(args) -> None:
+    name = getattr(args, "name")
+    std  = getattr(args, "std")
+    dry  = getattr(args, "dry_run", False)
+    lib_cm = LIBS_DIR / name / "CMakeLists.txt"
+    if not lib_cm.exists():
+        print(f"Library '{name}' not found at {lib_cm}")
+        raise SystemExit(1)
+    content = lib_cm.read_text(encoding="utf-8")
+    new_content = re.sub(r'(CXX_STANDARD\s+)\d+', rf'\g<1>{std}', content)
+    if new_content == content:
+        print(f"[no change] No CXX_STANDARD setting found in {lib_cm.relative_to(PROJECT_ROOT)}")
+        return
+    if dry:
+        print(f"[dry-run] Would upgrade {lib_cm.relative_to(PROJECT_ROOT)} to C++{std}")
+    else:
+        lib_cm.write_text(new_content, encoding="utf-8")
+        print(f"Upgraded {lib_cm.relative_to(PROJECT_ROOT)} to C++{std}")
+
+
+def cmd_lib_upgrade_std(args):
+    return _wrap(_impl_cmd_lib_upgrade_std, args)
+
+
 def _wrap(fn, args) -> CLIResult:
     try:
         fn(args)
@@ -502,6 +526,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_test)
 
     # list
+    # upgrade-std
+    p = sub.add_parser("upgrade-std", help="Set C++ standard for one library")
+    p.add_argument("name", help="Library name (must exist under libs/)")
+    p.add_argument("--std", required=True, choices=["11", "14", "17", "20", "23"],
+                   help="Target C++ standard")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print what would change without modifying files")
+    p.set_defaults(func=cmd_lib_upgrade_std)
+
     sub.add_parser("list",   help="List all libraries").set_defaults(func=cmd_list)
     # tree
     sub.add_parser("tree",   help="ASCII dependency tree").set_defaults(func=cmd_tree)
