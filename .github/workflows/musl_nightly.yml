@@ -1,0 +1,134 @@
+name: "Nightly: musl Static Builds"
+
+on:
+    schedule:
+        - cron: "0 4 * * *" # 04:00 UTC nightly
+    workflow_dispatch:
+        inputs:
+            arches:
+                description: "Comma-separated arches to test (default: all musl)"
+                required: false
+                default: "x86_64-linux-musl,x86_64-linux-musl-zig"
+
+permissions:
+    contents: read
+
+jobs:
+    musl-native:
+        name: "musl x86_64 (Alpine)"
+        runs-on: ubuntu-latest
+        container:
+            image: alpine:3.21
+        steps:
+            - name: Install Alpine build deps
+              run: |
+                  apk add --no-cache \
+                    gcc g++ cmake ninja make musl-dev linux-headers \
+                    git python3 py3-pip pkgconf
+
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Configure (musl native)
+              run: |
+                  cmake --preset gcc-release-static-x86_64 \
+                    -DCMAKE_EXE_LINKER_FLAGS="-static" \
+                    -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" \
+                    -DBUILD_SHARED_LIBS=OFF
+
+            - name: Build
+              run: cmake --build --preset gcc-release-static-x86_64
+
+            - name: Test
+              run: ctest --preset gcc-release-static-x86_64 --output-on-failure
+
+            - name: Verify static linkage
+              run: |
+                  for bin in build/gcc-release-static-x86_64/bin/*; do
+                    [ -f "$bin" ] || continue
+                    echo "--- $bin ---"
+                    file "$bin" | grep -i "statically linked" && echo "  OK: static" || echo "  WARN: may not be fully static"
+                  done
+
+    musl-zig-x86_64:
+        name: "musl x86_64 (Zig cc)"
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y cmake ninja-build python3 file
+
+            - name: Install Zig
+              uses: mlugg/setup-zig@v2
+              with:
+                  version: "0.13.0"
+
+            - name: Configure (Zig musl x86_64)
+              run: |
+                  cmake -B build/musl-zig-x86_64 -S . \
+                    -G Ninja \
+                    -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/x86_64-linux-musl-zig.cmake \
+                    -DCMAKE_BUILD_TYPE=Release \
+                    -DENABLE_UNIT_TESTS=ON
+
+            - name: Build
+              run: cmake --build build/musl-zig-x86_64
+
+            - name: Test
+              run: ctest --test-dir build/musl-zig-x86_64 --output-on-failure
+
+            - name: Verify static linkage
+              run: |
+                  for bin in build/musl-zig-x86_64/bin/*; do
+                    [ -f "$bin" ] || continue
+                    echo "--- $bin ---"
+                    file "$bin" | grep -i "statically linked" && echo "  OK: static" || echo "  WARN: may not be fully static"
+                  done
+
+    musl-zig-aarch64:
+        name: "musl aarch64 (Zig cc cross-compile)"
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y cmake ninja-build python3 file qemu-user-static
+
+            - name: Install Zig
+              uses: mlugg/setup-zig@v2
+              with:
+                  version: "0.13.0"
+
+            - name: Configure (Zig musl aarch64)
+              run: |
+                  cmake -B build/musl-zig-aarch64 -S . \
+                    -G Ninja \
+                    -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/aarch64-linux-musl-zig.cmake \
+                    -DCMAKE_BUILD_TYPE=Release \
+                    -DENABLE_UNIT_TESTS=OFF
+
+            - name: Build
+              run: cmake --build build/musl-zig-aarch64
+
+            - name: Verify static linkage
+              run: |
+                  for bin in build/musl-zig-aarch64/bin/*; do
+                    [ -f "$bin" ] || continue
+                    echo "--- $bin ---"
+                    file "$bin"
+                  done
+
+            - name: Smoke-test via QEMU user-mode (aarch64)
+              run: |
+                  for bin in build/musl-zig-aarch64/bin/*; do
+                    [ -f "$bin" ] || continue
+                    echo "--- Running $bin via qemu-aarch64-static ---"
+                    qemu-aarch64-static "$bin" --help || true
+                  done

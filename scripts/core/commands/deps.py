@@ -339,6 +339,15 @@ _CONAN_ARCH: dict[str, str] = {
     "armv7":   "armv7hf",
 }
 
+# Musl arch names → (conan_arch, conan_os).
+# Conan doesn't have a "musl" os; we use Linux + set tools.cmake.cmaketoolchain:user_toolchain.
+_MUSL_ARCH_MAP: dict[str, str] = {
+    "x86_64-linux-musl":      "x86_64",
+    "x86_64-linux-musl-zig":  "x86_64",
+    "aarch64-linux-musl":     "armv8",
+    "aarch64-linux-musl-zig": "armv8",
+}
+
 
 def _detect_compiler_version(compiler: str) -> str:
     """Try to detect the installed compiler major version."""
@@ -408,6 +417,14 @@ def _impl_conan_profile_generate(args) -> None:
                 for arch in arches:
                     name = f"{compiler}-{build_type}-{linkage}-{arch}"
 
+                    # Hard skip rules (mirror presets.py _should_skip)
+                    if "musl" in arch and linkage == "dynamic":
+                        Logger.info(f"  [skip] {name} (musl targets are static-only)")
+                        continue
+                    if "zig" in arch and compiler != "gcc":
+                        Logger.info(f"  [skip] {name} (zig uses gcc base only)")
+                        continue
+
                     # Apply skip_combinations patterns
                     skip = False
                     for pat in skip_pats:
@@ -420,10 +437,13 @@ def _impl_conan_profile_generate(args) -> None:
 
                     comp_map = _CONAN_COMPILER.get(compiler, {"compiler": compiler, "libcxx": "libstdc++11"})
                     bt_conan = _CONAN_BUILD_TYPE.get(build_type, build_type.capitalize())
-                    arch_conan = _CONAN_ARCH.get(arch, arch)
+                    # Resolve arch: musl arches → canonical Conan arch
+                    arch_conan = _MUSL_ARCH_MAP.get(arch) or _CONAN_ARCH.get(arch, arch)
                     compiler_ver = _detect_compiler_version(compiler)
                     libcxx = comp_map.get("libcxx")
                     conan_compiler = comp_map["compiler"]
+
+                    is_musl = "musl" in arch
 
                     lines = [
                         f"# Conan 2 profile: {name}",
@@ -444,6 +464,9 @@ def _impl_conan_profile_generate(args) -> None:
                     lines.append("tools.build:sharedlinkflags=[]")
                     if linkage == "static":
                         lines.append("tools.build:exelinkflags=[]")
+                    # Musl: inject toolchain file so Conan uses the correct cross-toolchain
+                    if is_musl:
+                        lines.append(f"tools.cmake.cmaketoolchain:user_toolchain=[\"cmake/toolchains/{arch}.cmake\"]")
                     lines.append("")
 
                     profile_text = "\n".join(lines)

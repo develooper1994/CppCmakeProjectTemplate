@@ -80,6 +80,24 @@ if(MUSL_STATIC_PIE)
 endif()
 
 # ---------------------------------------------------------------------------
+# Search policy
+# ---------------------------------------------------------------------------
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+# ---------------------------------------------------------------------------
+# Disable sanitizers — not compatible with musl
+# ---------------------------------------------------------------------------
+set(ENABLE_ASAN  OFF CACHE BOOL "ASan not supported with musl" FORCE)
+set(ENABLE_TSAN  OFF CACHE BOOL "TSan not supported with musl" FORCE)
+set(ENABLE_UBSAN OFF CACHE BOOL "UBSan not supported with musl" FORCE)
+set(ENABLE_MSAN  OFF CACHE BOOL "MSan not supported with musl" FORCE)
+
+message(STATUS "[Toolchain] x86_64 Linux musl via Zig (fully static)")
+
+# ---------------------------------------------------------------------------
 # Search policy — prefer static libraries only
 # ---------------------------------------------------------------------------
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
