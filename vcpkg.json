@@ -7,5 +7,19 @@
       "name": "gtest",
       "version>=": "1.14.0"
     }
-  ]
+  ],
+  "features": {
+    "mimalloc": {
+      "description": "Use mimalloc as the global allocator backend",
+      "dependencies": [
+        "mimalloc"
+      ]
+    },
+    "jemalloc": {
+      "description": "Use jemalloc as the global allocator backend",
+      "dependencies": [
+        "jemalloc"
+      ]
+    }
+  }
 }

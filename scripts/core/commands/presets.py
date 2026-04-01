@@ -178,6 +178,7 @@ def _load_config() -> dict[str, Any]:
         "build_types":         ["debug", "release", "relwithdebinfo"],
         "linkages":            ["static", "dynamic"],
         "arches":              ["x86_64"],
+        "allocators":          ["default"],
         "cmake_minimum_major": 3,
         "cmake_minimum_minor": 25,
         "default_preset":      "gcc-debug-static-x86_64",
@@ -328,6 +329,7 @@ def _concrete_configure_presets(cfg: dict[str, Any]) -> list[dict[str, Any]]:
     build_types = [b.lower() for b in cfg["build_types"]]
     linkages    = [l.lower() for l in cfg["linkages"]]
     arches      = [a.lower() for a in cfg["arches"]]
+    allocators  = [a.lower() for a in cfg.get("allocators", ["default"])]
     skip_pats   = cfg.get("skip_combinations", [])
 
     presets: list[dict[str, Any]] = []
@@ -342,10 +344,12 @@ def _concrete_configure_presets(cfg: dict[str, Any]) -> list[dict[str, Any]]:
                               file=sys.stderr)
                         continue
 
-                    preset = _make_configure_preset(
-                        compiler, build_type, linkage, arch, cfg)
-                    if preset:
-                        presets.append(preset)
+                    for allocator in allocators:
+                        preset = _make_configure_preset(
+                            compiler, build_type, linkage, arch, cfg,
+                            allocator=allocator)
+                        if preset:
+                            presets.append(preset)
 
     return presets
 
@@ -356,19 +360,30 @@ def _make_configure_preset(
     linkage: str,
     arch: str,
     cfg: dict[str, Any],
+    *,
+    allocator: str = "default",
 ) -> dict[str, Any] | None:
     """Create one configurePreset entry."""
     bt_cmake = _BUILD_TYPE_MAP.get(build_type, build_type.capitalize())
     shared   = "ON" if linkage == "dynamic" else "OFF"
 
     # --- Build preset name ---
-    name = f"{compiler}-{build_type}-{linkage}-{arch}"
-    display = f"{compiler.upper()} {bt_cmake} {linkage.capitalize()}: {arch}"
+    if allocator and allocator != "default":
+        name = f"{compiler}-{build_type}-{linkage}-{arch}-{allocator}"
+        display = f"{compiler.upper()} {bt_cmake} {linkage.capitalize()}: {arch} [{allocator}]"
+    else:
+        name = f"{compiler}-{build_type}-{linkage}-{arch}"
+        display = f"{compiler.upper()} {bt_cmake} {linkage.capitalize()}: {arch}"
 
     cache_vars: dict[str, str] = {
         "CMAKE_BUILD_TYPE": bt_cmake,
         "BUILD_SHARED_LIBS": shared,
     }
+
+    # Allocator backend
+    if allocator and allocator != "default":
+        cache_vars["ENABLE_ALLOCATOR"] = allocator
+        cache_vars["ENABLE_ALLOCATOR_OVERRIDE_ALL"] = "ON"
 
     # MSVC path
     if compiler == "msvc":
@@ -475,6 +490,8 @@ def _generate(args: argparse.Namespace) -> int:
         cfg["linkages"] = [l.strip() for l in args.linkage.split(",")]
     if args.arch:
         cfg["arches"] = [a.strip() for a in args.arch.split(",")]
+    if getattr(args, "allocator", None):
+        cfg["allocators"] = [a.strip() for a in args.allocator.split(",")]
 
     out_path = Path(args.output) if args.output else PRESETS_PATH
 
@@ -615,6 +632,8 @@ def build_parser(parent: argparse._SubParsersAction) -> None:  # type: ignore[ty
         help="Comma-separated linkage filter: static, dynamic")
     gen.add_argument("--arch",       metavar="A[,A2]",
         help="Comma-separated arch filter: x86_64, x86, aarch64, ...")
+    gen.add_argument("--allocator",  metavar="AL[,AL2]",
+        help="Comma-separated allocator filter: default, mimalloc, jemalloc, tcmalloc")
     gen.add_argument("--output",     metavar="PATH",
         help=f"Output path (default: {PRESETS_PATH.name})")
     gen.add_argument("--dry-run",    action="store_true",
@@ -641,6 +660,7 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--build-type")
     gen.add_argument("--linkage")
     gen.add_argument("--arch")
+    gen.add_argument("--allocator")
     gen.add_argument("--output")
     gen.add_argument("--dry-run", action="store_true")
     gen.add_argument("--no-backup", action="store_true")

@@ -165,6 +165,14 @@ linkages    = ["static", "dynamic"]
 #   musl+zig:     x86_64-linux-musl-zig, aarch64-linux-musl-zig
 #   Embedded:     arm-cortex-m0, arm-cortex-m7, arm-none-eabi
 arches      = ["x86_64"]
+
+# Allocator backend variants included in the generated preset matrix.
+# Supported values: default | mimalloc | jemalloc | tcmalloc
+# "default" uses the system allocator (no extra presets generated).
+# Add a non-default allocator to generate presets like gcc-release-static-x86_64-mimalloc.
+allocators  = ["default"]
+# allocators = ["default", "mimalloc"]
+# allocators = ["default", "mimalloc", "jemalloc", "tcmalloc"]
 # arches    = ["x86_64", "x86_64-linux-musl"]
 # arches    = ["x86_64", "x86_64-linux-musl-zig"]
 # arches    = ["x86_64", "arm64"]
