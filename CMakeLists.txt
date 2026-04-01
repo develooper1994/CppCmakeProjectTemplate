@@ -30,6 +30,7 @@ endif()
 # Project Configuration & Options (Centralized)
 # -----------------------------------------------------------------------------
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(CxxStandard)     # Auto-detect C++ standard — must come first
 include(ProjectConfigs)
 
 # -----------------------------------------------------------------------------

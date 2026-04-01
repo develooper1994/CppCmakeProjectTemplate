@@ -95,10 +95,24 @@ set(BOOST_COMPONENTS "" CACHE STRING
     "Semicolon-separated Boost components to find (e.g. filesystem;system)")
 
 # --- Compiler Defaults ---
-# Solution-wide C++ standard. Per-target override: set_target_properties(<t> PROPERTIES CXX_STANDARD 20)
-# Or pass -DCMAKE_CXX_STANDARD=20 on the command line / in a preset.
-set(CMAKE_CXX_STANDARD          17  CACHE STRING "C++ standard for the whole solution (14|17|20|23)")
-set_property(CACHE CMAKE_CXX_STANDARD PROPERTY STRINGS 14 17 20 23)
+# C++ standard is auto-detected by cmake/CxxStandard.cmake (included before this
+# file in CMakeLists.txt). The detected value is already in the cache as
+# CMAKE_CXX_STANDARD. We only set a fallback here in case CxxStandard.cmake
+# was skipped or the user cleared the cache manually.
+#
+# Override: -DCMAKE_CXX_STANDARD=20  or set in a CMakePresets.json cacheVariable.
+# Per-target: set_target_properties(<t> PROPERTIES CXX_STANDARD 20)
+if(NOT DEFINED CACHE{CMAKE_CXX_STANDARD})
+    # CxxStandard.cmake was not loaded — apply a safe baseline
+    message(WARNING
+        "[CxxStd] cmake/CxxStandard.cmake was not included. "
+        "Defaulting to C++17. Include CxxStandard before ProjectConfigs "
+        "in CMakeLists.txt for full auto-detection.")
+    set(CMAKE_CXX_STANDARD 17 CACHE STRING
+        "C++ standard (14|17|20|23) — set cmake/CxxStandard.cmake for auto-detect")
+    set_property(CACHE CMAKE_CXX_STANDARD PROPERTY STRINGS 11 14 17 20 23)
+endif()
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS        OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

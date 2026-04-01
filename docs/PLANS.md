@@ -172,7 +172,7 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 - **Memory Pooling & Custom Allocators:** _(Future / User-Land)_ — Template does not prescribe allocators by design. `tool perf valgrind --vg-tool massif` profiles heap usage. Users may link `mimalloc` or `jemalloc` via vcpkg/conan. CMake helper `target_use_allocator()` could be added per user request.
 - **Zero-Cost Abstractions:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` demonstrates `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` cross-platform macros. `docs/PERFORMANCE.md` covers the guidelines.
 
-### Phase 8: GUI, GPU & Tooling Evolution — 🔄 In Progress
+### Phase 8: GUI, GPU & Tooling Evolution — ✅ DONE
 
 #### Framework Support
 
@@ -181,18 +181,51 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 
 #### GPU & Heterogeneous Computing
 
-- **CUDA / GPU Offloading:** ⏳ IN PROGRESS — `cmake/CUDA.cmake`: `enable_cuda_support()` (WSL-safe auto-detect via `/usr/local/cuda`), `target_add_cuda()`, `set_cuda_architectures(<target> native|all-major|<arch_list>)`. `ENABLE_CUDA=ON` option. `CMAKE_CUDA_ARCHITECTURES=native` (auto GPU detect). Clang-as-CUDA fallback. CLI: `tool build --cuda`. AMD HIP, Intel SYCL, Apple Metal: _(V2 / user-land)_.
+- **CUDA / GPU Offloading:** ✅ DONE — `cmake/CUDA.cmake`: WSL-aware nvcc detection (`/usr/bin`, `/usr/local/cuda/bin`, `/usr/lib/cuda/bin`). `enable_cuda_support()`, `target_add_cuda(<target> [SEPARABLE])`, `set_cuda_architectures(<target> native|all-major|<list>)`. `ENABLE_CUDA=ON` option. `CMAKE_CUDA_ARCHITECTURES=native` (auto GPU detect). Clang-as-CUDA fallback (`CUDA_COMPILER=clang`). `CUDA_SEPARABLE_COMPILATION` global toggle. CLI: `tool build --cuda`.
+- **CUDA-Version-Aware C++ Standard:** ✅ DONE — `cuda_compatible_cxx_standard()` in `cmake/CxxStandard.cmake` maps CUDA toolkit version → maximum device-code C++ standard (CUDA <9→C++11, 9–10→C++14, 11–12.1→C++17, ≥12.2→C++20). `CMAKE_CUDA_STANDARD` auto-set from toolkit; warning emitted when host C++ std exceeds device limit. Per-target override: `set_target_properties(<t> PROPERTIES CUDA_STANDARD 20)`.
 - **AMD HIP / Intel SYCL / Apple Metal:** _(V2 / Long-term)_ — Architecture is in place; add `cmake/HIP.cmake`, `cmake/SYCL.cmake` when concrete targets exist.
+
+#### Compiler & C++ Standard Intelligence
+
+- **Auto-Detect C++ Standard:** ✅ DONE — `cmake/CxxStandard.cmake` probes `CMAKE_CXX_COMPILE_FEATURES` at configure time and sets `CMAKE_CXX_STANDARD` to the highest standard the compiler supports (C++23 → C++20 → C++17 → …). No-op when the user sets an explicit value via CLI or preset. Exposed as `CXX_STANDARD_DETECTED` (non-cache) for downstream logic. See `docs/BUILD_SETTINGS.md § C++ Standard Auto-Detection`. CLI: status logged as `[CxxStd] Auto-detected C++ standard: C++XX`.
 
 #### Preset Generation (Python-driven, key V1 goal)
 
-- **CMakePresets.json Generator:** ⏳ IN PROGRESS — `tool presets generate` reads `tool.toml [presets]` (compilers, build_types, linkages, arches) and generates the **entire** `CMakePresets.json` (configurePresets + buildPresets + testPresets). Supports per-combinatör filters: `--compiler`, `--build-type`, `--linkage`, `--arch`. Constraint matrix enforced (no embedded+dynamic, no MSVC+ARM, etc.). Auto-backup `CMakePresets.json.bak` before overwrite. Dry-run supported. `cuda_architectures = "native"` by default (auto GPU detect). Arch is a free string — unknown arches use toolchain file if present, else `CMAKE_SYSTEM_PROCESSOR` variable.
-- **`tool presets list`:** Lists presets from current `CMakePresets.json` grouped by compiler/arch.
-- **`tool presets validate`:** Runs `cmake --list-presets` to verify the generated file.
+- **CMakePresets.json Generator:** ✅ DONE — `tool presets generate` reads `tool.toml [presets]` (compilers, build_types, linkages, arches) and generates the **entire** `CMakePresets.json` (hidden bases + configurePresets + buildPresets + testPresets). Supports per-dimension filters: `--compiler`, `--build-type`, `--linkage`, `--arch`. Constraint matrix enforced (CUDA → static linkage, etc.; extensible via `skip_combinations` patterns). Auto-backup `CMakePresets.json.bak` before overwrite. `--dry-run` and `--no-backup` flags. `cuda_architectures = "native"` from `tool.toml [presets]`. Validated: `cmake --list-presets` → 12/12 presets OK.
+- **`tool presets list`:** ✅ DONE — lists visible presets with display names.
+- **`tool presets validate`:** ✅ DONE — runs `cmake --list-presets` and reports status.
 
 #### Tooling Quality
 
-- **Compiler Explorer (Godbolt) Integration:** _(Phase 8 — Roadmapped)_ — `tool perf godbolt --source <file>` streams compiled asm via godbolt.org API. `tool perf vec` covers local vectorization analysis in the interim.
+- **Compiler Explorer (Godbolt) Integration:** _(Phase 9 — Roadmapped)_ — `tool perf godbolt --source <file>` streams compiled asm via godbolt.org API. `tool perf vec` covers local vectorization analysis in the interim.
+
+### Phase 9: C++ Modernity, Tooling DX & Ecosystem — 🔜 Planned
+
+Priority-ordered backlog. Items marked _(quick)_ are low-effort and high-value.
+
+#### Language & Compiler Evolution
+
+- **C++20 Modules support** _(medium)_ — CMake ≥ 3.28 `cmake_minimum_required(3.28)` + `SCAN_FOR_MODULES=ON` target property for `.ixx` / `.cppm` module units. `tool lib add --modules` flag that emits a module-unit stub instead of a classic header. Requires Clang ≥ 16 or GCC ≥ 14 with `-fmodules-ts`. Impact: eliminates textual inclusion overhead, enables true encapsulation.
+- **`sol upgrade-std`** _(quick)_ — `tool sol upgrade-std --std 20 [--target <lib>]` traverses `libs/` and `apps/` CMakeLists.txt, bumps `target_compile_features` and `CXX_STANDARD` to the requested value, validates with `tool build check --no-sync`. Dry-run by default.
+
+#### Developer Experience (DX)
+
+- **`.clangd` Auto-Generation** _(quick)_ — `tool sol clangd` reads `compile_commands.json` and emits a `.clangd` file with the correct `CompilationDatabase`, `InlayHints`, and `Diagnostics` sections. Ensures clangd picks up the active preset without manual editor config.
+- **IWYU (Include What You Use)** _(medium)_ — `cmake/IWYU.cmake` wrapper: `find_program(iwyu ...)` + `set_target_properties(<t> PROPERTIES CXX_INCLUDE_WHAT_YOU_USE ${iwyu})`. CLI: `tool format iwyu [--target <lib>] [--fix]`. CI job reports unnecessary includes as annotations.
+- **Compiler Explorer (Godbolt) Integration** _(medium)_ — `tool perf godbolt --source <file> [--compiler gcc-13] [--flags -O2]` uploads a snippet via the Compiler Explorer REST API and streams the assembly diff to the terminal. Pair with `tool perf vec` for local analysis.
+- **Binary Reproducibility** _(medium)_ — Enforce `-ffile-prefix-map=$(pwd)=.`, `SOURCE_DATE_EPOCH` from `git log -1 --format=%ct`, and deterministic archive creation (`ar -D`). `tool build --reproducible` preset toggle. Validate with `diffoscope`. Documented in `docs/BUILDING.md`.
+
+#### Ecosystem & Integration
+
+- **Conan 2.0 Profile Generation from Presets** _(medium)_ — `tool deps conan-profile generate` maps `tool.toml [presets]` matrix to Conan 2 profiles (`[settings] compiler=gcc compiler.version=13 …`). Enables `conan install` without manual profile authoring.
+- **`tool build docker`** _(medium)_ — `tool build docker --preset gcc-release-static-x86_64 [--image ubuntu:24.04]` builds the project inside a container for hermetic, reproducible artifacts. Dockerfile auto-generated from `tool.toml` build dependencies detected by `tool setup`.
+- **Binary Size Delta Tracking** _(quick)_ — `tool perf size-diff [--base HEAD~1] [--head HEAD]` compares `.text` / `.data` / `.bss` sections between two commits and fails CI if growth exceeds threshold. Integrates with `build_logs/size_report.json`.
+- **Package Publishing** _(long-term)_ — `tool release publish [--to github|conan|vcpkg]` automates packaging and upload. GitHub Releases via `gh` CLI; Conan Center Index PR generation; vcpkg overlay port scaffolding.
+
+#### Tooling Quality
+
+- **Cross-Compile Sysroot Management** _(medium)_ — `tool sol sysroot add <arch> [--url <img>]` downloads/unpacks a sysroot tarball, registers it in `tool.toml [sysroots]`, and patches the toolchain cmake file. Simplifies AArch64 / RISC-V cross builds without a manual `CMAKE_SYSROOT` path.
+- **LibFuzzer Native Integration** _(medium)_ — `cmake/Fuzzing.cmake` already has AFL++. Extend with libFuzzer: `-fsanitize=fuzzer-no-link` + per-target `enable_libfuzzer()`. CI nightly job runs both AFL++ and libFuzzer corpora, merges coverage, and uploads findings.
 
 ### Phase 6: Ecosystem & UI — ✅ DONE
 

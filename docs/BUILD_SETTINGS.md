@@ -8,7 +8,7 @@ All options are passed as `-D<OPTION>=ON/OFF` to CMake or set via a preset.
 |---|---|---|
 | `BUILD_SHARED_LIBS` | `OFF` | `OFF` = Static (`.a`/`.lib`), `ON` = Shared (`.so`/`.dll`) |
 | `CMAKE_BUILD_TYPE` | preset | `Debug` / `Release` / `RelWithDebInfo` |
-| `CMAKE_CXX_STANDARD` | `17` | `14` / `17` / `20` / `23` — solution-wide |
+| `CMAKE_CXX_STANDARD` | *auto* | Auto-detected; highest standard the compiler supports (up to C++23). Override: `-DCMAKE_CXX_STANDARD=20` |
 | `ENABLE_WERROR` | `OFF` | Treat warnings as errors |
 | `ENABLE_UNITY_BUILD` | `OFF` | Unity builds for faster compilation |
 | `ENABLE_DOCS` | `OFF` | Build Doxygen documentation |
@@ -21,6 +21,56 @@ cmake --preset gcc-debug-static-x86_64 -DDUMMY_LIB_CXX_STANDARD=20
 python3 scripts/tool.py sol upgrade-std --std 20 --target dummy_lib
 # solution-wide:
 python3 scripts/tool.py sol upgrade-std --std 20
+```
+
+### C++ Standard Auto-Detection
+
+`cmake/CxxStandard.cmake` is included early in `CMakeLists.txt` and probes
+`CMAKE_CXX_COMPILE_FEATURES` to identify the highest C++ standard the active
+compiler supports (C++23 → C++20 → C++17 → C++14 → C++11).  The result is
+stored in the CMake cache as `CMAKE_CXX_STANDARD` only if the user has **not**
+already set it (explicit `-D` flag or preset `cacheVariable` always wins).
+
+```
+# What was auto-detected (non-interactive):
+cmake --preset gcc-debug-static-x86_64 -N  # -N = no build, just configure
+# Look for the line:
+# [CxxStd] Auto-detected C++ standard: C++20
+```
+
+| Situation | Behaviour |
+|---|---|
+| User passes `-DCMAKE_CXX_STANDARD=17` | Respected; auto-detect skipped |
+| Preset sets `cacheVariables.CMAKE_CXX_STANDARD` | Respected |
+| Neither set | Highest supported std (GCC 13 → C++23, Clang 14 → C++20, …) |
+
+### CUDA Device-Code C++ Standard
+
+When `ENABLE_CUDA=ON`, `cmake/CUDA.cmake` calls `cuda_compatible_cxx_standard()`
+(from `CxxStandard.cmake`) to map the toolkit version to the maximum C++
+standard usable in **device code** (`.cu` files).  Host `.cpp` files always
+use the host `CMAKE_CXX_STANDARD` and are unaffected.
+
+| CUDA Toolkit | Max device-code C++ standard |
+|---|---|
+| < 9.0 | C++11 |
+| 9.0 – 10.x | C++14 |
+| 11.0 – 12.1 | C++17 |
+| ≥ 12.2 | C++20 |
+
+A CMake warning is emitted if the host standard exceeds the device-code limit:
+
+```
+[CUDA] Host C++ standard (C++20) exceeds CUDA 12.0 device-code limit (C++17).
+  • .cu device code will be compiled with C++17.
+  • Host .cpp files are unaffected (still C++20).
+```
+
+Override the device-code standard explicitly:
+
+```bash
+cmake --preset gcc-release-static-x86_64 -DENABLE_CUDA=ON \
+  -DCMAKE_CUDA_STANDARD=17   # pin device std
 ```
 
 ## Tests
@@ -60,6 +110,10 @@ cmake --build --preset gcc-debug-static-x86_64 --target coverage_report
 |---|---|---|
 | `ENABLE_QT` | `OFF` | Qt5 or Qt6 (auto-detected) |
 | `ENABLE_QML` | `OFF` | Qt QML (requires `ENABLE_QT=ON`) |
+| `ENABLE_CUDA` | `OFF` | CUDA GPU compute support (requires CUDA toolkit) |
+| `CMAKE_CUDA_ARCHITECTURES` | `native` | GPU arch: `native` \| `all-major` \| `75;86;89` |
+| `CMAKE_CUDA_STANDARD` | *auto* | Device-code C++ std (derived from CUDA toolkit version) |
+| `CUDA_COMPILER` | `nvcc` | `clang` = use clang as CUDA compiler (requires clang ≥ 14) |
 | `ENABLE_BOOST` | `OFF` | Boost libraries |
 | `BOOST_COMPONENTS` | `""` | Semicolon-separated: `filesystem;system` |
 

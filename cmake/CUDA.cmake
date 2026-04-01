@@ -106,6 +106,45 @@ function(enable_cuda_support)
     find_package(CUDAToolkit REQUIRED)
     message(STATUS "[CUDA] CUDAToolkit ${CUDAToolkit_VERSION} found at ${CUDAToolkit_LIBRARY_DIR}")
 
+    # -------------------------------------------------------------------------
+    # Determine maximum C++ standard for CUDA device code
+    # cuda_compatible_cxx_standard() is provided by cmake/CxxStandard.cmake.
+    # -------------------------------------------------------------------------
+    if(COMMAND cuda_compatible_cxx_standard)
+        cuda_compatible_cxx_standard("${CUDAToolkit_VERSION}" _cuda_max_std)
+    else()
+        # Fallback if CxxStandard.cmake was not loaded
+        set(_cuda_max_std 17)
+        message(WARNING "[CUDA] CxxStandard.cmake not loaded — defaulting device C++ to C++17.")
+    endif()
+
+    message(STATUS
+        "[CUDA] CUDA ${CUDAToolkit_VERSION} → "
+        "max device-code C++ standard: C++${_cuda_max_std}")
+
+    # Store for use by target_add_cuda() and external callers
+    set(_CUDA_DEVICE_CXX_STD ${_cuda_max_std} CACHE INTERNAL
+        "Max C++ standard for CUDA device code (derived from toolkit version)")
+
+    # Apply to CUDA language globally (per-target override still possible)
+    if(NOT DEFINED CACHE{CMAKE_CUDA_STANDARD})
+        set(CMAKE_CUDA_STANDARD "${_cuda_max_std}" CACHE STRING
+            "C++ standard for CUDA device code (auto: C++${_cuda_max_std} from CUDA ${CUDAToolkit_VERSION})")
+        set_property(CACHE CMAKE_CUDA_STANDARD PROPERTY STRINGS 11 14 17 20)
+    endif()
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON CACHE BOOL
+        "Require CUDA C++ standard to be met" FORCE)
+
+    # Warn when host C++ standard exceeds the CUDA device-code limit
+    if(DEFINED CMAKE_CXX_STANDARD AND CMAKE_CXX_STANDARD GREATER _cuda_max_std)
+        message(WARNING
+            "[CUDA] Host C++ standard (C++${CMAKE_CXX_STANDARD}) exceeds "
+            "CUDA ${CUDAToolkit_VERSION} device-code limit (C++${_cuda_max_std}).\n"
+            "  • .cu device code will be compiled with C++${_cuda_max_std}.\n"
+            "  • Host .cpp files are unaffected (still C++${CMAKE_CXX_STANDARD}).\n"
+            "  To silence: -DCMAKE_CXX_STANDARD=${_cuda_max_std} or upgrade to CUDA ≥12.2.")
+    endif()
+
     # Default architecture: "native" auto-detects the installed GPU at build time.
     # Override per-target with set_cuda_architectures() or globally via:
     #   cmake -DCMAKE_CUDA_ARCHITECTURES=75;86
@@ -146,12 +185,21 @@ function(target_add_cuda target)
         message(STATUS "[CUDA] Separable compilation enabled for '${target}'")
     endif()
 
-    # Use C++17 for CUDA device code (matches host code standard)
+    # Use CUDA-version-appropriate C++ standard for device code.
+    # Determined during enable_cuda_support() from the toolkit version.
+    if(DEFINED _CUDA_DEVICE_CXX_STD)
+        set(_tgt_cuda_std "${_CUDA_DEVICE_CXX_STD}")
+    elseif(DEFINED CMAKE_CUDA_STANDARD)
+        set(_tgt_cuda_std "${CMAKE_CUDA_STANDARD}")
+    else()
+        set(_tgt_cuda_std 17)    # safe fallback
+    endif()
+
     set_target_properties(${target} PROPERTIES
-        CUDA_STANDARD 17
+        CUDA_STANDARD          "${_tgt_cuda_std}"
         CUDA_STANDARD_REQUIRED ON)
 
-    message(STATUS "[CUDA] Configured '${target}' with CUDA runtime")
+    message(STATUS "[CUDA] Configured '${target}': device C++${_tgt_cuda_std} / CUDA runtime")
 endfunction()
 
 # ---------------------------------------------------------------------------
