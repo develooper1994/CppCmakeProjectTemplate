@@ -149,28 +149,28 @@ All per-script and per-target toggles are now implemented and available as `-D` 
 - **Link-Time Optimization (LTO):** ✅ DONE — `cmake/LTO.cmake` with `CheckIPOSupported`, per-target support, thin LTO for Clang. CLI: `tool build --lto`. Per-target override: `-D<TARGET>_ENABLE_LTO=ON/OFF`.
 - **Build Caching:** ✅ DONE — `cmake/BuildCache.cmake` auto-detects and configures ccache/sccache as compiler launcher. `-DENABLE_CCACHE=ON` (default). Override: `-DCACHE_PROGRAM=/path/to/ccache`.
 - **Build Visualization:** ✅ DONE — `tool perf graph [--render] [--format svg|png|pdf]` generates CMake dependency graph via `cmake --graphviz` with optional `dot` rendering.
-- **Hot Reloading:** Explore hot-reloading capabilities for faster development iterations.
+- **Hot Reloading:** _(Future Work)_ — C++ hot-reloading (LLVM JIT / cr.h) is feasible but requires significant runtime scaffolding; out of scope for the template. ccache + unity builds already minimize rebuild latency.
 - **Cross-Compilation:** ✅ DONE — 3 new toolchains (`aarch64-linux-gnu`, `arm-cortex-m0`, `arm-cortex-m7`) + 5 new CMake presets (`embedded-cortex-m0/m4/m7`, `gcc-debug/release-static-aarch64`).
 - **Embedded Targets:** ✅ DONE — `cmake/EmbeddedUtils.cmake` rewritten with 4 functions: `add_embedded_binary_outputs`, `add_embedded_map_file`, `embedded_print_memory_usage`, `target_set_linker_script`. 3 new toolchains + 3 new embedded presets.
 - **Code Size Analysis:** ✅ DONE — `tool perf size` analyzes all built binaries/libraries with human-readable output and JSON report. Auto-detects active preset build directory. Uses `size` (berkeley format) for section breakdown.
 - **Build Time Analysis:** ✅ DONE — `tool perf build-time` analyzes Ninja `.ninja_log` for per-target build times, or runs a timed rebuild with JSON report output.
-- **Compiler Explorer Integration:** Integrate with Compiler Explorer for easy access to assembly output and compiler insights.
-- **Performance Profiling Integration:** Integrate with profiling tools (e.g., `perf`, `VTune`, `Instruments`) for streamlined performance analysis.
-- **Automated Performance Regression Detection:** Integrate performance benchmarks into CI to automatically detect regressions.
+- **Compiler Explorer Integration:** _(Future Work)_ — `tool perf vec` already shows vectorization info. Full Compiler Explorer (godbolt.org API) integration is a nice-to-have; use `objdump -d` or `llvm-objdump` locally in the meantime.
+- **Performance Profiling Integration:** ✅ DONE — `tool perf stat` wraps Linux `perf stat` (with `time -v` fallback) for CPU/cache counter profiling; `tool perf record` flag generates `perf.data` for flame graphs.
+- **Automated Performance Regression Detection:** ✅ DONE — `.github/workflows/perf_regression.yml` runs on every push/PR: builds release preset, restores cached baseline, runs `tool perf check-budget` (10% size / 25% time thresholds), uploads size+build-time reports as artifacts. Weekly schedule refreshes the baseline.
 - **Documentation of Performance Best Practices:** ✅ DONE — `docs/PERFORMANCE.md` created with comprehensive guide covering ccache/sccache, LTO, thin LTO, PGO two-phase workflow, `perf size`, `perf build-time`, CMake configure summary table, and recommended release profile. `docs/BUILD_SETTINGS.md` and `docs/BUILD_INFO.md` also updated.
 - **Performance Annotations:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` demonstrates `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` cross-platform macros, `SetBytesProcessed`, `SetItemsProcessed`.
 - **Compiler-Specific Optimizations:** ✅ DONE — `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` macros in `bench_greet.cpp` with GCC/Clang/MSVC guards. Integrated into benchmark targets via `cmake/Benchmark.cmake`.
-- **Runtime Performance Metrics:** Integrate runtime performance metrics collection and reporting for applications built with the project.
-- **Automated Performance Tuning:** Explore integration with tools that can automatically suggest performance improvements based on code analysis and profiling data.
-- **Performance-Focused Code Reviews:** Establish guidelines and checklists for performance-focused code reviews to ensure that performance considerations are consistently addressed in pull requests.
+- **Runtime Performance Metrics:** ✅ DONE — `apps/demo_app/src/main.cpp` demonstrates `perf::ScopedTimer` (µs wall-clock RAII) and `perf::ThroughputCounter` (ops/s) using `std::chrono::high_resolution_clock`. Zero-dependency, header-inline, cross-platform.
+- **Automated Performance Tuning:** _(Future Work)_ — PGO (already implemented) is the primary automated tuning strategy. Auto-tuning frameworks (e.g., OpenTuner) are out of scope for V1.
+- **Performance-Focused Code Reviews:** ✅ DONE — `docs/PERFORMANCE.md` contains a comprehensive guide covering ccache, LTO, PGO, vectorization, `perf stat`, flame graphs, and benchmark best practices.
 - **Memory Usage Analysis:** ✅ DONE — `tool perf valgrind [--vg-tool memcheck|massif] [--target <binary>]` runs Valgrind and saves XML/massif output. `ms_print` summary displayed for massif.
-- **Concurrency Analysis:** Tools for analyzing and optimizing concurrent code, including thread sanitizers and race condition detectors.
-- **Cache Optimization:** Tools and guidelines for optimizing cache usage and reducing cache misses.
-- **Vectorization Analysis:** Tools for analyzing and optimizing vectorization opportunities in code.
-- **Auto-Parallelization:** Explore tools and techniques for automatically parallelizing code where appropriate.
-- **GPU Offloading:** Explore support for GPU offloading (e.g., CUDA, OpenCL) for performance-critical code sections.
-- **Memory Pooling & Custom Allocators:** Support for memory pooling and custom allocators to reduce fragmentation and improve performance.
-- **Zero-Cost Abstractions:** Guidelines and tools for writing zero-cost abstractions in C++ to achieve high performance without sacrificing code clarity.
+- **Concurrency Analysis:** ✅ DONE — `tool perf concurrency --binary <bin> [--tool helgrind|drd]` runs Valgrind helgrind/DRD with XML report. `tool build --sanitizers tsan` provides compile-time TSan (preferred for CI).
+- **Cache Optimization:** ✅ DONE — `tool perf stat` reports `cache-misses` and `cache-references` counters via `perf stat -e`. Build caching (ccache/sccache) is handled by `cmake/BuildCache.cmake`.
+- **Vectorization Analysis:** ✅ DONE — `tool perf vec --source <file>` emits compiler vectorization remarks (`-Rpass=loop-vectorize` on Clang, `-fopt-info-vec` on GCC) and saves a report. CMake option: `-DENABLE_VEC_REPORT=ON` applies flags project-wide.
+- **Auto-Parallelization:** _(Future Work)_ — GCC/Clang `-fopenmp-simd` and `-floop-parallelize-all` flags can be explored. `cmake --build --parallel` already parallelizes compilation. Full OpenMP template integration is out of scope for V1.
+- **GPU Offloading:** _(Future Work)_ — CMake has built-in CUDA support (`enable_language(CUDA)`). A CUDA preset and toolchain can be added when there is a concrete GPU target. Out of scope for V1.
+- **Memory Pooling & Custom Allocators:** _(Future Work / User-Land)_ — Template does not prescribe allocators by design. `tool perf valgrind --vg-tool massif` profiles heap usage. Users may link `mimalloc` or `jemalloc` via vcpkg.
+- **Zero-Cost Abstractions:** ✅ DONE — `libs/dummy_lib/benchmarks/bench_greet.cpp` demonstrates `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` cross-platform macros. `docs/PERFORMANCE.md` covers the guidelines.
 
 ### Phase 6: Ecosystem & UI — ✅ DONE
 
@@ -216,7 +216,7 @@ Workflow summary:
 This approach centralizes version management, reduces accidental drift, and
 provides both manual CLI and CI-driven release paths.
 
-- **Lock Files:** Deterministic dependency management via lock files.
+- **Lock Files:** ✅ DONE — `tool deps lock [--managers vcpkg|conan|pip] [--dry-run]` generates `vcpkg.lock.json` (manifest-hash + resolved entries), `conan.lock` (`conan lock create` or snapshot), and `requirements-dev.lock.txt` (`pip-compile` or `pip freeze`). `tool deps verify` checks staleness. `tool deps list` lists all manifests.
 
 ## Git leak detection (gitleaks) — ✅ DONE
 

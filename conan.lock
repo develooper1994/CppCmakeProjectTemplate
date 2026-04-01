@@ -1,0 +1,5 @@
+{
+  "$comment": "Snapshot lock \u2014 install conan and run 'tool deps lock' for full lock.",
+  "manifest-hash": "009dc4228781331a49cb33634c037b75a64f8f30711b5bb686a25da31e802db1",
+  "conan-version": "2.x"
+}

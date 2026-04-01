@@ -1,0 +1,109 @@
+name: Performance Regression Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly baseline refresh every Monday at 02:00 UTC
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: "Force-update performance baseline"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  perf-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install --quiet -r requirements-dev.txt
+
+      - name: Install Ninja
+        run: sudo apt-get install -y ninja-build
+
+      - name: Configure (release preset)
+        run: |
+          cmake --preset gcc-release-static-x86_64 \
+            -DENABLE_UNIT_TESTS=ON \
+            -DENABLE_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build --preset gcc-release-static-x86_64 --parallel
+
+      # ── Restore cached baseline ────────────────────────────────────────────
+      - name: Restore performance baseline
+        id: restore-baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: build_logs/perf_baseline.json
+          key: perf-baseline-${{ github.ref_name }}
+          restore-keys: |
+            perf-baseline-main
+            perf-baseline-
+
+      # ── Track (update baseline on weekly schedule or manual trigger) ──────
+      - name: Update baseline
+        if: >
+          github.event_name == 'schedule' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.update_baseline == 'true') ||
+          steps.restore-baseline.outputs.cache-hit != 'true'
+        run: python3 scripts/tool.py perf track
+
+      # ── Save updated baseline ──────────────────────────────────────────────
+      - name: Save performance baseline
+        if: >
+          github.event_name == 'schedule' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.update_baseline == 'true') ||
+          steps.restore-baseline.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build_logs/perf_baseline.json
+          key: perf-baseline-${{ github.ref_name }}-${{ github.run_id }}
+
+      # ── Check budget (only on push / PR — when baseline exists) ──────────
+      - name: Check performance budget
+        if: steps.restore-baseline.outputs.cache-hit == 'true'
+        run: |
+          python3 scripts/tool.py perf check-budget \
+            --size-threshold 10 \
+            --time-threshold 25
+
+      # ── Code size report ───────────────────────────────────────────────────
+      - name: Generate size report
+        run: python3 scripts/tool.py perf size --json 2>/dev/null || python3 scripts/tool.py perf size
+
+      # ── Build time analysis ────────────────────────────────────────────────
+      - name: Analyze build times
+        run: python3 scripts/tool.py perf build-time
+
+      # ── Upload artifacts ───────────────────────────────────────────────────
+      - name: Upload performance reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-reports-${{ github.run_id }}
+          path: |
+            build_logs/size_report.json
+            build_logs/build_time_report.json
+            build_logs/perf_baseline.json
+          retention-days: 30

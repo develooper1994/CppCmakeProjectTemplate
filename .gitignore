@@ -77,3 +77,4 @@ ENV/
 mypy/
 .ruff/
 ruff/
+requirements-dev.lock.txt

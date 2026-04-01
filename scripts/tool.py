@@ -23,6 +23,7 @@ from core.utils.common import Logger, GlobalConfig, load_session
 # Core command to sub-package mapping
 CORE_COMMANDS = {
     "build":    "core.commands.build",
+    "deps":     "core.commands.deps",
     "doc":      "core.commands.doc",
     "format":   "core.commands.format",
     "lib":      "core.commands.lib",

@@ -21,11 +21,12 @@ option(ENABLE_FUZZING      "Enable fuzz testing targets"        OFF)
 # When enabled it would wrap ctest runs with valgrind --leak-check=full.
 
 # --- Performance & Optimization Options ---
-option(ENABLE_LTO           "Enable Link-Time Optimization"      OFF)
-option(ENABLE_CCACHE        "Enable compiler caching (ccache/sccache)" ON)
-option(ENABLE_BENCHMARKS    "Build Google Benchmark targets"     OFF)
+option(ENABLE_LTO               "Enable Link-Time Optimization"             OFF)
+option(ENABLE_CCACHE            "Enable compiler caching (ccache/sccache)"  ON)
+option(ENABLE_BENCHMARKS        "Build Google Benchmark targets"             OFF)
+option(ENABLE_VEC_REPORT        "Emit vectorization info (-fopt-info-vec / -Rpass)" OFF)
 
-# Master list of all boolean options — drives FeatureFlags.cmake dynamic generation.
+# --- Master list — drives FeatureFlags.cmake dynamic generation ---
 # Add new options here; FeatureFlags.h will update automatically on next cmake run.
 set(PROJECT_ALL_OPTIONS
     # Tests
@@ -35,13 +36,32 @@ set(PROJECT_ALL_OPTIONS
     # Analysis / coverage
     CLANG_TIDY CPPCHECK COVERAGE
     # Performance
-    LTO BENCHMARKS
+    LTO BENCHMARKS VEC_REPORT
     # Frameworks
     QT QML BOOST
     # Misc
     DOCS
     CACHE STRING "All ENABLE_* toggle options (drives FeatureFlags.h generation)" FORCE
 )
+
+# Apply vectorization report flags globally when requested.
+# Per-target override: target_compile_options(<tgt> PRIVATE ${_VEC_FLAGS})
+if(ENABLE_VEC_REPORT)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(_VEC_FLAGS
+            -Rpass=loop-vectorize
+            -Rpass-missed=loop-vectorize
+            -Rpass-analysis=loop-vectorize)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(_VEC_FLAGS -fopt-info-vec-optimized -fopt-info-vec-missed)
+    else()
+        set(_VEC_FLAGS "")
+    endif()
+    if(_VEC_FLAGS)
+        add_compile_options(${_VEC_FLAGS})
+        message(STATUS "[VecReport] Vectorization info enabled: ${_VEC_FLAGS}")
+    endif()
+endif()
 
 # --- Test Framework Options ---
 # Only one framework should be ON at a time per build.
