@@ -135,7 +135,8 @@ def _cmake_rename_subdirectory(cmake_path: Path, old: str, new: str) -> bool:
 
 
 def _replace_tokens_in_tree(root: Path, old: str, new: str) -> None:
-    """Replace all occurrences of old→new in text files under root."""
+    """Replace all occurrences of old→new in text files under root,
+    then rename files/directories whose names contain the old token."""
     TEXT_SUFFIXES = {".cpp", ".cc", ".cxx", ".h", ".hpp", ".cmake", ".txt", ".md", ".in"}
     for p in root.rglob("*"):
         if p.is_file() and (p.suffix in TEXT_SUFFIXES or p.name == "CMakeLists.txt"):
@@ -145,6 +146,14 @@ def _replace_tokens_in_tree(root: Path, old: str, new: str) -> None:
                     p.write_text(content.replace(old, new), encoding="utf-8")
             except Exception:
                 pass
+
+    # Rename files whose names contain the old token (deepest first to avoid
+    # invalidating parent paths during traversal).
+    entries = sorted(root.rglob("*"), key=lambda p: len(p.parts), reverse=True)
+    for p in entries:
+        if old in p.name:
+            new_name = p.name.replace(old, new)
+            p.rename(p.parent / new_name)
 
 
 def _update_cmake_references(old: str, new: str, root: Path, txn: Optional[Transaction] = None) -> None:

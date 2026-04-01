@@ -86,7 +86,7 @@ def _cmd_build(args) -> CLIResult:
             Logger.info("Building with mkdocs...")
             rc = run_proc(["mkdocs", "build", "--site-dir", str(PROJECT_ROOT / "site")], check=False)
             return CLIResult(success=(rc == 0), code=rc, message="mkdocs build done")
-        Logger.warning("mkdocs found but no mkdocs.yml — skipping")
+        Logger.warn("mkdocs found but no mkdocs.yml — skipping")
 
     if shutil.which("sphinx-build"):
         conf = PROJECT_ROOT / "docs" / "conf.py"
@@ -95,7 +95,7 @@ def _cmd_build(args) -> CLIResult:
             out = PROJECT_ROOT / "docs" / "_build" / "html"
             rc = run_proc(["sphinx-build", str(DOCS_DIR), str(out)], check=False)
             return CLIResult(success=(rc == 0), code=rc, message="sphinx build done")
-        Logger.warning("sphinx found but no docs/conf.py — skipping")
+        Logger.warn("sphinx found but no docs/conf.py — skipping")
 
     # Fallback: just list the docs
     Logger.info("No mkdocs or sphinx configured. Listing docs instead.")

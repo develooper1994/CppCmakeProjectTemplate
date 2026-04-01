@@ -93,11 +93,13 @@ TEST(PerfMetaTest, BuildCacheIsKnownValue) {
 }
 
 TEST(PerfMetaTest, SummaryStringContainsPerformanceSection) {
-    const std::string summary = BUILD_INFO_SUMMARY_STRING(dummy_lib_info);
-    EXPECT_NE(summary.find("Performance"), std::string::npos)
+    // NOLINTBEGIN(readability-identifier-naming)
+    const std::string summary_text = BUILD_INFO_SUMMARY_STRING(dummy_lib_info);
+    EXPECT_NE(summary_text.find("Performance"), std::string::npos)
         << "Summary missing Performance section";
-    EXPECT_NE(summary.find("LTO"), std::string::npos) << "Summary missing LTO row";
-    EXPECT_NE(summary.find("PGO"), std::string::npos) << "Summary missing PGO row";
+    EXPECT_NE(summary_text.find("LTO"), std::string::npos) << "Summary missing LTO row";
+    EXPECT_NE(summary_text.find("PGO"), std::string::npos) << "Summary missing PGO row";
+    // NOLINTEND(readability-identifier-naming)
 }
 
 TEST(PerfMetaTest, LtoFlagConsistentWithFeatureFlags) {

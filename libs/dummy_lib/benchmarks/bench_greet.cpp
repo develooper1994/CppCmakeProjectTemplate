@@ -249,7 +249,7 @@ BENCHMARK(BM_FibRecursive)->Arg(20)->Arg(30)->Arg(35);
 
 static void BM_Greet_Baseline(benchmark::State& state) {
     for (auto _ : state) {
-        auto result = dummy_lib::greet("World");
+        auto result = dummy_lib::get_greeting();
         benchmark::DoNotOptimize(result);
         benchmark::ClobberMemory();
     }

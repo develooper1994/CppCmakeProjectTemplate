@@ -17,15 +17,13 @@ target_sources(fuzzable
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
-        FILES include/fuzzable/fuzzable.h
-)
+        FILES include/fuzzable/fuzzable.h)
 
 target_include_directories(fuzzable
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
-        $<INSTALL_INTERFACE:include>
-)
+        $<INSTALL_INTERFACE:include>)
 
 if(COMMAND enable_sanitizers)
     enable_sanitizers(fuzzable)

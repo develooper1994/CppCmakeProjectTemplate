@@ -1,6 +1,6 @@
 [tool.ruff]
 line-length = 88
-target-version = "1.0.6"
+target-version = "py311"
 # Ignore imports-not-at-top pattern used by scripts that modify sys.path at runtime
 ignore = ["E402"]
 

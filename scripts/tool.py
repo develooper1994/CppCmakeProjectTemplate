@@ -166,16 +166,20 @@ Global Options:
 Core Commands:
   build        Configure, compile, test, extension (.vsix)
                Flags: --preset, --profile, --lto, --pgo, --sanitizers
+  deps         Dependency management (lock, verify, list, conan-profile)
+               Subcommands: lock, verify, list, conan-profile generate
   doc          Documentation utilities
                Subcommands: serve [--port N] [--open], list, build
   format       Code formatting and clang-tidy
-               Subcommands: check, tidy-fix [--dry-run] [--apply]
+               Subcommands: check, tidy-fix [--dry-run] [--apply], iwyu
   lib          Library CRUD (add/remove/rename/move/deps/export/info/test)
                Subcommands: add, remove, rename, move, list, tree, info, deps, export, doctor
   perf         Performance analysis and optimization
                Subcommands: size, build-time, track, check-budget, bench, valgrind, graph
+  presets      Generate and manage CMakePresets.json
+               Subcommands: generate, list, validate
   release      Version management and release tagging
-               Subcommands: bump, set, tag, publish
+               Subcommands: bump, set, set-revision, tag, publish, unpublish
   security     Security scanning (CVE, cppcheck, clang-tidy security checks)
                Flags: --format json|text, --fail-on-severity, --suppressions
   session      Persistent session state (preset, last command)

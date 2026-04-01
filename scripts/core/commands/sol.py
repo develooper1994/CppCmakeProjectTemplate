@@ -272,7 +272,10 @@ def _impl_cmd_test_run(args) -> None:
     target = getattr(args, "target", None)
     preset = getattr(args, "preset", None) or "gcc-debug-static-x86_64"
     if target:
-        run_proc(["cmake", "--build", "--preset", preset, "--target", target + "_tests"])
+        # Accept both library names (dummy_lib) and full target names (dummy_lib_tests)
+        if not target.endswith("_tests") and not target.startswith("test_"):
+            target = target + "_tests"
+        run_proc(["cmake", "--build", "--preset", preset, "--target", target])
     else:
         run_proc(["ctest", "--preset", preset, "--output-on-failure"])
 
@@ -419,7 +422,7 @@ def _impl_cmd_ci(args) -> None:
         print(f"\n--- Running CI for preset: {pname} ---")
         try:
             # Run build check for this preset
-            run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "build", "--preset", pname, "check", "--no-sync"])
+            run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "build", "check", "--preset", pname, "--no-sync"])
         except SystemExit as e:
             if e.code != 0:
                 print(f"❌ CI failed for preset: {pname}")

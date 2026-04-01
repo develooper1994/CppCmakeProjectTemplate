@@ -1204,7 +1204,18 @@ def _cmd_size_diff(args) -> CLIResult:
         return CLIResult(success=False, code=1,
                          message=f"Cannot read baseline: {exc}")
 
-    base_sizes: dict = baseline.get("sizes", {})
+    base_sizes: dict = {}
+    raw_sizes = baseline.get("sizes", {})
+    if isinstance(raw_sizes, list):
+        # baseline stored as [{file: ..., size_bytes: ...}, ...]
+        for entry in raw_sizes:
+            fname = Path(entry.get("file", "")).name
+            total = entry.get("size_bytes", 0)
+            base_sizes[fname] = {".text": 0, ".data": 0, ".bss": 0, "total": total}
+    elif isinstance(raw_sizes, dict):
+        base_sizes = raw_sizes
+    else:
+        base_sizes = {}
 
     # ── Collect current sizes ──────────────────────────────────────────────
     active_build = _find_active_build_dir()

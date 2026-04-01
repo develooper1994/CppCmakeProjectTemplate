@@ -1,4 +1,6 @@
 // libs/fuzzable/src/fuzzable.cpp
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+// Raw pointer arithmetic is intentional in this fuzz target library.
 #include "fuzzable/fuzzable.h"
 
 #include <cctype>
@@ -113,3 +115,4 @@ static bool parse_int_from_bytes(const uint8_t* buf, size_t len, int& out) noexc
 }
 
 } // namespace fuzzable
+// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)

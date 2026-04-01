@@ -1,10 +1,8 @@
 add_executable(extreme_app
-  src/main.cpp
-)
+  src/main.cpp)
 
 target_include_directories(extreme_app PRIVATE
-  ${CMAKE_SOURCE_DIR}/libs/secure_ops/include
-)
+  ${CMAKE_SOURCE_DIR}/libs/secure_ops/include)
 
 target_link_libraries(extreme_app PRIVATE secure_ops)
 

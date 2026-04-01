@@ -381,6 +381,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     pt = sub.add_parser("tag", help="Create git tag for current base version")
     pt.add_argument("--push", action="store_true", help="Push tag to origin")
+    pt.add_argument("--dry-run", action="store_true")
     pt.add_argument("--signing-key", default=None, metavar="KEY_ID",
                     help="GPG key ID for signing the tag (uses git tag -s)")
 
@@ -455,7 +456,14 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.cmd == "tag":
         signing_key = getattr(args, "signing_key", None)
-        create_tag(current, push=bool(args.push), signing_key=signing_key)
+        dry = bool(getattr(args, "dry_run", False))
+        if dry:
+            tag_name = f"v{current.base()}"
+            Logger.info(f"[DRY-RUN] Would create tag {tag_name}")
+            if args.push:
+                Logger.info(f"[DRY-RUN] Would push tag {tag_name} to origin")
+        else:
+            create_tag(current, push=bool(args.push), signing_key=signing_key)
         return 0
 
     if args.cmd == "publish":
