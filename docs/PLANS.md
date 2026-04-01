@@ -216,9 +216,10 @@ Priority-ordered backlog. Items marked _(quick)_ are low-effort and high-value.
 #### Quick Wins
 
 - **`lib upgrade-std`** _(quick, ✅ IMPL)_ — `tool lib upgrade-std <lib> --std 20 [--dry-run]` sets C++ standard for one library's CMakeLists.txt. Scoped to `libs/<lib>/`. Complements `sol upgrade-std` which operates project-wide.
-- **`sol upgrade-std`** _(quick)_ — `tool sol upgrade-std --std 20 [--target <lib>]` traverses `libs/` and `apps/` CMakeLists.txt, bumps `target_compile_features` and `CXX_STANDARD` to the requested value, validates with `tool build check --no-sync`. Dry-run by default.
-- **`.clangd` Auto-Generation** _(quick)_ — `tool sol clangd` reads `compile_commands.json` and emits a `.clangd` file with the correct `CompilationDatabase`, `InlayHints`, and `Diagnostics` sections. Ensures clangd picks up the active preset without manual editor config.
-- **Binary Size Delta Tracking** _(quick, optional)_ — `tool perf size-diff [--base HEAD~1] [--head HEAD] [--fail-on-growth <bytes>]` compares `.text` / `.data` / `.bss` sections between two commits. `--fail-on-growth` is opt-in; CI does not block by default. Integrates with `build_logs/size_report.json`.
+- **`sol upgrade-std`** _(quick, ✅ IMPL)_ — `tool sol upgrade-std --std 20 [--target <lib>]` traverses `libs/` and `apps/` CMakeLists.txt, bumps `CXX_STANDARD` to the requested value. `--target <lib>` scopes the change to one library. Dry-run by default.
+- **`sol cmake-version`** _(quick, ✅ IMPL)_ — `tool sol cmake-version detect` prints the installed CMake version and the project's `cmake_minimum_required` value. `tool sol cmake-version set <VERSION> [--dry-run]` updates `cmake_minimum_required(VERSION …)` in every `CMakeLists.txt` (skipping `external/`, `build/`, `_deps/`).
+- **`.clangd` Auto-Generation** _(quick, ✅ IMPL)_ — `tool sol clangd [--dry-run]` locates `compile_commands.json` and emits a `.clangd` file with the correct `CompilationDatabase`, `InlayHints`, and `Diagnostics` sections. Ensures clangd picks up the active preset without manual editor config.
+- **Binary Size Delta Tracking** _(quick, ✅ IMPL)_ — `tool perf size-diff [--base <file>] [--fail-on-growth <bytes>] [--json]` reads the saved `perf_baseline.json` (from `tool perf track`) and compares `.text` / `.data` / `.bss` sections against the current build. `--fail-on-growth` is opt-in; CI does not block by default. Writes `build_logs/size_report.json`.
 
 #### Language & Compiler Evolution
 
@@ -233,7 +234,7 @@ Priority-ordered backlog. Items marked _(quick)_ are low-effort and high-value.
 
 #### Performance & Auto-Tuning
 
-- **Auto-Tuner** _(medium, ✅ IMPL)_ — `tool perf autotune [--bench <binary>] [--strategy hill|grid] [--rounds N] [--json]` sweeps a compiler-flag search space defined in `tool.toml [autotuner]` (e.g., `-O2/-O3`, `-march=native/-march=x86-64`, `-funroll-loops`). Oracle: Google Benchmark JSON output (median throughput). Strategy `hill` (default): flip one flag per round, keep if improvement. Strategy `grid`: enumerate all combinations up to `--rounds` limit. Output: `build_logs/autotune_results.json` + terminal summary table. Pairs with benchmark suite in `libs/dummy_lib/benchmarks/bench_greet.cpp` (Sudoku, Mandelbrot, Convolution).
+- **Auto-Tuner** _(medium, ✅ IMPL)_ — `tool perf autotune [--strategy hill|grid|random|anneal] [--oracle speed|size|instructions] [--rounds N] [--list-tools] [--T-init T] [--T-alpha α] [--json]` sweeps a compiler-flag search space defined in `tool.toml [autotuner]`. **Oracles:** `speed` (Google Benchmark `cpu_time` sum, default); `size` (`size --format=berkeley` .text+.data bytes, uses `size_flag_candidates`; `bloaty` fallback); `instructions` (`perf stat -e instructions`; `valgrind --tool=callgrind` fallback; falls back to `speed` if neither present). **Strategies:** `hill` (flip one flag per round, keep if improvement); `grid` (cartesian product up to `--rounds`); `random` (sample random combinations); `anneal` (simulated annealing, escapes local optima). `--list-tools` prints tool availability without running trials. Tool detection via `_detect_available_tools()` (probes nm, size, objdump, bloaty, perf, valgrind, hyperfine, gprof). Output: `build_logs/autotune_results.json` + terminal table. Pairs with `libs/dummy_lib/benchmarks/bench_greet.cpp`.
 
 #### Ecosystem & Integration
 

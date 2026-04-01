@@ -730,42 +730,106 @@ def _cmd_vec(args) -> CLIResult:
 
 
 # ---------------------------------------------------------------------------
-# Compiler-flag auto-tuner (hill-climb / grid search)
+# Compiler-flag auto-tuner — multi-oracle, multi-strategy
 # ---------------------------------------------------------------------------
 
-def _impl_cmd_autotune(args) -> CLIResult:
-    """Sweep compiler flags to find the best combination for benchmark performance.
+def _detect_available_tools() -> dict:
+    """Probe for optional analysis tools. Returns {name: path|None}."""
+    tools = ["nm", "size", "objdump", "bloaty", "perf", "valgrind",
+             "hyperfine", "gprof"]
+    return {t: shutil.which(t) for t in tools}
 
-    Reads ``tool.toml [autotuner].flag_candidates`` (list of lists of strings).
-    Each inner list is a *flag group* — at most one flag from each group is
-    active at a time.  Empty string ``""`` means "no flag" (the baseline
-    choice).
+
+def _impl_cmd_autotune(args) -> CLIResult:
+    """Sweep compiler flags to find the best combination for the chosen oracle.
+
+    Reads ``tool.toml [autotuner].flag_candidates`` (list of lists of strings)
+    for the ``speed`` / ``instructions`` oracles, or ``size_flag_candidates``
+    for the ``size`` oracle.  Each inner list is a *flag group* — at most one
+    flag from each group is active at a time.  Empty string ``""`` means
+    "no flag" (the baseline choice).
+
+    Oracles
+    -------
+    speed        (default) Sums Google Benchmark ``cpu_time`` across all
+                 benchmark binaries.  Lower is better (ns).
+    size         Sums ``.text + .data`` bytes from ``size --format=berkeley``
+                 over built ELF binaries.  Lower is better (bytes).
+                 Uses ``bloaty`` as fallback when ``size`` is absent.
+    instructions Counts instructions executed via ``perf stat -e instructions``
+                 (fallback: ``valgrind --tool=callgrind``).  Lower is better.
+                 Falls back to ``speed`` when neither tool is available.
 
     Strategies
     ----------
     hill  (default)
-        Start with the first flag in every group (baseline).  For each group,
-        try alternates one at a time; keep the change if it lowers the total
-        benchmark ``cpu_time``.  Repeat until no improvement or ``--rounds``
-        budget is exhausted.
+        Start with the first flag in every group.  Flip one group per
+        iteration; keep the change if it lowers the score.  Repeat until no
+        improvement or ``--rounds`` budget is exhausted.
     grid
         Enumerate the cartesian product of all flag groups up to ``--rounds``
         trials; pick the combination with the lowest score.
+    random
+        Sample ``--rounds`` random combinations from the flag space without
+        exhaustive enumeration.  Good for large search spaces.
+    anneal
+        Simulated annealing: accept worse solutions with probability
+        exp(-δ / T).  T decreases by ``--T-alpha`` each round.
+        Escapes local optima that hill-climb misses.
 
     Output: ``build_logs/autotune_results.json`` + terminal summary table.
     """
     import itertools
+    import math
+    import random as _random
     from core.utils.config_loader import load_tool_config
 
-    rounds   = int(getattr(args, "rounds", 16))
-    strategy = getattr(args, "strategy", "hill")
+    rounds       = int(getattr(args, "rounds", 16))
+    strategy     = getattr(args, "strategy", "hill")
+    oracle       = getattr(args, "oracle", "speed")
     bench_filter = getattr(args, "filter", None)
-    as_json  = getattr(args, "json", False)
+    as_json      = getattr(args, "json", False)
+    list_tools   = getattr(args, "list_tools", False)
+    t_init       = float(getattr(args, "T_init", 1.0))
+    t_alpha      = float(getattr(args, "T_alpha", 0.92))
 
-    # ── Load [autotuner] from tool.toml ──────────────────────────────────
+    # ── Tool detection ─────────────────────────────────────────────────────
+    available = _detect_available_tools()
+
+    if list_tools:
+        Logger.info("Available analysis tools:")
+        for name, path in sorted(available.items()):
+            status = path if path else "(not found)"
+            Logger.info(f"  {name:<12} {status}")
+        return CLIResult(success=True, message="Tool list shown above", data=available)
+
+    # ── Oracle validation / fallback ───────────────────────────────────────
+    if oracle == "size":
+        if not available.get("size") and not available.get("bloaty"):
+            Logger.error("oracle=size requires 'size' (binutils) or 'bloaty'. "
+                         "Neither was found on PATH.")
+            return CLIResult(success=False, code=1, message="No size tool available")
+    elif oracle == "instructions":
+        if not available.get("perf") and not available.get("valgrind"):
+            Logger.warn("oracle=instructions: neither 'perf' nor 'valgrind' found — "
+                        "falling back to speed oracle")
+            oracle = "speed"
+
+    # ── Load [autotuner] from tool.toml ────────────────────────────────────
     cfg = load_tool_config()
     at_cfg: dict = cfg.get("autotuner", {})
-    flag_groups: list[list[str]] = at_cfg.get("flag_candidates", [])
+
+    # Honour T_init / T_alpha from tool.toml when not overridden
+    t_init  = float(at_cfg.get("T_init",  t_init))
+    t_alpha = float(at_cfg.get("T_alpha", t_alpha))
+
+    # Select flag candidates based on oracle
+    if oracle == "size":
+        flag_groups: list[list[str]] = at_cfg.get(
+            "size_flag_candidates", at_cfg.get("flag_candidates", []))
+    else:
+        flag_groups = at_cfg.get("flag_candidates", [])
+
     if not flag_groups:
         Logger.error("No flag_candidates defined in tool.toml [autotuner]. "
                      "Add a section like:\n  [autotuner]\n  flag_candidates = [[\"-O2\",\"-O3\"],[...]]")
@@ -774,11 +838,125 @@ def _impl_cmd_autotune(args) -> CLIResult:
     AUTOTUNE_DIR = BUILD_DIR / "autotune"
     AUTOTUNE_DIR.mkdir(parents=True, exist_ok=True)
 
-    def _score_flags(flags: list[str], trial_name: str) -> "float | None":
-        """Configure, build, benchmark.  Returns total cpu_time (lower=better), or None."""
+    # ── Oracle implementations ──────────────────────────────────────────────
+
+    def _oracle_speed(bench_bins: list, bench_filter) -> "float | None":
+        """Sum cpu_time across all benchmarks. Lower is better (ns)."""
+        total = 0.0
+        for bb in bench_bins:
+            bench_cmd = [str(bb), "--benchmark_format=json", "--benchmark_min_time=0.1"]
+            if bench_filter:
+                bench_cmd.append(f"--benchmark_filter={bench_filter}")
+            try:
+                r = subprocess.run(bench_cmd, capture_output=True, text=True, timeout=180)
+                if r.returncode == 0 and r.stdout.strip():
+                    data = json.loads(r.stdout)
+                    for bm in data.get("benchmarks", []):
+                        total += bm.get("cpu_time", 0.0)
+            except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as exc:
+                Logger.warn(f"    Benchmark error: {exc}")
+        return total if total > 0.0 else None
+
+    def _oracle_size(trial_dir: Path, bench_bins: list) -> "float | None":
+        """Sum .text+.data bytes. Lower is better (bytes)."""
+        size_bin  = available.get("size")
+        bloaty_bin = available.get("bloaty")
+        targets   = list(bench_bins)
+
+        # Fall back to all ELF executables in the trial dir when bench bins absent
+        if not targets:
+            for p in trial_dir.rglob("*"):
+                if p.is_file() and (p.stat().st_mode & 0o111):
+                    try:
+                        with open(p, "rb") as fh:
+                            if fh.read(4) == b"\x7fELF":
+                                targets.append(p)
+                    except OSError:
+                        pass
+
+        total_bytes = 0
+        for t in targets:
+            if size_bin:
+                try:
+                    r = subprocess.run(
+                        [size_bin, "--format=berkeley", str(t)],
+                        capture_output=True, text=True, timeout=15)
+                    if r.returncode == 0:
+                        for line in r.stdout.splitlines():
+                            parts = line.split()
+                            # berkeley output: text  data  bss  dec  hex  filename
+                            if len(parts) >= 4 and parts[0].isdigit():
+                                total_bytes += int(parts[0]) + int(parts[1])
+                except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
+                    Logger.warn(f"    size error: {exc}")
+            elif bloaty_bin:
+                try:
+                    r = subprocess.run(
+                        [bloaty_bin, "-n", "0", "--csv", str(t)],
+                        capture_output=True, text=True, timeout=30)
+                    if r.returncode == 0:
+                        for line in r.stdout.splitlines()[1:]:  # skip header
+                            parts = line.split(",")
+                            if len(parts) >= 2:
+                                try:
+                                    total_bytes += int(parts[-1])
+                                except ValueError:
+                                    pass
+                except (subprocess.TimeoutExpired, OSError) as exc:
+                    Logger.warn(f"    bloaty error: {exc}")
+
+        return float(total_bytes) if total_bytes > 0 else None
+
+    def _oracle_instructions(bench_bins: list, bench_filter) -> "float | None":
+        """Count instructions executed. Lower is better."""
+        perf_bin    = available.get("perf")
+        valgrind_bin = available.get("valgrind")
+        total_insn  = 0.0
+
+        for bb in bench_bins:
+            bench_args = [str(bb), "--benchmark_min_time=0.05"]
+            if bench_filter:
+                bench_args.append(f"--benchmark_filter={bench_filter}")
+
+            if perf_bin:
+                cmd = [perf_bin, "stat", "-e", "instructions", "--"] + bench_args
+                try:
+                    r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                    combined = r.stderr + r.stdout
+                    for line in combined.splitlines():
+                        if "instructions" in line:
+                            for token in line.split():
+                                cleaned = token.replace(",", "")
+                                if cleaned.isdigit():
+                                    total_insn += float(cleaned)
+                                    break
+                except (subprocess.TimeoutExpired, OSError) as exc:
+                    Logger.warn(f"    perf stat error: {exc}")
+            elif valgrind_bin:
+                cmd = [valgrind_bin, "--tool=callgrind",
+                       "--callgrind-out-file=/dev/null", "--"] + bench_args
+                try:
+                    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                    for line in (r.stderr + r.stdout).splitlines():
+                        if "I refs:" in line or "Ir " in line:
+                            for token in line.split():
+                                cleaned = token.replace(",", "")
+                                if cleaned.isdigit():
+                                    total_insn += float(cleaned)
+                                    break
+                except (subprocess.TimeoutExpired, OSError) as exc:
+                    Logger.warn(f"    valgrind error: {exc}")
+
+        return total_insn if total_insn > 0.0 else None
+
+    # ── Build + score helper ───────────────────────────────────────────────
+
+    def _score_flags(flags: list, trial_name: str) -> "float | None":
+        """Configure, build, then evaluate with the selected oracle."""
         trial_dir = AUTOTUNE_DIR / trial_name
-        flags_str = " ".join(f for f in flags if f)  # skip empty-string placeholders
-        Logger.info(f"  [{trial_name}] CXX_FLAGS=[{flags_str or '(defaults)'}]")
+        flags_str = " ".join(f for f in flags if f)
+        Logger.info(f"  [{trial_name}] oracle={oracle} "
+                    f"CXX_FLAGS=[{flags_str or '(defaults)'}]")
 
         cfg_cmd = [
             "cmake",
@@ -801,7 +979,7 @@ def _impl_cmd_autotune(args) -> CLIResult:
             Logger.warn(f"    Build failed: {r.stderr[-300:].strip()}")
             return None
 
-        # Discover ELF benchmark binaries in this trial build dir
+        # Discover ELF benchmark binaries
         bench_bins: list[Path] = []
         for p in trial_dir.rglob("*"):
             if not p.is_file():
@@ -815,38 +993,36 @@ def _impl_cmd_autotune(args) -> CLIResult:
                 except OSError:
                     pass
 
-        if not bench_bins:
+        if oracle in ("speed", "instructions") and not bench_bins:
             Logger.warn("    No benchmark binaries found. Build with ENABLE_BENCHMARKS=ON.")
             return None
 
-        total_time = 0.0
-        for bb in bench_bins:
-            bench_cmd = [str(bb), "--benchmark_format=json", "--benchmark_min_time=0.1"]
-            if bench_filter:
-                bench_cmd.append(f"--benchmark_filter={bench_filter}")
-            try:
-                r = subprocess.run(bench_cmd, capture_output=True, text=True, timeout=180)
-                if r.returncode == 0 and r.stdout.strip():
-                    data = json.loads(r.stdout)
-                    for bm in data.get("benchmarks", []):
-                        total_time += bm.get("cpu_time", 0.0)
-            except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as exc:
-                Logger.warn(f"    Benchmark error: {exc}")
-        return total_time if total_time > 0.0 else None
+        if oracle == "speed":
+            return _oracle_speed(bench_bins, bench_filter)
+        elif oracle == "size":
+            return _oracle_size(trial_dir, bench_bins)
+        elif oracle == "instructions":
+            return _oracle_instructions(bench_bins, bench_filter)
+        return None
 
-    # ── Run selected strategy ─────────────────────────────────────────────
+    # ── Run selected strategy ──────────────────────────────────────────────
     results: list[dict] = []
     best_flags: list[str] = [g[0] for g in flag_groups]
     best_score: float = float("inf")
+    oracle_unit = {
+        "speed":        "ns (cpu_time, ↓)",
+        "size":         "bytes (.text+.data, ↓)",
+        "instructions": "insn (↓)",
+    }.get(oracle, "score (↓)")
 
     if strategy == "hill":
-        Logger.info("Autotune: hill-climb strategy")
+        Logger.info(f"Autotune: hill-climb  oracle={oracle}")
         score = _score_flags(best_flags, "baseline")
         if score is None:
             return CLIResult(success=False, code=1, message="Baseline build/run failed")
         best_score = score
         results.append({"trial": "baseline", "flags": list(best_flags), "score": best_score})
-        Logger.info(f"  Baseline score: {best_score:.1f} ns")
+        Logger.info(f"  Baseline: {best_score:.1f} {oracle_unit}")
 
         iteration = 0
         improved = True
@@ -862,53 +1038,123 @@ def _impl_cmd_autotune(args) -> CLIResult:
                     new_score = _score_flags(trial_flags, trial_name)
                     iteration += 1
                     if new_score is not None:
-                        results.append({"trial": trial_name,
-                                        "flags": trial_flags,
-                                        "score": new_score})
+                        results.append({
+                            "trial": trial_name,
+                            "flags": trial_flags,
+                            "score": new_score,
+                        })
                         if new_score < best_score:
                             best_score = new_score
                             best_flags = trial_flags
                             improved = True
-                            Logger.info(f"  ↑ Improved → {best_score:.1f} ns  flags={trial_flags}")
+                            Logger.info(f"  ↑ Improved → {best_score:.1f}  flags={trial_flags}")
 
     elif strategy == "grid":
-        Logger.info("Autotune: grid search strategy")
+        Logger.info(f"Autotune: grid search  oracle={oracle}")
         combos = list(itertools.product(*flag_groups))[:rounds]
         for i, combo in enumerate(combos):
             trial_flags = list(combo)
             new_score = _score_flags(trial_flags, f"grid_{i:02d}")
             if new_score is not None:
-                results.append({"trial": f"grid_{i:02d}",
-                                "flags": trial_flags,
-                                "score": new_score})
+                results.append({
+                    "trial": f"grid_{i:02d}",
+                    "flags": trial_flags,
+                    "score": new_score,
+                })
                 if new_score < best_score:
                     best_score = new_score
                     best_flags = trial_flags
-                    Logger.info(f"  Best so far → {best_score:.1f} ns  flags={trial_flags}")
+                    Logger.info(f"  Best so far → {best_score:.1f}  flags={trial_flags}")
+
+    elif strategy == "random":
+        Logger.info(f"Autotune: random sampling  oracle={oracle}  rounds={rounds}")
+        seen: set = set()
+        attempts = 0
+        max_attempts = rounds * 5
+        while len(results) < rounds and attempts < max_attempts:
+            attempts += 1
+            combo = [_random.choice(g) for g in flag_groups]
+            key = tuple(combo)
+            if key in seen:
+                continue
+            seen.add(key)
+            trial_name = f"rand_{len(results):02d}"
+            new_score = _score_flags(combo, trial_name)
+            if new_score is not None:
+                results.append({"trial": trial_name, "flags": combo, "score": new_score})
+                if new_score < best_score:
+                    best_score = new_score
+                    best_flags = combo
+                    Logger.info(f"  ↑ New best → {best_score:.1f}  flags={combo}")
+
+    elif strategy == "anneal":
+        Logger.info(f"Autotune: simulated annealing  oracle={oracle}  "
+                    f"T={t_init}  α={t_alpha}")
+        current_flags = [_random.choice(g) for g in flag_groups]
+        score = _score_flags(current_flags, "anneal_init")
+        if score is None:
+            return CLIResult(success=False, code=1,
+                             message="Initial build/run failed for annealing")
+        current_score = score
+        best_score    = current_score
+        best_flags    = list(current_flags)
+        results.append({
+            "trial": "anneal_init",
+            "flags": list(current_flags),
+            "score": current_score,
+        })
+        T = t_init
+        for i in range(rounds):
+            gi = _random.randrange(len(flag_groups))
+            new_flags = list(current_flags)
+            new_flags[gi] = _random.choice(flag_groups[gi])
+            trial_name = f"anneal_{i:02d}"
+            new_score = _score_flags(new_flags, trial_name)
+            if new_score is None:
+                T *= t_alpha
+                continue
+            results.append({"trial": trial_name, "flags": new_flags, "score": new_score})
+            delta = new_score - current_score
+            # Accept if better, or with Boltzmann probability if worse
+            if delta < 0 or _random.random() < math.exp(-delta / (T * current_score + 1e-9)):
+                current_flags = new_flags
+                current_score = new_score
+                if new_score < best_score:
+                    best_score = new_score
+                    best_flags = new_flags
+                    Logger.info(f"  ↑ New best (T={T:.3f}) → {best_score:.1f}  flags={new_flags}")
+            T *= t_alpha
 
     else:
-        return CLIResult(success=False, code=1,
-                         message=f"Unknown strategy: {strategy!r}. Use 'hill' or 'grid'.")
+        return CLIResult(
+            success=False, code=1,
+            message=f"Unknown strategy: {strategy!r}. "
+                    "Use hill, grid, random, or anneal.")
 
-    # ── Persist + report ─────────────────────────────────────────────────
+    # ── Persist + report ───────────────────────────────────────────────────
     results.sort(key=lambda e: e.get("score", float("inf")))
     best_flag_str = " ".join(f for f in best_flags if f) or "(defaults)"
     output = {
-        "strategy": strategy,
+        "strategy":   strategy,
+        "oracle":     oracle,
         "best_flags": best_flags,
         "best_score": best_score if best_score < float("inf") else None,
-        "trials": results,
+        "trials":     results,
     }
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     out_file = LOGS_DIR / "autotune_results.json"
     out_file.write_text(json.dumps(output, indent=2), encoding="utf-8")
 
     Logger.info(f"\nAutotune complete — {len(results)} trial(s) run.")
+    Logger.info(f"Oracle     : {oracle} ({oracle_unit})")
     Logger.info(f"Best flags : {best_flag_str}")
-    Logger.info(f"Best score : {best_score:.1f} ns (cpu_time sum, lower is better)")
+    if best_score < float("inf"):
+        Logger.info(f"Best score : {best_score:.1f} {oracle_unit}")
+    else:
+        Logger.info("Best score : N/A (all trials failed)")
     Logger.info(f"Results    → {out_file}")
 
-    Logger.info(f"\n{'Trial':<15} {'Flags':<45} {'Score (ns)':>12}")
+    Logger.info(f"\n{'Trial':<15} {'Flags':<45} {'Score':>12}")
     Logger.info("-" * 75)
     for entry in results[:10]:
         flag_str = " ".join(f for f in entry["flags"] if f) or "(defaults)"
@@ -919,6 +1165,132 @@ def _impl_cmd_autotune(args) -> CLIResult:
         print(json.dumps(output, indent=2))
 
     return CLIResult(success=True, message="Autotune complete", data=output)
+
+
+
+# ---------------------------------------------------------------------------
+# Binary size delta tracking
+# ---------------------------------------------------------------------------
+
+def _cmd_size_diff(args) -> CLIResult:
+    """Compare .text/.data/.bss section sizes between current build and baseline.
+
+    Reads ``build_logs/perf_baseline.json`` (saved by ``tool perf track``) as
+    the *base* snapshot and compares it against the current build artifacts
+    using ``size --format=berkeley``.  Pass ``--base <file>`` to override the
+    baseline path.
+    """
+    import re as _re
+
+    base_file  = getattr(args, "base", None)
+    fail_bytes = getattr(args, "fail_on_growth", None)
+    as_json    = getattr(args, "json", False)
+
+    size_bin = shutil.which("size")
+    if not size_bin:
+        Logger.error("'size' (binutils) is required for size-diff but was not found on PATH.")
+        return CLIResult(success=False, code=1, message="'size' tool not found")
+
+    # ── Load baseline ──────────────────────────────────────────────────────
+    baseline_path = Path(base_file) if base_file else LOGS_DIR / "perf_baseline.json"
+    if not baseline_path.exists():
+        Logger.error(f"Baseline file not found: {baseline_path}\n"
+                     "Run 'tool perf track' first to save a baseline.")
+        return CLIResult(success=False, code=1, message="No baseline file found")
+
+    try:
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return CLIResult(success=False, code=1,
+                         message=f"Cannot read baseline: {exc}")
+
+    base_sizes: dict = baseline.get("sizes", {})
+
+    # ── Collect current sizes ──────────────────────────────────────────────
+    active_build = _find_active_build_dir()
+    elf_binaries: list[Path] = _find_binaries(active_build)
+
+    head_sizes: dict = {}
+    for p in elf_binaries:
+        r = subprocess.run(
+            [size_bin, "--format=berkeley", str(p)],
+            capture_output=True, text=True, timeout=15)
+        if r.returncode != 0:
+            continue
+        for line in r.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 4 and parts[0].isdigit():
+                head_sizes[p.name] = {
+                    ".text":  int(parts[0]),
+                    ".data":  int(parts[1]),
+                    ".bss":   int(parts[2]),
+                    "total":  int(parts[0]) + int(parts[1]) + int(parts[2]),
+                }
+
+    if not head_sizes:
+        Logger.warn("No ELF binaries measured in current build. Run 'tool build' first.")
+
+    # ── Diff ───────────────────────────────────────────────────────────────
+    all_names = sorted(set(base_sizes) | set(head_sizes))
+    diffs: list[dict] = []
+    total_growth = 0
+
+    for name in all_names:
+        b = base_sizes.get(name, {})
+        h = head_sizes.get(name, {})
+        if not b and not h:
+            continue
+        delta_text  = h.get(".text",  0) - b.get(".text",  0)
+        delta_data  = h.get(".data",  0) - b.get(".data",  0)
+        delta_bss   = h.get(".bss",   0) - b.get(".bss",   0)
+        delta_total = h.get("total",  0) - b.get("total",  0)
+        diffs.append({
+            "name":         name,
+            "base_total":   b.get("total", 0),
+            "head_total":   h.get("total", 0),
+            "delta_text":   delta_text,
+            "delta_data":   delta_data,
+            "delta_bss":    delta_bss,
+            "delta_total":  delta_total,
+        })
+        if delta_total > 0:
+            total_growth += delta_total
+
+    # ── Display ────────────────────────────────────────────────────────────
+    Logger.info(f"\nsize-diff  baseline={baseline_path.name}  build={active_build.name}")
+    Logger.info(f"\n{'Binary':<30} {'Base':>10} {'Head':>10} "
+                f"{'Δ total':>10} {'Δ .text':>10}")
+    Logger.info("-" * 75)
+    for d in diffs:
+        def _fmt(v):
+            return ("+" if v >= 0 else "") + str(v)
+        Logger.info(f"{d['name']:<30} {d['base_total']:>10} {d['head_total']:>10} "
+                    f"{_fmt(d['delta_total']):>10} {_fmt(d['delta_text']):>10}")
+
+    Logger.info(f"\nTotal binary growth: {'+' if total_growth >= 0 else ''}"
+                f"{total_growth} bytes (.text+.data+.bss)")
+
+    output = {
+        "baseline": str(baseline_path),
+        "build_dir": str(active_build),
+        "total_growth_bytes": total_growth,
+        "binaries": diffs,
+    }
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    (LOGS_DIR / "size_report.json").write_text(json.dumps(output, indent=2), encoding="utf-8")
+
+    if as_json:
+        print(json.dumps(output, indent=2))
+
+    if fail_bytes is not None and total_growth > fail_bytes:
+        return CLIResult(
+            success=False, code=1,
+            message=f"Binary growth {total_growth}B exceeds --fail-on-growth {fail_bytes}B",
+            data=output)
+
+    return CLIResult(success=True,
+                     message=f"size-diff complete. Total growth: {total_growth}B",
+                     data=output)
 
 
 def perf_parser() -> argparse.ArgumentParser:
@@ -998,16 +1370,43 @@ def perf_parser() -> argparse.ArgumentParser:
 
     # autotune
     p = sub.add_parser("autotune",
-                       help="Sweep compiler flags to find the best combination (hill or grid search)")
-    p.add_argument("--strategy", choices=["hill", "grid"], default="hill",
-                   help="Search strategy: 'hill' (default, fast) or 'grid' (exhaustive)")
+                       help="Sweep compiler flags to find the best combination")
+    p.add_argument("--strategy",
+                   choices=["hill", "grid", "random", "anneal"],
+                   default="hill",
+                   help="Search strategy: hill (default), grid, random, or anneal")
+    p.add_argument("--oracle",
+                   choices=["speed", "size", "instructions"],
+                   default="speed",
+                   help="Optimisation goal: speed (cpu_time, default), "
+                        "size (.text+.data bytes), or instructions (insn count)")
     p.add_argument("--rounds", type=int, default=16, metavar="N",
                    help="Maximum number of build+run trials (default: 16)")
     p.add_argument("--filter", default=None, metavar="REGEX",
                    help="Benchmark filter regex passed to --benchmark_filter")
+    p.add_argument("--T-init",  type=float, default=1.0,  dest="T_init",
+                   metavar="T",
+                   help="Initial temperature for annealing (default: 1.0)")
+    p.add_argument("--T-alpha", type=float, default=0.92, dest="T_alpha",
+                   metavar="α",
+                   help="Cooling rate for annealing 0<α<1 (default: 0.92)")
+    p.add_argument("--list-tools", action="store_true", dest="list_tools",
+                   help="Print available analysis tools and exit")
     p.add_argument("--json", action="store_true",
                    help="Print full results JSON to stdout in addition to summary")
     p.set_defaults(func=_impl_cmd_autotune)
+
+    # size-diff
+    p = sub.add_parser("size-diff",
+                       help="Compare .text/.data/.bss sizes vs a saved baseline")
+    p.add_argument("--base", default=None, metavar="FILE",
+                   help="Baseline JSON file (default: build_logs/perf_baseline.json)")
+    p.add_argument("--fail-on-growth", type=int, default=None,
+                   metavar="BYTES", dest="fail_on_growth",
+                   help="Exit 1 if total binary growth exceeds BYTES (opt-in)")
+    p.add_argument("--json", action="store_true",
+                   help="Print full diff JSON to stdout")
+    p.set_defaults(func=_cmd_size_diff)
 
     return parser
 
