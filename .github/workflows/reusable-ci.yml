@@ -1,3 +1,53 @@
+name: Reusable CI
+on:
+  workflow_call:
+    inputs:
+      cmake_args:
+        required: false
+        type: string
+      enable_fuzz:
+        required: false
+        type: boolean
+      build_type:
+        required: false
+        type: string
+
+jobs:
+  build_and_optional_fuzz:
+    runs-on: ubuntu-latest
+    outputs:
+      built: ${{ steps.build.outcome }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dev dependencies (best-effort)
+        run: |
+          python3 -m pip install --upgrade pip || true
+          if [ -f requirements-dev.txt ]; then python3 -m pip install -r requirements-dev.txt || true; fi
+
+      - name: Configure CMake
+        id: cmake_cfg
+        run: |
+          cmake_args="${{ inputs.cmake_args }}"
+          if [ -n "${{ inputs.build_type }}" ]; then
+            cmake_args="$cmake_args -DCMAKE_BUILD_TYPE=${{ inputs.build_type }}"
+          fi
+          cmake -S . -B build $cmake_args
+
+      - name: Build
+        id: build
+        run: cmake --build build -- -j
+
+      - name: Optional: short fuzz smoke-run
+        if: ${{ inputs.enable_fuzz == 'true' || inputs.enable_fuzz == true }}
+        run: |
+          if [ -x build/fuzz_secure_ops_afl ]; then timeout 30s ./build/fuzz_secure_ops_afl -runs=100 -max_total_time=10 || true; else echo 'No fuzz target built'; fi
 name: Reusable CI Setup
 
 on:

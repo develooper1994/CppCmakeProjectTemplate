@@ -1,4 +1,84 @@
 #!/usr/bin/env python3
+"""Collect AFL findings and optionally minimize crashes/hangs.
+
+Usage:
+  python3 scripts/fuzz/findings_collector.py --afl-out afl_out -d artifacts/fuzz-findings --minimize --target-bin build-afl/fuzz_secure_ops_afl
+
+This script looks in the afl output directory (usually the `out` dir used by afl-fuzz)
+and copies crashes/hangs/minimized inputs to a destination folder. If afl-tmin
+is available it uses it to minimize reproducer inputs (requires the target binary).
+"""
+import argparse
+import logging
+import os
+import shutil
+import subprocess
+import sys
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+
+def is_tool(name):
+    from shutil import which
+
+    return which(name) is not None
+
+
+def collect_crashes(afl_out, dest):
+    os.makedirs(dest, exist_ok=True)
+    queued = []
+    # afl output has directories like crashes, hangs, queue
+    for sub in ("crashes", "hangs"):
+        d = os.path.join(afl_out, sub)
+        if not os.path.isdir(d):
+            continue
+        for root, _, files in os.walk(d):
+            for fn in files:
+                src = os.path.join(root, fn)
+                dst = os.path.join(dest, fn)
+                try:
+                    shutil.copy2(src, dst)
+                    queued.append(dst)
+                except Exception as e:
+                    logging.warning("Failed to copy %s: %s", src, e)
+    logging.info("Collected %d findings into %s", len(queued), dest)
+    return queued
+
+
+def minimize_with_tmin(input_file, output_file, target_bin):
+    if not is_tool("afl-tmin"):
+        raise RuntimeError("afl-tmin not found in PATH")
+    cmd = ["afl-tmin", "-i", input_file, "-o", output_file, "--", target_bin]
+    logging.info("Running: %s", " ".join(cmd))
+    subprocess.run(cmd, check=True)
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Collect and optionally minimize AFL findings")
+    p.add_argument("--afl-out", required=True)
+    p.add_argument("-d", "--dest", required=True)
+    p.add_argument("--minimize", action="store_true")
+    p.add_argument("--target-bin", help="Target binary for afl-tmin")
+    return p.parse_args()
+
+
+def main():
+    args = parse_args()
+    collected = collect_crashes(args.afl_out, args.dest)
+    if args.minimize and args.target_bin and is_tool("afl-tmin"):
+        for f in collected:
+            base = os.path.basename(f)
+            outp = os.path.join(args.dest, "min." + base)
+            try:
+                minimize_with_tmin(f, outp, args.target_bin)
+            except subprocess.CalledProcessError as e:
+                logging.warning("afl-tmin failed for %s: %s", f, e)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#!/usr/bin/env python3
 """Collect and optionally minimize AFL findings.
 
 This script scans an AFL output directory (e.g. `afl_out`) for unique

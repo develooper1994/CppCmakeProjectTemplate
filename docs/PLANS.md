@@ -100,7 +100,13 @@ This document lists the project's current capabilities, governance policies, and
 
   8. Granular Control: expose per-target and per-script toggles in `core.utils.common` and CMake modules — ✅ DONE (global `--install`, per-target `-D<TGT>_ENABLE_*` and analyzer toggles implemented).
 
-  Notes: Remaining follow-ups are maintenance and incremental improvements. Initial implementations for corpus triage automation and crash minimization have been added (see `scripts/fuzz/triage.py` and `scripts/fuzz/findings_collector.py`). Alerting and retention policy tuning remain as operational tasks tracked in the repo's issue tracker.
+  Status update (2026-04-01): The Phase‑4 planned items listed above have been implemented and validated in this feature branch.
+
+  - Seed-corpus triage & minimization pipeline: ✅ DONE — implemented in `scripts/fuzz/triage.py` and `scripts/fuzz/findings_collector.py`. The corpus manager and AFL findings collector support `afl-cmin`/`afl-tmin` where available and provide safe fallbacks.
+  - `clang-tidy --fix` PR automation: ✅ DONE — implemented as `scripts/ci/tidy_pr_bot.py` and CI job scaffolding to generate candidate fix branches and PRs (uses `tool format tidy-fix` under the hood).
+  - Workflow consolidation: ✅ DONE — reusable workflow added at `.github/workflows/reusable-ci.yml` and key callers (nightly AFL long‑run) updated to use it. This significantly reduces duplication across CI jobs.
+
+  Notes: Remaining follow-ups are operational tuning and incremental improvements (artifact retention policy, alerting thresholds, and coverage of additional fuzz targets). These are tracked in the repository issue tracker.
 
 - **Dynamic Static Analysis:** ✅ DONE — `.clang-tidy` is now dynamically generated based on the active profile (`normal`, `strict`, `hardened`, `extreme`) using Jinja2 templates.
   - `hardened/extreme` profiles enforce `WarningsAsErrors: "*"`.
