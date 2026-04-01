@@ -80,7 +80,7 @@ All per-script and per-target toggles implemented as `-D` CMake options and CLI 
 - **Link-Time Optimization (LTO):** `cmake/LTO.cmake` — CheckIPOSupported, thin LTO for Clang, per-target support.
 - **Build Caching:** `cmake/BuildCache.cmake` — auto-detects ccache/sccache.
 - **Build Visualization:** `tool perf graph` — CMake dependency graph via `cmake --graphviz` with optional `dot` rendering.
-- **Cross-Compilation:** 3 new toolchains + 5 new CMake presets (embedded/aarch64). MSVC ARM64 (`arm64`/`aarch64` → `ARM64` Visual Studio arch). Platform-aware skip rules: embedded targets gcc-only + static-only, musl static-only, zig gcc-base-only, arm64 MSVC-only.
+- **Cross-Compilation:** 3 new toolchains + 5 new CMake presets (embedded/aarch64). MSVC ARM64 (`arm64`/`aarch64` → `ARM64` Visual Studio arch). Platform-aware skip rules: embedded targets gcc-only + static-only, musl static-only, zig gcc-base-only, arm64 MSVC-only. Full musl expansion: aarch64-linux-musl + zig variants, vcpkg overlay triplets (`triplets/`), Conan musl profiles, CI nightly musl workflow.
 - **Embedded Targets:** `cmake/EmbeddedUtils.cmake` — 4 functions for embedded binary outputs, map files, memory usage, linker scripts.
 - **Code Size Analysis:** `tool perf size` — analyzes all built binaries with JSON report.
 - **Build Time Analysis:** `tool perf build-time` — Ninja `.ninja_log` analysis with JSON report.
@@ -149,34 +149,6 @@ Single source-of-truth `VERSION` file at repository root (`<major>.<middle>.<min
 - **CI Integration:** `.github/workflows/gitleaks.yml` — push/PR/weekly scans with SARIF upload.
 - **Custom Rules:** `.gitleaks.toml` — 3 custom rules + project-specific allowlists.
 
----
-
-## 🔜 Not Completed (V2 / Future Backlog)
-
-### Hot Reloading _(V2 / Long-term)_
-
-C++ hot-reloading (LLVM JIT / cr.h) requires significant runtime scaffolding and OS-specific shared library reload. ccache + unity builds already minimize rebuild latency. Deferred until V2.
-
-### Automated Performance Tuning _(V2 / Long-term)_
-
-PGO + BOLT (already implemented) cover the primary automated tuning strategies for V1. V2 expands this into a closed-loop system:
-
-- **Phase 1 (safe defaults):** Keep current `tool perf autotune` strategies (hill/grid/random/anneal) as optional non-blocking advisors.
-- **Phase 2 (evidence-based presets):** Promote only repeatedly winning flag sets into optional presets (for example `*-perf-tuned-*`).
-- **Phase 3 (CI budget gates):** Feed baseline and tuned runs into `tool perf check-budget` with policy thresholds.
-- **Phase 4 (nightly exploration):** Run wider candidate sweeps at night, keep PR pipelines deterministic and fast.
-- **Phase 5 (portfolio tuning):** Maintain separate tuning profiles for speed-focused and size-focused outputs.
-
-Scope remains practical: no mandatory heavy external tuning framework for V1/V1.x; integrations are incremental and reversible.
-
-### Intel SYCL Support _(V2 / Long-term)_
-
-Architecture is in place (see `cmake/CUDA.cmake` and `cmake/HIP.cmake` patterns). Add `cmake/SYCL.cmake` when a concrete Intel GPU target exists.
-
-### Apple Metal Support _(V2 / Long-term)_
-
-Architecture is in place. Add `cmake/Metal.cmake` (via Metal-cpp or similar) when macOS GPU compute targets are needed.
-
 ### Memory Pooling & Custom Allocators _(Complete)_
 
 **Completed (Tier 1 — Backend Wiring):** `cmake/Allocators.cmake` with mimalloc/jemalloc/tcmalloc support, CLI `--allocator` flag, per-target and global override, all targets wired.
@@ -200,32 +172,46 @@ Architecture is in place. Add `cmake/Metal.cmake` (via Metal-cpp or similar) whe
 - **Cache-aware workflow:** `--cppcheck-build-dir` persists analysis of unchanged TUs; CI caches via `actions/cache`.
 - **Suppression hygiene:** Centralized `.cppcheck-suppressions.txt` auto-loaded by default; `--suppressions FILE` override preserved.
 
-### Internal Tooling Refactor Program _(V2 / Structural)_
+### musl / Static Build Expansion _(Complete)_
 
-Large-scale refactor is planned after stabilization milestones, with safety gates at each step.
+**Completed (Tier 1 — Toolchains & Docker):** x86_64 musl toolchain (GCC-based), Zig cc + musl toolchain, Alpine Dockerfile, Zig-musl Dockerfile, Docker file consolidation, preset generator wiring with skip rules.
 
-- **Motivation:** some script files are too long, responsibilities overlap, and code duplication exists.
-- **Refactor principle:** split by clear domain ownership, not by artificial micro-fragmentation.
-- **Target architecture:**
-  - command facade layer
-  - execution/service layer
-  - shared utility layer
-  - plugin boundary with stable contracts
-- **Execution style:** phased vertical slices (domain-by-domain), each with full regression checks.
-- **Anti-duplication plan:** extract repeated argument parsing, runner orchestration, and reporting helpers.
-- **Guardrails:** no broad "big bang" rewrites; each phase must remain buildable/testable and reversible.
-- **Completion criteria:** shorter cohesive modules, lower churn hotspots, and preserved CLI compatibility.
+**Completed (Tier 2 — ARM64 & Ecosystem Integration):**
 
-### musl / Static Build Expansion _(Partially Complete)_
+- **aarch64-linux-musl:** ARM64 fully static builds via musl cross-toolchain (`cmake/toolchains/aarch64-linux-musl.cmake`). Requires `musl-cross-make` or Alpine Docker with QEMU.
+- **aarch64-linux-musl-zig:** ARM64 via Zig cc (`cmake/toolchains/aarch64-linux-musl-zig.cmake`). Zero-install cross-compilation.
+- **CI nightly musl job:** `.github/workflows/musl_nightly.yml` — Alpine native x86_64, Zig x86_64, Zig aarch64 cross-compile with QEMU smoke-test. Schedule (04:00 UTC) + manual dispatch.
+- **Conan musl profiles:** `_MUSL_ARCH_MAP` in deps.py maps musl arch names to canonical Conan arches. Hard skip rules for musl-dynamic / zig-nonGCC. Toolchain file injection via `tools.cmake.cmaketoolchain:user_toolchain`.
+- **vcpkg musl triplets:** `triplets/` overlay directory with 4 custom triplets (`x86_64-linux-musl`, `aarch64-linux-musl`, `x86_64-linux-musl-zig`, `aarch64-linux-musl-zig`). All static, chainload respective toolchain files. Usage: `vcpkg install --overlay-triplets=triplets`.
+- **Zig toolchain consistency:** All zig-musl toolchains now have search policy (`CMAKE_FIND_ROOT_PATH_MODE_*`) and sanitizer disabling.
 
-**Completed:** x86_64 musl toolchain (GCC-based), Zig cc + musl toolchain, Alpine Dockerfile, Zig-musl Dockerfile, Docker file consolidation, preset generator wiring with skip rules.
+---
 
-Remaining:
+## 🔜 Not Completed (V2 / Future Backlog)
 
-- **aarch64-linux-musl:** ARM64 fully static builds via musl cross-toolchain.
-- **aarch64-linux-musl-zig:** ARM64 via Zig cc (`zig cc -target aarch64-linux-musl`).
-- **CI nightly musl job:** Catch static-linking regressions in scheduled builds.
-- **Conan/vcpkg musl profiles:** Package manager integration for musl-targeted dependency resolution.
+### GPU & Compute _(V2)_
+
+- **Intel SYCL Support:** Architecture is in place (see `cmake/CUDA.cmake` and `cmake/HIP.cmake` patterns). Add `cmake/SYCL.cmake` when a concrete Intel GPU target exists.
+- **Apple Metal Support:** Architecture is in place. Add `cmake/Metal.cmake` (via Metal-cpp or similar) when macOS GPU compute targets are needed.
+
+### Performance _(V2)_
+
+- **Hot Reloading:** C++ hot-reloading (LLVM JIT / cr.h) requires significant runtime scaffolding and OS-specific shared library reload. ccache + unity builds already minimize rebuild latency.
+- **Automated Performance Tuning:** PGO + BOLT (already implemented) cover V1. V2 expands into a closed-loop system:
+  - Phase 1 (safe defaults): Keep `tool perf autotune` strategies as optional non-blocking advisors.
+  - Phase 2 (evidence-based presets): Promote winning flag sets into optional presets (`*-perf-tuned-*`).
+  - Phase 3 (CI budget gates): Feed baseline and tuned runs into `tool perf check-budget`.
+  - Phase 4 (nightly exploration): Wider candidate sweeps at night, deterministic PR pipelines.
+  - Phase 5 (portfolio tuning): Separate profiles for speed-focused and size-focused outputs.
+
+### Internal Tooling _(V2 / Structural)_
+
+- **Internal Tooling Refactor Program:** Large-scale refactor planned after stabilization milestones.
+  - Motivation: some script files are too long, responsibilities overlap, code duplication exists.
+  - Refactor principle: split by clear domain ownership, not by micro-fragmentation.
+  - Target: command facade → execution/service → shared utility → plugin boundary.
+  - Execution: phased vertical slices (domain-by-domain), each with full regression checks.
+  - Guardrails: no "big bang" rewrites; each phase must remain buildable/testable and reversible.
 
 ---
 
