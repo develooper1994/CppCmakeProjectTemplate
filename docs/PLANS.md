@@ -29,6 +29,7 @@ This document lists the project's current capabilities and remaining backlog ite
 - **Build Configuration Summary:** `build/build_config.json` emitted at build time with profile, sanitizers, preset, and generated sources.
 - **CMakePresets.json Generator:** `tool presets generate` reads `tool.toml [presets]` and generates the full preset matrix. Supports per-dimension filters, constraint matrix, auto-backup, `--dry-run`.
 - **`tool presets list` / `validate`:** List visible presets and validate via `cmake --list-presets`.
+- **musl libc / Fully Static Builds:** `cmake/toolchains/x86_64-linux-musl.cmake` — produces zero-dependency statically linked binaries. Auto-detects musl-cross-make or `musl-gcc` wrapper. `Dockerfile.alpine` for native musl C++ builds. Preset generator wires `gcc-*-static-x86_64-linux-musl` presets with automatic dynamic-linkage skip. Sanitizers disabled (incompatible with musl). Optional `-static-pie` via `MUSL_STATIC_PIE=ON`.
 
 ### Distribution & Template Engine
 
@@ -55,6 +56,7 @@ This document lists the project's current capabilities and remaining backlog ite
 - **Fuzz Testing:** libFuzzer harness, AFL++ CI (nightly long-run), seed-corpus management, crash triage.
 - **Static Analysis:** `clang-tidy --fix` automation (`tool format tidy-fix`) and CI job.
 - **Security Hardening:** `cmake/Hardening.cmake` — stack canaries, PIE, RELRO, CFI, FORTIFY_SOURCE, MSVC equivalents.
+- **Cppcheck Acceleration:** `--cppcheck-jobs N` (parallel, auto-detect CPU count), `--cppcheck-checks {full|minimal}` (tiered profiles), `--cppcheck-paths` (path scoping for incremental scans), `--fast` shorthand.
 - **Workflow Consolidation:** Reusable CI workflow (`.github/workflows/reusable-ci.yml`).
 
 ### Granular Control
@@ -93,6 +95,7 @@ All per-script and per-target toggles implemented as `-D` CMake options and CLI 
 - **Zero-Cost Abstractions:** `[[likely]]`/`[[unlikely]]`, `ATTR_HOT`/`ATTR_COLD`/`ATTR_PURE`/`ATTR_NOINLINE` macros.
 - **Binary Size Delta Tracking:** `tool perf size-diff` — compares `.text`/`.data`/`.bss` against baseline.
 - **Auto-Tuner:** `tool perf autotune` — hill/grid/random/anneal strategies with speed/size/instructions oracles.
+- **Optional Allocator Backends:** `cmake/Allocators.cmake` — `target_use_allocator()` and `project_apply_allocator()` for mimalloc, jemalloc, tcmalloc. CLI: `tool build --allocator {default|mimalloc|jemalloc|tcmalloc}`. Per-target and global override (`ENABLE_ALLOCATOR_OVERRIDE_ALL`). All executables, tests, and benchmarks wired. Zero application code changes required.
 
 ### Ecosystem & UI
 
@@ -172,35 +175,28 @@ Architecture is in place (see `cmake/CUDA.cmake` and `cmake/HIP.cmake` patterns)
 
 Architecture is in place. Add `cmake/Metal.cmake` (via Metal-cpp or similar) when macOS GPU compute targets are needed.
 
-### Memory Pooling & Custom Allocators _(Future / User-Land)_
+### Memory Pooling & Custom Allocators _(Partially Complete)_
 
-Template keeps default allocator behavior unless explicitly enabled.
+**Completed (Tier 1 — Backend Wiring):** `cmake/Allocators.cmake` with mimalloc/jemalloc/tcmalloc support, CLI `--allocator` flag, per-target and global override, all targets wired.
 
-- **Primary goal:** optional allocator backend switching with minimal or zero application code changes.
-- **Default behavior:** if no allocator option is selected, standard platform allocator remains active.
-- **Planned first-class backends:** `mimalloc`, `jemalloc`, `tcmalloc`.
-- **Planned enablement model:** CMake option + CLI passthrough + dependency manager integration (Conan/vcpkg).
-- **Planned scopes:** per-target override and global override (opt-in), with clear precedence rules.
-- **Operational safety:** allocator modes must be easy to disable for sanitizer/debug workflows.
+Remaining:
 
-Separate category (not global malloc replacement):
-
-- **Pool APIs:** `std::pmr`-based memory resources and optional Boost.Pool adapters.
+- **Dependency manager integration:** Conan/vcpkg conditional `requires` for allocator libraries.
+- **Allocator preset variants:** Optional presets like `gcc-release-mimalloc-x86_64`.
+- **Pool APIs:** `std::pmr`-based memory resources and optional Boost.Pool adapters (separate category, not global malloc replacement).
 - **Dependency policy:** Boost.Pool support requires explicit optional Boost enablement.
-- **Usability target:** one-line opt-in per target/app, no mandatory source rewrite.
+- **Diagnostics:** Continue relying on `tool perf valgrind --vg-tool massif`.
 
-Diagnostics and validation continue to rely on existing tools like `tool perf valgrind --vg-tool massif`.
+### Static Analysis & Cppcheck Acceleration _(Partially Complete)_
 
-### Static Analysis & Cppcheck Acceleration _(V2 / Future)_
+**Completed (Core):** Parallel jobs (`--cppcheck-jobs`), tiered profiles (`--cppcheck-checks full|minimal`), path scoping (`--cppcheck-paths`), `--fast` shorthand.
 
-Cppcheck correctness coverage is valuable but can be slow on larger trees. Planned acceleration strategy:
+Remaining:
 
-- **Tiered execution:** fast PR mode + full/nightly mode.
-- **Scope control:** run incremental target/file subsets when possible, full scan on schedule.
-- **Parallelization:** shard scans by module or directory and merge reports.
-- **Suppression hygiene:** centralize suppressions and audit/remove stale entries regularly.
-- **Cache-aware workflow:** avoid unnecessary re-analysis for unchanged source sets.
-- **CI policy:** treat scanner health as blocking, while keeping runtime predictable.
+- **CI tiering:** Fast PR mode vs full/nightly mode workflow differentiation.
+- **Cache-aware workflow:** Avoid unnecessary re-analysis for unchanged source sets.
+- **Suppression hygiene:** Centralize suppressions and audit/remove stale entries regularly.
+- **CI policy:** Treat scanner health as blocking, while keeping runtime predictable.
 
 ### Internal Tooling Refactor Program _(V2 / Structural)_
 
@@ -209,14 +205,21 @@ Large-scale refactor is planned after stabilization milestones, with safety gate
 - **Motivation:** some script files are too long, responsibilities overlap, and code duplication exists.
 - **Refactor principle:** split by clear domain ownership, not by artificial micro-fragmentation.
 - **Target architecture:**
-	- command facade layer
-	- execution/service layer
-	- shared utility layer
-	- plugin boundary with stable contracts
+  - command facade layer
+  - execution/service layer
+  - shared utility layer
+  - plugin boundary with stable contracts
 - **Execution style:** phased vertical slices (domain-by-domain), each with full regression checks.
 - **Anti-duplication plan:** extract repeated argument parsing, runner orchestration, and reporting helpers.
 - **Guardrails:** no broad "big bang" rewrites; each phase must remain buildable/testable and reversible.
 - **Completion criteria:** shorter cohesive modules, lower churn hotspots, and preserved CLI compatibility.
+
+### musl / Static Build Expansion _(V2 / Future)_
+
+- **aarch64-linux-musl:** ARM64 fully static builds via musl cross-toolchain.
+- **Zig cc backend:** `zig cc --target=x86_64-linux-musl` as drop-in cross-compiler (no separate toolchain install).
+- **CI nightly musl job:** Catch static-linking regressions in scheduled builds.
+- **Conan/vcpkg musl profiles:** Package manager integration for musl-targeted dependency resolution.
 
 ---
 

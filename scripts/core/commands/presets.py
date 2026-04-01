@@ -199,6 +199,8 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
     # Hard rules
     if compiler == "cuda" and linkage == "dynamic":
         return "CUDA compiler forces static linkage"
+    if "musl" in arch and linkage == "dynamic":
+        return "musl targets are static-only"
     if compiler == "msvc":
         if arch not in ("x86_64", "x64", "x86", "win32"):
             return f"MSVC preset not generated for non-Windows arch '{arch}'"
@@ -387,8 +389,9 @@ def _make_configure_preset(
     tc = _toolchain_for(arch)
     if tc:
         preset["toolchainFile"] = tc
-        # Tests typically can't run on the host for cross-compiled targets
-        cache_vars["ENABLE_UNIT_TESTS"] = "OFF"
+        # musl x86_64 targets run natively — keep tests enabled
+        if "musl" not in arch:
+            cache_vars["ENABLE_UNIT_TESTS"] = "OFF"
 
     return preset
 
@@ -418,7 +421,8 @@ def _test_presets(configure_names: list[str]) -> list[dict[str, Any]]:
         parts = name.split("-")
         arch = parts[-1] if parts else ""
         native_arches = {"x86_64", "x64"}
-        if arch not in native_arches:
+        # musl x86_64 targets run natively on the host
+        if arch not in native_arches and "musl" not in arch:
             continue
         # Skip embedded
         if name.startswith("embedded"):
