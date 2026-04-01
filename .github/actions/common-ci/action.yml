@@ -1,0 +1,17 @@
+name: "common-ci"
+description: "Common CI helper: checkout + setup python and basic environment"
+inputs:
+  python-version:
+    description: "Python version to setup"
+    required: false
+    default: "3.x"
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}

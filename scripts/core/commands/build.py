@@ -187,7 +187,21 @@ def _impl_cmd_build(args) -> None:
     _generate_clang_tidy(profile)
 
     extra_args = []
-    
+
+    # LTO
+    if getattr(args, "lto", False):
+        extra_args.append("-DENABLE_LTO=ON")
+        Logger.info("LTO enabled for this build")
+
+    # PGO
+    pgo_mode = getattr(args, "pgo", None)
+    if pgo_mode:
+        extra_args.append(f"-DPGO_MODE={pgo_mode}")
+        pgo_dir = getattr(args, "pgo_dir", None)
+        if pgo_dir:
+            extra_args.append(f"-DPGO_PROFILE_DIR={pgo_dir}")
+        Logger.info(f"PGO mode: {pgo_mode}")
+
     # 1. Profile Logic (Hardening & Warnings)
     if profile == "extreme":
         Logger.warn("EXTREME profile active: Maximum hardening, no-exceptions, no-rtti, full RELRO.")
@@ -258,6 +272,8 @@ def _impl_cmd_build(args) -> None:
             toggles["ENABLE_TSAN"] = any(a.startswith("-DENABLE_TSAN=") or a == "-DENABLE_TSAN=ON" for a in extra_args)
             toggles["ENABLE_CLANG_TIDY"] = any(a.startswith("-DENABLE_CLANG_TIDY=") or a == "-DENABLE_CLANG_TIDY=ON" for a in extra_args)
             toggles["HARDENING_LEVEL"] = next((a.split('=')[1] for a in extra_args if a.startswith("-DHARDENING_LEVEL=")), "(unset)")
+            toggles["ENABLE_LTO"] = any(a == "-DENABLE_LTO=ON" for a in extra_args)
+            toggles["PGO_MODE"] = next((a.split('=')[1] for a in extra_args if a.startswith("-DPGO_MODE=")), "(off)")
             out["toggles"] = toggles
 
             # Ensure build dir exists
@@ -470,25 +486,35 @@ def build_parser() -> argparse.ArgumentParser:
     # build
     p = sub.add_parser("build", help="Configure + compile")
     p.add_argument("--preset", default=None)
-    p.add_argument("--profile", 
-                   choices=["normal", "strict", "hardened", "extreme"], 
+    p.add_argument("--profile",
+                   choices=["normal", "strict", "hardened", "extreme"],
                    default="normal",
                    help="Apply specific build profile (e.g. hardened)")
     p.add_argument("--sanitizers", nargs="+",
                    choices=["asan", "ubsan", "tsan", "all"],
                    help="Enable granular sanitizers (multiple allowed, or 'all')")
+    p.add_argument("--lto", action="store_true", help="Enable Link-Time Optimization")
+    p.add_argument("--pgo", choices=["generate", "use"], default=None,
+                   help="Profile-Guided Optimization mode")
+    p.add_argument("--pgo-dir", default=None, metavar="DIR",
+                   help="PGO profile data directory (default: build/pgo-profiles)")
     p.set_defaults(func=cmd_build)
 
     # check
     p = sub.add_parser("check", help="Build + test + extension sync")
     p.add_argument("--preset", default=None)
-    p.add_argument("--profile", 
-                   choices=["normal", "strict", "hardened", "extreme"], 
+    p.add_argument("--profile",
+                   choices=["normal", "strict", "hardened", "extreme"],
                    default="normal",
                    help="Apply specific build profile (e.g. hardened)")
     p.add_argument("--sanitizers", nargs="+",
                    choices=["asan", "ubsan", "tsan", "all"],
                    help="Enable granular sanitizers (multiple allowed, or 'all')")
+    p.add_argument("--lto", action="store_true", help="Enable Link-Time Optimization")
+    p.add_argument("--pgo", choices=["generate", "use"], default=None,
+                   help="Profile-Guided Optimization mode")
+    p.add_argument("--pgo-dir", default=None, metavar="DIR",
+                   help="PGO profile data directory")
     p.add_argument("--no-sync", action="store_true")
     p.set_defaults(func=cmd_check)
 

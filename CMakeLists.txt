@@ -44,6 +44,9 @@ include(Hardening)
 include(StaticAnalyzers)
 include(EmbeddedUtils)
 include(FeatureFlags)
+include(LTO)
+include(PGO)
+include(BuildCache)
 generate_feature_flags()
 
 # INTERFACE library — attach once, all targets inherit FeatureFlags.h

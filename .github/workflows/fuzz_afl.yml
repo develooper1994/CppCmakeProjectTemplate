@@ -1,0 +1,51 @@
+name: AFL++ Fuzz (smoke)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tests/fuzz/**"
+  pull_request:
+
+jobs:
+  setup:
+    uses: ./.github/workflows/reusable-ci.yml
+
+  afl-fuzz:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake python3 python3-pip afl++
+
+      - name: Configure with AFL compilers
+        env:
+          CC: afl-clang-fast
+          CXX: afl-clang-fast++
+        run: |
+          cmake -S . -B build -DENABLE_FUZZING=ON -DENABLE_AFL=ON -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build fuzz target (AFL)
+        run: cmake --build build --target fuzz_secure_ops_afl -j
+
+      - name: Upload seed corpus
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-corpus
+          path: tests/fuzz/corpus/secure_ops
+
+      - name: Run afl-fuzz (short smoke)
+        run: |
+          mkdir -p afl_out
+          timeout 60s afl-fuzz -i tests/fuzz/corpus/secure_ops -o afl_out -- ./build/fuzz_secure_ops_afl @@ || true
+
+      - name: Upload AFL findings
+        uses: actions/upload-artifact@v4
+        with:
+          name: afl-findings
+          path: afl_out || true

@@ -9,9 +9,11 @@ jobs:
   tidy-fix:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Common CI setup
+        uses: ./.github/actions/common-ci
+      - name: Ensure full fetch
+        run: |
+          git fetch --no-tags --prune --unshallow || true
 
       - name: Install dependencies
         run: |

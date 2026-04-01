@@ -72,3 +72,36 @@ TEST(FeatureFlagsTest, SharedLibsMacroMatchesLibraryType) {
     bool shared = (dummy_lib_info::library_type == "Shared");
     EXPECT_EQ(bool(PROJECT_SHARED_LIBS), shared);
 }
+
+// ── Performance metadata tests ───────────────────────────────────────────────
+
+TEST(PerfMetaTest, LtoEnabledIsBool) {
+    // Just verifying the field exists and is a compile-time bool
+    EXPECT_TRUE(dummy_lib_info::lto_enabled == true || dummy_lib_info::lto_enabled == false);
+}
+
+TEST(PerfMetaTest, PgoModeIsKnownValue) {
+    const auto& mode = dummy_lib_info::pgo_mode;
+    EXPECT_TRUE(mode == "off" || mode == "generate" || mode == "use")
+        << "Unexpected pgo_mode: " << mode;
+}
+
+TEST(PerfMetaTest, BuildCacheIsKnownValue) {
+    const auto& cache = dummy_lib_info::build_cache;
+    EXPECT_TRUE(cache == "none" || cache == "ccache" || cache == "sccache")
+        << "Unexpected build_cache: " << cache;
+}
+
+TEST(PerfMetaTest, SummaryStringContainsPerformanceSection) {
+    const std::string summary = BUILD_INFO_SUMMARY_STRING(dummy_lib_info);
+    EXPECT_NE(summary.find("Performance"), std::string::npos)
+        << "Summary missing Performance section";
+    EXPECT_NE(summary.find("LTO"), std::string::npos) << "Summary missing LTO row";
+    EXPECT_NE(summary.find("PGO"), std::string::npos) << "Summary missing PGO row";
+}
+
+TEST(PerfMetaTest, LtoFlagConsistentWithFeatureFlags) {
+    // FEATURE_LTO and lto_enabled must agree
+    bool feature_lto = (FEATURE_LTO == 1);
+    EXPECT_EQ(feature_lto, dummy_lib_info::lto_enabled);
+}

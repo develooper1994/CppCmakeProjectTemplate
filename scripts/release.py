@@ -135,10 +135,16 @@ def update_files(v: Version, dry_run: bool = False) -> None:
             raise
 
 
-def create_tag(v: Version, push: bool = False) -> None:
+def create_tag(v: Version, push: bool = False, signing_key: str | None = None) -> None:
     tag_name = f"v{v.base()}"  # tag only with base version, omit +revision
     try:
-        subprocess.run(["git", "tag", "-a", tag_name, "-m", f"Release {v}"], check=True, cwd=PROJECT_ROOT)
+        tag_cmd = ["git", "tag"]
+        if signing_key:
+            tag_cmd.extend(["-s", "-u", signing_key])
+        else:
+            tag_cmd.append("-a")
+        tag_cmd.extend([tag_name, "-m", f"Release {v}"])
+        subprocess.run(tag_cmd, check=True, cwd=PROJECT_ROOT)
         Logger.success(f"Created tag {tag_name}")
         if push:
             subprocess.run(["git", "push", "origin", tag_name], check=True, cwd=PROJECT_ROOT)
@@ -150,6 +156,8 @@ def create_tag(v: Version, push: bool = False) -> None:
 
 def main(argv: Optional[list[str]] = None) -> int:
     p = argparse.ArgumentParser(prog="scripts/release.py")
+    p.add_argument("--install", action="store_true", help="Install dev dependencies into .venv before running")
+    p.add_argument("--recreate", action="store_true", help="Recreate the venv when used with --install")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pb = sub.add_parser("bump", help="Bump a part of the version")
@@ -166,8 +174,23 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     pt = sub.add_parser("tag", help="Create git tag for current base version")
     pt.add_argument("--push", action="store_true", help="Push tag to origin")
+    pt.add_argument("--signing-key", default=None, metavar="KEY_ID",
+                    help="GPG key ID for signing the tag (uses git tag -s)")
+
+    pp = sub.add_parser("publish", help="Publish release artifacts")
+    pp.add_argument("--dry-run", action="store_true")
+    pp.add_argument("--signing-key", default=None, metavar="KEY_ID",
+                    help="GPG key ID for signing artifacts")
 
     args = p.parse_args(argv)
+
+    # Optional per-script install helper
+    if getattr(args, "install", False):
+        try:
+            from core.utils.common import install_dev_env
+            install_dev_env(recreate=bool(getattr(args, "recreate", False)))
+        except Exception as e:
+            Logger.warn(f"Dev install helper failed: {e}")
 
     current = read_version_file(VERSION_PATH)
 
@@ -195,7 +218,20 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     if args.cmd == "tag":
-        create_tag(current, push=bool(args.push))
+        signing_key = getattr(args, "signing_key", None)
+        create_tag(current, push=bool(args.push), signing_key=signing_key)
+        return 0
+
+    if args.cmd == "publish":
+        Logger.info("Publish: packaging release artifacts...")
+        signing_key = getattr(args, "signing_key", None)
+        if signing_key:
+            Logger.info(f"Signing with GPG key: {signing_key}")
+        if getattr(args, "dry_run", False):
+            Logger.info("[DRY-RUN] Would publish release artifacts")
+        else:
+            Logger.info("Release artifact publishing is configured via CI. "
+                        "Use 'tool build extension --publish' or the release CI workflow.")
         return 0
 
     return 0

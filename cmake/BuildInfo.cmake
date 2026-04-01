@@ -95,7 +95,24 @@ function(target_generate_build_info target)
         set(BUILD_TYPE "None")
     endif()
 
-    # 4. Generate Header
+    # 4. Performance metadata
+    if(ENABLE_LTO)
+        set(BUILD_LTO_ENABLED "true")
+    else()
+        set(BUILD_LTO_ENABLED "false")
+    endif()
+
+    if(PGO_MODE AND NOT PGO_MODE STREQUAL "")
+        set(BUILD_PGO_MODE "${PGO_MODE}")
+    else()
+        set(BUILD_PGO_MODE "off")
+    endif()
+
+    if(CMAKE_CXX_COMPILER_LAUNCHER)
+        get_filename_component(BUILD_CACHE_PROGRAM "${CMAKE_CXX_COMPILER_LAUNCHER}" NAME)
+    else()
+        set(BUILD_CACHE_PROGRAM "none")
+    endif()
     set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/${target}")
     file(MAKE_DIRECTORY "${GENERATED_DIR}")
     

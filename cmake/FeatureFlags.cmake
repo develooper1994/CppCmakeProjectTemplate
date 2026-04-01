@@ -88,6 +88,24 @@ function(generate_feature_flags)
     list(APPEND _rows "clang-tidy|${ENABLE_CLANG_TIDY}|ENABLE_CLANG_TIDY")
     list(APPEND _rows "cppcheck|${ENABLE_CPPCHECK}|ENABLE_CPPCHECK")
     list(APPEND _rows "Coverage|${ENABLE_COVERAGE}|ENABLE_COVERAGE")
+    # Performance section
+    list(APPEND _rows "---|---|---")
+    list(APPEND _rows "LTO|${ENABLE_LTO}|ENABLE_LTO")
+
+    if(PGO_MODE AND NOT PGO_MODE STREQUAL "")
+        list(APPEND _rows "PGO|${PGO_MODE}|PGO_MODE")
+    else()
+        list(APPEND _rows "PGO|OFF|PGO_MODE")
+    endif()
+
+    # Compiler cache: read the launcher set by BuildCache.cmake
+    if(CMAKE_CXX_COMPILER_LAUNCHER)
+        get_filename_component(_cache_name "${CMAKE_CXX_COMPILER_LAUNCHER}" NAME)
+        list(APPEND _rows "Build cache|${_cache_name}|ENABLE_CCACHE")
+    else()
+        list(APPEND _rows "Build cache|OFF|ENABLE_CCACHE")
+    endif()
+
     list(APPEND _rows "---|---|---")
     list(APPEND _rows "Qt|${ENABLE_QT}|ENABLE_QT")
     list(APPEND _rows "Boost|${ENABLE_BOOST}|ENABLE_BOOST")

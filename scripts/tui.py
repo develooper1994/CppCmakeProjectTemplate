@@ -36,11 +36,21 @@ def main(argv: list[str] | None = None) -> None:
         prog="tui",
         description="Terminal UI (interactive > cli args > session > default)",
     )
+    parser.add_argument("--install", action="store_true", help="Install dev dependencies into .venv before running")
+    parser.add_argument("--recreate", action="store_true", help="Recreate the venv when used with --install")
     parser.add_argument(
         "--preset", default=None,
         help="Initial build preset (overrides session, overridden by interactive selection)",
     )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    # Optional developer convenience: provision a local venv with dev deps
+    if args.install:
+        try:
+            from core.utils.common import install_dev_env
+            install_dev_env(recreate=bool(args.recreate))
+        except Exception:
+            pass
     initial = _initial_preset(args.preset)
 
     # Lazy import the heavy UI implementation only when running the app.

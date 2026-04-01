@@ -1,0 +1,6 @@
+# cmake-format configuration
+line_width: 100
+indent_width: 2
+tab_size: 2
+keyword_split: false
+commands_case: lower

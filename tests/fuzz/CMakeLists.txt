@@ -14,4 +14,6 @@ target_link_libraries(fuzz_dummy_lib PRIVATE dummy_lib)
 # Fuzz target for the new `fuzzable` library
 add_fuzz_target(fuzz_fuzzable SOURCES fuzz_fuzzable.cpp)
 target_link_libraries(fuzz_fuzzable PRIVATE fuzzable)
-set_target_properties(fuzz_fuzzable PROPERTIES CXX_CLANG_TIDY "" CXX_CPPCHECK "")
+# Fuzz harnesses may use patterns that trigger style warnings; run relaxed
+# analyzers to collect findings without failing hardened builds.
+apply_relaxed_analyzers(fuzz_fuzzable)

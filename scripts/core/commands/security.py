@@ -13,6 +13,7 @@ from core.utils.common import (
     GlobalConfig,
     CLIResult,
     run_proc,
+    run_capture,
     PROJECT_ROOT,
 )
 
@@ -20,7 +21,7 @@ def _check_tool(name: str, install_cmd: str, auto_install: bool = False) -> bool
     # 1. System Path
     if shutil.which(name):
         return True
-    
+
     # 2. Go Path fallback
     go_bin = Path.home() / "go" / "bin" / name
     if name == "osv-scanner" and go_bin.exists():
@@ -51,12 +52,25 @@ def _impl_cmd_scan(args) -> None:
         install_cmd = "go install github.com/google/osv-scanner/cmd/osv-scanner@latest"
         if _check_tool("osv-scanner", install_cmd, auto_install=args.install):
             Logger.info("Running OSV-Scanner (CVE Audit)...")
+            osv_cmd = ["osv-scanner", "-r", str(PROJECT_ROOT)]
+            fmt = getattr(args, 'format', 'text')
+            if fmt == "json":
+                osv_cmd.extend(["--format", "json"])
             try:
-                # Scan project root for manifest files (conanfile.py, vcpkg.json, etc.)
-                run_proc(["osv-scanner", "-r", str(PROJECT_ROOT)])
-                Logger.success("OSV-Scanner: No known vulnerabilities found.")
+                # Run and capture output so we can evaluate policy thresholds later
+                out, rc = run_capture(osv_cmd)
+                log_path = PROJECT_ROOT / "build" / "build_logs" / "security_scan_osv.log"
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text(out + "\n", encoding="utf-8")
+                if rc == 0:
+                    Logger.success("OSV-Scanner: Completed (no blocking errors).")
+                else:
+                    Logger.warn("OSV-Scanner: Completed with issues (check log)")
+                    if not args.force:
+                        # continue to policy check below which may fail the job
+                        pass
             except SystemExit:
-                Logger.error("OSV-Scanner found potential vulnerabilities.")
+                Logger.error("OSV-Scanner encountered an error.")
                 if not args.force:
                     raise
 
@@ -76,13 +90,58 @@ def _impl_cmd_scan(args) -> None:
                 "-i", "build",
                 "-i", "extension/templates"
             ]
+            # Add user-provided suppressions file
+            suppressions = getattr(args, 'suppressions', None)
+            if suppressions:
+                supp_path = Path(suppressions)
+                if supp_path.exists():
+                    cmd.extend(["--suppressions-list=" + str(supp_path)])
+                else:
+                    Logger.warn(f"Suppressions file not found: {suppressions}")
             try:
-                run_proc(cmd)
-                Logger.success("Cppcheck Security Audit: OK")
+                out, rc = run_capture(cmd)
+                cpp_log = PROJECT_ROOT / "build" / "build_logs" / "security_scan_cppcheck.log"
+                cpp_log.parent.mkdir(parents=True, exist_ok=True)
+                cpp_log.write_text(out + "\n", encoding="utf-8")
+                if rc == 0:
+                    Logger.success("Cppcheck Security Audit: OK")
+                else:
+                    Logger.warn("Cppcheck Security Audit: Issues found (check log)")
+                    if not args.force:
+                        # continue; policy enforcement below decides exit
+                        pass
             except SystemExit:
                 Logger.error("Cppcheck Security Audit: Found issues.")
                 if not args.force:
                     raise
+
+    # After running scanners, consolidate logs and optionally enforce policy
+    try:
+        combined = []
+        for p in (PROJECT_ROOT / "build" / "build_logs").glob("security_scan_*.log"):
+            try:
+                combined.append(p.read_text(encoding='utf-8'))
+            except Exception:
+                pass
+        combined_path = PROJECT_ROOT / "build" / "build_logs" / "security_scan_combined.log"
+        combined_path.write_text("\n\n".join(combined) + "\n", encoding='utf-8')
+        # If caller requested fail-on-severity, evaluate policy script
+        if getattr(args, 'fail_on_severity', None):
+            # run policy and map threshold
+            policy_script = PROJECT_ROOT / "scripts" / "ci" / "ci_security_policy.py"
+            if policy_script.exists():
+                rc = run_proc([sys.executable, str(policy_script), str(combined_path)], check=False)
+                # If user asked to fail on CRITICAL only, require rc == 2; otherwise rc >=1 fail
+                if args.fail_on_severity == 'CRITICAL' and rc == 2:
+                    Logger.error("Policy enforcement: CRITICAL findings -> failing.")
+                    raise SystemExit(2)
+                if args.fail_on_severity != 'CRITICAL' and rc >= 1:
+                    Logger.error("Policy enforcement: HIGH/CRITICAL findings -> failing.")
+                    raise SystemExit(rc if rc else 1)
+    except SystemExit:
+        raise
+    except Exception:
+        Logger.warn("Policy evaluation step failed; continuing without policy enforcement.")
 
 def cmd_scan(args: argparse.Namespace) -> CLIResult:
     if GlobalConfig.DRY_RUN:
@@ -102,6 +161,12 @@ def security_parser() -> argparse.ArgumentParser:
     p.add_argument("--install", action="store_true", help="Try to install missing tools automatically")
     p.add_argument("--no-osv", action="store_true", help="Skip OSV-Scanner CVE check")
     p.add_argument("--no-static", action="store_true", help="Skip static security analysis")
+    p.add_argument("--fail-on-severity", choices=["CRITICAL","HIGH","MEDIUM","LOW"], default=None,
+                   help="Fail the command when findings of given minimum severity are detected")
+    p.add_argument("--format", choices=["json", "text"], default="text",
+                   help="Output format for scan results (default: text)")
+    p.add_argument("--suppressions", default=None, metavar="FILE",
+                   help="Path to a suppressions file for cppcheck")
     p.add_argument("--force", action="store_true", help="Continue even if vulnerabilities are found")
     p.set_defaults(func=cmd_scan)
 

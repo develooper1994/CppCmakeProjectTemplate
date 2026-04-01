@@ -4,3 +4,4 @@
 add_subdirectory(demo_app)
 add_subdirectory(gui_app)
 add_subdirectory(main_app)
+add_subdirectory(extreme_app)

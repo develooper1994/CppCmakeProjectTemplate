@@ -25,6 +25,17 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 from core.utils.common import run_capture
+# Support a convenience `--install` flag to provision dev deps before running
+if '--install' in sys.argv:
+    try:
+        from core.utils.common import install_dev_env
+        recreate = '--recreate' in sys.argv
+        install_dev_env(recreate=recreate)
+    except Exception:
+        # best-effort: proceed even if install fails
+        pass
+    # remove our helper flags so positional args behave as expected
+    sys.argv = [a for a in sys.argv if a not in ('--install', '--recreate')]
 
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError

@@ -21,6 +21,15 @@ class GlobalConfig:
     YES: bool = False
     JSON: bool = False
     DRY_RUN: bool = False
+    # If true, scripts may attempt to provision/install required tools/deps
+    INSTALL: bool = False
+    # When used with --install, recreate the venv if True
+    INSTALL_RECREATE: bool = False
+    # CI-level flags
+    SKIP_CI: bool = False
+    CI_MODE: str | None = None       # smoke | full | nightly
+    REPORT_ARTIFACT: str | None = None
+    RETAIN_DAYS: int | None = None
     VERSION: str = "1.0.5"
 
 @dataclass
@@ -321,3 +330,24 @@ def print_venv_activation(env_dir: Path) -> None:
         print(f"To activate (cmd): {env_dir / 'Scripts' / 'activate.bat'}")
     else:
         print(f"To activate: source {env_dir / 'bin' / 'activate'}")
+
+
+def install_dev_env(env_dir: Path | None = None, recreate: bool = False, req_file: Path | None = None) -> Path:
+    """Create a local development virtualenv and install dev requirements.
+
+    - `env_dir`: path to the virtualenv directory (defaults to `PROJECT_ROOT/.venv`).
+    - `recreate`: if True, recreate the venv even if it exists.
+    - `req_file`: Path to requirements file (defaults to `requirements-dev.txt`).
+
+    Returns the Python executable Path inside the created environment.
+    """
+    env_dir = Path(env_dir) if env_dir is not None else PROJECT_ROOT / ".venv"
+    req_file = Path(req_file) if req_file is not None else PROJECT_ROOT / "requirements-dev.txt"
+    Logger.info(f"Ensuring development environment at {env_dir}")
+    py = create_venv(env_dir, recreate=recreate)
+    try:
+        install_python_requirements(py, req_file)
+    except Exception as e:
+        Logger.warn(f"Failed to install some dev requirements: {e}")
+    print_venv_activation(env_dir)
+    return py

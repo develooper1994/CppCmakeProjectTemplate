@@ -11,7 +11,8 @@ jobs:
   build-and-run-fuzzers:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Common CI setup
+        uses: ./.github/actions/common-ci
 
       - name: Install dependencies
         run: |

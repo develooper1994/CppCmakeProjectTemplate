@@ -63,6 +63,59 @@ cmake --build --preset gcc-debug-static-x86_64 --target coverage_report
 | `ENABLE_BOOST` | `OFF` | Boost libraries |
 | `BOOST_COMPONENTS` | `""` | Semicolon-separated: `filesystem;system` |
 
+## Performance & Optimization
+
+| Option | Default | Description |
+|---|---|---|
+| `ENABLE_LTO` | `OFF` | Link-Time Optimization (full LTO or Thin LTO for Clang) |
+| `ENABLE_CCACHE` | `ON` | Auto-detect ccache/sccache as compiler launcher |
+| `CACHE_PROGRAM` | *(auto)* | Override compiler cache program path |
+| `PGO_MODE` | `""` | `generate` = instrument build; `use` = apply profile |
+| `PGO_PROFILE_DIR` | `build/pgo-profiles` | Profile data directory for PGO |
+
+### LTO usage
+
+```bash
+cmake --preset gcc-release-static-x86_64 -DENABLE_LTO=ON
+# Per-target only:
+cmake --preset gcc-release-static-x86_64 -DMAIN_APP_ENABLE_LTO=ON
+# Thin LTO (Clang only, faster link):
+python3 scripts/tool.py build build --lto
+```
+
+### PGO workflow (two-phase)
+
+```bash
+# Phase 1 — instrumented build
+cmake --preset gcc-release-static-x86_64 -DPGO_MODE=generate
+cmake --build --preset gcc-release-static-x86_64
+./build/gcc-release-static-x86_64/apps/main_app/main_app  # exercise code
+
+# Clang only: merge profile data
+llvm-profdata merge -output=build/pgo-profiles/default.profdata build/pgo-profiles/*.profraw
+
+# Phase 2 — optimized build
+cmake --preset gcc-release-static-x86_64 -DPGO_MODE=use
+cmake --build --preset gcc-release-static-x86_64
+```
+
+### Build cache (ccache/sccache)
+
+Auto-enabled when `ccache` or `sccache` is on PATH. Disable with:
+
+```bash
+cmake --preset gcc-debug-static-x86_64 -DENABLE_CCACHE=OFF
+```
+
+### Analyze binary sizes & build times
+
+```bash
+python3 scripts/tool.py perf size
+python3 scripts/tool.py perf build-time
+# With explicit build dir:
+python3 scripts/tool.py perf size --build-dir build/gcc-release-static-x86_64
+```
+
 ## MSVC Runtime
 
 | | Static build | Shared build |
