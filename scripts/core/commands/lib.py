@@ -158,6 +158,7 @@ def _impl_cmd_add(args) -> None:
         deps=deps,
         header_only=getattr(args, "header_only", False),
         interface=getattr(args, "interface", False),
+        modules=getattr(args, "modules", False),
         template=getattr(args, "template", ""),
         cxx_standard=getattr(args, "cxx_standard", ""),
         link_app=getattr(args, "link_app", False),
@@ -471,6 +472,9 @@ def build_parser() -> argparse.ArgumentParser:
     type_grp = p.add_mutually_exclusive_group()
     type_grp.add_argument("--header-only", action="store_true", dest="header_only")
     type_grp.add_argument("--interface",   action="store_true")
+    type_grp.add_argument("--modules",     action="store_true",
+                          help="Generate a C++20 module-unit library (.cppm). "
+                               "Requires CXX_STANDARD >= 20 and CMake >= 3.28.")
     p.add_argument("--template", default="",
                    help="Template name (builtin: singleton,pimpl,observer,factory or a folder under extension/templates/libs)")
     p.set_defaults(func=cmd_add)

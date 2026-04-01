@@ -9,6 +9,8 @@ from .paths import paths_for, validate_name
 from .templates import (
     lib_cmakelists,
     lib_cmakelists_header_only,
+    lib_cmakelists_modules,
+    lib_module_unit,
     lib_header,
     lib_source,
     lib_header_singleton,
@@ -188,6 +190,7 @@ def create_library(
     deps: Optional[List[str]] = None,
     header_only: bool = False,
     interface: bool = False,
+    modules: bool = False,
     template: str = "",
     cxx_standard: str = "",
     link_app: bool = False,
@@ -218,6 +221,8 @@ def create_library(
 
     if dry_run:
         print(f"[dry-run] create libs/{name}/")
+        if modules:
+            print(f"[dry-run] create libs/{name}/src/{name}.cppm  (C++20 module unit)")
         print(f"[dry-run] create tests/unit/{name}/")
         print("[dry-run] register in libs/CMakeLists.txt")
         print("[dry-run] register in tests/unit/CMakeLists.txt")
@@ -226,12 +231,17 @@ def create_library(
     ns = namespace or name
     with Transaction(project_root) as txn:
         txn.safe_mkdir(p.lib_dir, parents=True, exist_ok=False)
-        if not interface:
+        if not (interface or modules):
             txn.safe_mkdir(p.include_subdir, parents=True, exist_ok=True)
         if not (header_only or interface):
             txn.safe_mkdir(p.src_dir, parents=True, exist_ok=True)
 
-        if header_only or interface:
+        if modules:
+            # C++20 module-unit library: a single .cppm replaces the header.
+            module_unit_file = p.src_dir / f"{name}.cppm"
+            txn.safe_write_text(module_unit_file, lib_module_unit(name, ns))
+            txn.safe_write_text(p.cmake, lib_cmakelists_modules(name, version, ns, deps, cxx_standard))
+        elif header_only or interface:
             txn.safe_write_text(p.cmake, lib_cmakelists_header_only(name, version, ns, deps, cxx_standard))
             if not interface:
                 txn.safe_write_text(p.header_file, lib_header(name, ns))
@@ -262,7 +272,20 @@ def create_library(
         if not interface:
             txn.safe_mkdir(p.tests_dir, parents=True, exist_ok=True)
             tests_cmake_lib = p.tests_dir / "CMakeLists.txt"
-            if _USE_JINJA_CREATE:
+            if modules:
+                txn.safe_write_text(tests_cmake_lib, (
+                    f"add_executable({name}_tests {name}_test.cpp)\n"
+                    f"target_link_libraries({name}_tests PRIVATE {name} GTest::gtest_main)\n"
+                    f"set_target_properties({name}_tests PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)\n"
+                    f"include(CxxModules)\n"
+                    f"enable_cxx_modules({name}_tests)\n"
+                    f"add_test(NAME {name}_tests COMMAND {name}_tests)\n"
+                ))
+                txn.safe_write_text(p.tests_dir / f"{name}_test.cpp",
+                    f"import {name};\n"
+                    f"#include <gtest/gtest.h>\n\n"
+                    f"TEST({name}_Test, Placeholder) {{ EXPECT_TRUE(true); }}\n")
+            elif _USE_JINJA_CREATE:
                 txn.safe_write_text(tests_cmake_lib, _render_template_file("tests_cmake.jinja2", name=name))
                 txn.safe_write_text(p.tests_dir / f"{name}_test.cpp", _render_template_file("test_cpp.jinja2", name=name))
             else:
@@ -283,6 +306,9 @@ def create_library(
     print("✅ Registered in libs/CMakeLists.txt")
     if not interface: print("✅ Registered in tests/unit/CMakeLists.txt")
     if deps: print(f"🔗 deps: {', '.join(deps)}")
+    if modules:
+        print(f"📦 C++20 module unit: libs/{name}/src/{name}.cppm")
+        print("   Requires: CMake >= 3.28, C++20, Clang >= 16 or GCC >= 13 (-fmodules-ts)")
 
 
 def remove_library(name: str, delete: bool = False, dry_run: bool = False, root: Optional[Path] = None) -> None:
