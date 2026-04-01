@@ -41,7 +41,7 @@ TEMPLATE_DIR = EXT_DIR / "templates"
 
 EXT_INCLUDE = [
     "CMakeLists.txt", "CMakePresets.json", "conanfile.py", "vcpkg.json",
-    "Dockerfile", "LICENSE", "README.md", "AGENTS.md", "GEMINI.md",
+    "docker", "LICENSE", "README.md", "AGENTS.md", "GEMINI.md",
     "MASTER_GENERATOR_PROMPT.md", "cmake", "apps", "libs", "tests", "scripts", "docs",
 ]
 

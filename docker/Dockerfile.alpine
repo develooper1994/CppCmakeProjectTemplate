@@ -1,0 +1,34 @@
+# Dockerfile.alpine — Fully static C++ builds using musl libc
+#
+# Usage:
+#   docker build -f docker/Dockerfile.alpine -t cpp-musl-builder .
+#   docker run --rm -v $PWD:/workspace cpp-musl-builder \
+#     cmake --preset gcc-release-static-x86_64-linux-musl
+#   docker run --rm -v $PWD:/workspace cpp-musl-builder \
+#     cmake --build --preset gcc-release-static-x86_64-linux-musl
+#
+# Or via tool.py:
+#   tool build docker --image cpp-musl-builder --preset gcc-release-static-x86_64-linux-musl
+#
+# Produces fully static, zero-dependency Linux binaries.
+
+FROM alpine:3.21
+
+# Install build toolchain + project dependencies
+RUN apk add --no-cache \
+    gcc \
+    g++ \
+    cmake \
+    ninja \
+    make \
+    musl-dev \
+    linux-headers \
+    git \
+    python3 \
+    py3-pip \
+    pkgconf \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /workspace
+
+CMD ["/bin/sh"]

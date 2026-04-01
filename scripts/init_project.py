@@ -23,7 +23,7 @@ TARGET_FILES = [
     "tool.toml",
     "vcpkg.json",
     "conanfile.py",
-    "Dockerfile",
+    "docker/Dockerfile",
     "VERSION",
     "extension/package.json",
     ".github/workflows/*.yml",
