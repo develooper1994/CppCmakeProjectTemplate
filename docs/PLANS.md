@@ -80,7 +80,7 @@ All per-script and per-target toggles implemented as `-D` CMake options and CLI 
 - **Link-Time Optimization (LTO):** `cmake/LTO.cmake` — CheckIPOSupported, thin LTO for Clang, per-target support.
 - **Build Caching:** `cmake/BuildCache.cmake` — auto-detects ccache/sccache.
 - **Build Visualization:** `tool perf graph` — CMake dependency graph via `cmake --graphviz` with optional `dot` rendering.
-- **Cross-Compilation:** 3 new toolchains + 5 new CMake presets (embedded/aarch64).
+- **Cross-Compilation:** 3 new toolchains + 5 new CMake presets (embedded/aarch64). MSVC ARM64 (`arm64`/`aarch64` → `ARM64` Visual Studio arch). Platform-aware skip rules: embedded targets gcc-only + static-only, musl static-only, zig gcc-base-only, arm64 MSVC-only.
 - **Embedded Targets:** `cmake/EmbeddedUtils.cmake` — 4 functions for embedded binary outputs, map files, memory usage, linker scripts.
 - **Code Size Analysis:** `tool perf size` — analyzes all built binaries with JSON report.
 - **Build Time Analysis:** `tool perf build-time` — Ninja `.ninja_log` analysis with JSON report.
@@ -189,16 +189,15 @@ Remaining:
 - **Dependency policy:** Boost.Pool support requires explicit optional Boost enablement.
 - **Diagnostics:** Continue relying on `tool perf valgrind --vg-tool massif`.
 
-### Static Analysis & Cppcheck Acceleration _(Partially Complete)_
+### Static Analysis & Cppcheck Acceleration _(Complete)_
 
 **Completed (Core):** Parallel jobs (`--cppcheck-jobs`), tiered profiles (`--cppcheck-checks full|minimal`), path scoping (`--cppcheck-paths`), `--fast` shorthand.
 
-Remaining:
+**Completed (CI & Caching):**
 
-- **CI tiering:** Fast PR mode vs full/nightly mode workflow differentiation.
-- **Cache-aware workflow:** Avoid unnecessary re-analysis for unchanged source sets.
-- **Suppression hygiene:** Centralize suppressions and audit/remove stale entries regularly.
-- **CI policy:** Treat scanner health as blocking, while keeping runtime predictable.
+- **CI tiering:** PR runs use `--fast` (minimal checks), nightly schedule (`cron: 0 3 * * *`) runs full scan.
+- **Cache-aware workflow:** `--cppcheck-build-dir` persists analysis of unchanged TUs; CI caches via `actions/cache`.
+- **Suppression hygiene:** Centralized `.cppcheck-suppressions.txt` auto-loaded by default; `--suppressions FILE` override preserved.
 
 ### Internal Tooling Refactor Program _(V2 / Structural)_
 

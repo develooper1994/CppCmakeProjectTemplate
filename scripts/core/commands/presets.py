@@ -68,6 +68,8 @@ _MSVC_ARCH_MAP: dict[str, str] = {
     "x64":    "x64",
     "x86":    "Win32",
     "win32":  "Win32",
+    "arm64":  "ARM64",
+    "aarch64": "ARM64",
 }
 
 
@@ -204,8 +206,16 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
     if "zig" in arch and compiler != "gcc":
         return "zig toolchain provides its own compiler — use gcc base only"
     if compiler == "msvc":
-        if arch not in ("x86_64", "x64", "x86", "win32"):
+        if arch not in _MSVC_ARCH_MAP:
             return f"MSVC preset not generated for non-Windows arch '{arch}'"
+
+    # Embedded / bare-metal targets (arm-none-eabi, cortex-m0, cortex-m7, etc.)
+    _EMBEDDED_PATTERNS = ("arm-none-eabi", "arm-cortex-")
+    if any(arch.startswith(p) for p in _EMBEDDED_PATTERNS):
+        if compiler != "gcc":
+            return f"embedded arch '{arch}' requires gcc (arm-none-eabi-gcc)"
+        if linkage == "dynamic":
+            return f"embedded arch '{arch}' is bare-metal (static only)"
 
     # User-configured patterns  (tool.toml  skip_combinations)
     for pattern in skip_patterns:
