@@ -63,31 +63,7 @@ def main(argv: list[str] | None = None) -> None:
     target_dir = args.target_dir or Path.cwd() / answers.name
     target_dir = Path(target_dir).resolve()
 
-    # Delegate to generate
-    from core.commands.generate import main as generate_main
-
-    gen_argv = [
-        "--target-dir", str(target_dir),
-        "--profile", answers.profile,
-        "--author", answers.author or "",
-        "--contact", answers.contact or "",
-        "--license", answers.license,
-        "--set", f"project.name={answers.name}",
-        "--set", f"project.description={answers.description}",
-        "--set", f"project.cxx_standard={answers.cxx_standard}",
-        "--init-git",
-    ]
-
-    if args.force:
-        gen_argv.append("--force")
-    else:
-        gen_argv.append("--force")  # new projects always overwrite
-
-    for feat in answers.features_without:
-        gen_argv.extend(["--without", feat])
-
-    # Build config from wizard answers and pass directly
-    import copy
+    # Build config from wizard answers and generate
     from core.generator.engine import generate
     from core.generator.merge import ConflictPolicy
 
@@ -111,13 +87,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # Auto git init
     from core.commands.generate import _maybe_init_git
-
-    class _FakeArgs:
-        no_init_git = False
-        dry_run = False
-        init_git = True
-
-    _maybe_init_git(target_dir, target_preexisted, _FakeArgs(), cfg)
+    _maybe_init_git(target_dir, target_preexisted, cfg, force_init=True)
 
     if result.errors:
         sys.exit(1)

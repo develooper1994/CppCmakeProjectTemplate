@@ -147,10 +147,10 @@ def resolve_profile_name(cfg: dict[str, Any]) -> str:
 
 PROFILE_DEFAULT_FEATURES: dict[str, set[str]] = {
     "full": set(),
-    "minimal": {"ci", "docker", "vscode", "extension"},
+    "minimal": {"ci", "docker", "vscode", "extension", "docs"},
     "library": {"apps", "ci", "docker", "vscode", "extension"},
     "app": {"extension"},
-    "embedded": {"extension", "docker"},
+    "embedded": {"extension", "docker", "docs"},
 }
 
 

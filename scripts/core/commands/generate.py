@@ -44,15 +44,23 @@ def _set_nested(config: dict[str, Any], dotted_key: str, value: Any) -> None:
     cursor[parts[-1]] = value
 
 
-def _maybe_init_git(target_dir: Path, target_preexisted: bool, args, cfg: dict[str, Any]) -> None:
-    if args.no_init_git or args.dry_run:
+def _maybe_init_git(
+    target_dir: Path,
+    target_preexisted: bool,
+    cfg: dict[str, Any],
+    *,
+    force_init: bool = False,
+    skip_init: bool = False,
+    dry_run: bool = False,
+) -> None:
+    if skip_init or dry_run:
         return
     if (target_dir / ".git").exists():
         return
 
     git_cfg = cfg.get("git", {})
     init_mode = str(git_cfg.get("init", "auto")).strip().lower()
-    if args.init_git:
+    if force_init:
         init_mode = "always"
 
     should_init = init_mode == "always" or (init_mode == "auto" and not target_preexisted)
@@ -197,6 +205,10 @@ def main(argv: list[str] | None = None) -> None:
             cfg["project"]["author"] = args.author
         if args.contact is not None:
             cfg["project"]["contact"] = args.contact
+        if args.with_features:
+            cfg["generate"]["with"] = list(dict.fromkeys(args.with_features))
+        if args.without_features:
+            cfg["generate"]["without"] = list(dict.fromkeys(args.without_features))
 
         target_dir = args.target_dir or Path.cwd() / answers.name
         target_dir = Path(target_dir).resolve()
@@ -222,7 +234,12 @@ def main(argv: list[str] | None = None) -> None:
 
         if result.errors:
             sys.exit(1)
-        _maybe_init_git(target_dir, target_preexisted, args, cfg)
+        _maybe_init_git(
+            target_dir, target_preexisted, cfg,
+            force_init=args.init_git,
+            skip_init=args.no_init_git,
+            dry_run=dry_run,
+        )
         return
 
     # Resolve target directory
@@ -317,7 +334,12 @@ def main(argv: list[str] | None = None) -> None:
     if result.errors:
         sys.exit(1)
 
-    _maybe_init_git(target_dir, target_preexisted, args, cfg)
+    _maybe_init_git(
+        target_dir, target_preexisted, cfg,
+        force_init=args.init_git,
+        skip_init=args.no_init_git,
+        dry_run=dry_run,
+    )
 
 
 def _show_diff(target_dir: Path, components: list[str] | None, config: dict[str, Any] | None = None) -> None:

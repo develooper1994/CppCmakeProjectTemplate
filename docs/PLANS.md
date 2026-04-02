@@ -18,6 +18,9 @@ This document lists the project's current capabilities and remaining backlog ite
 - **Python Environment Automation:** `scripts/plugins/setup.py --env` creates cross-platform virtual environments.
 - **Extension Packaging Hardened:** Reliable `.vsix` production under `extension/`.
 - **Library Packaging Helpers:** `core.libpkg` refactored to a modular helper surface.
+- **Interactive Project Creation (`tool new`):** Wizard-driven project scaffolding. Prompts for name, author, license, C++ standard, profile, libraries, apps, and feature toggles. `--non-interactive` mode uses git config defaults. Generates into a named subdirectory with auto `git init`.
+- **Generation Profiles & Feature Toggles:** 5 profiles (`full`, `minimal`, `library`, `app`, `embedded`) control which components are generated. `--with`/`--without` flags for granular feature control. `--explain` previews effective settings.
+- **License Engine (`tool license`):** `recommend` uses a decision tree (copyleft, patent-grant, library, public-domain) to suggest an SPDX license. `list` shows all 7 supported licenses. `--apply` writes the recommendation to `tool.toml`.
 
 ### Build System
 
