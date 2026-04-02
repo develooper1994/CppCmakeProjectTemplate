@@ -14,8 +14,8 @@ This document lists the project's current capabilities and remaining backlog ite
 - **Standardized Results:** Commands return a `CLIResult` and support `--json` for automation.
 - **Clean Environment:** Legacy scripts consolidated into a single professional interface.
 - **Shared Session Persistence:** `load_session()`, `save_session()`, `backup_session()` used by both `tool.py` and `tui.py` via the `[session]` section in `tool.toml`.
-- **Verification Harness:** `scripts/verify_full.py` automates build/test/extension and library flows.
-- **Python Environment Automation:** `scripts/setup_python_env.py` creates cross-platform virtual environments.
+- **Verification Harness:** `scripts/plugins/verify.py` automates build/test/extension and library flows.
+- **Python Environment Automation:** `scripts/plugins/setup.py --env` creates cross-platform virtual environments.
 - **Extension Packaging Hardened:** Reliable `.vsix` production under `extension/`.
 - **Library Packaging Helpers:** `core.libpkg` refactored to a modular helper surface.
 
@@ -138,7 +138,7 @@ All per-script and per-target toggles implemented as `-D` CMake options and CLI 
 
 Single source-of-truth `VERSION` file at repository root (`<major>.<middle>.<minor>+<revision>`).
 
-- `scripts/release.py`: CLI helper for `bump`, `set`, `set-revision`, `tag`, `publish`, `unpublish`.
+- `scripts/core/release_impl.py`: CLI helper for `bump`, `set`, `set-revision`, `tag`, `publish`, `unpublish`.
 - `tool release`: wrapper via unified CLI.
 - `CMakeLists.txt`: reads `VERSION` for `project(... VERSION ...)`.
 - CI: `.github/workflows/release.yml` derives revision from `run_number`.
@@ -217,7 +217,7 @@ Single source-of-truth `VERSION` file at repository root (`<major>.<middle>.<min
 
 **Branching Strategy:**
 
-```
+```text
 main (protected — untouched until all phases complete)
   └── refactor (main refactor branch)
         ├── refactor/faz-0-foundation → merge to refactor when done
@@ -240,16 +240,16 @@ main (protected — untouched until all phases complete)
 **Phase Plan:**
 
 | Phase | Scope | Status |
-|-------|-------|--------|
-| **Faz 0: Foundation** | `cmake_parser.py`, `command_utils.py`, Jinja centralization, `create.py` stack hack fix, root-level script cleanup, test fixture | ⏳ |
-| **Faz 1: perf.py** | ~1840 lines → 7 modules in `commands/perf/` | ⏳ |
-| **Faz 2: sol.py** | ~1260 lines → 6 modules in `commands/sol/` | ⏳ |
-| **Faz 3: build.py** | ~523 lines → 5 modules in `commands/build/` | ⏳ |
-| **Faz 4: create.py** | ~580 lines → 5 modules in `libpkg/ops/` (before Faz 5) | ⏳ |
-| **Faz 5: lib.py** | ~760 lines → 5 modules in `commands/lib/` (after Faz 4) | ⏳ |
-| **Faz 6: ui.py** | ~1100 lines → skeleton + 5 panel modules in `tui/panels/` | ⏳ |
-| **Faz 7: E2E Tests** | Realistic workflow tests (library lifecycle, build profiles, presets, perf) | ⏳ |
-| **Faz 8: References** | CI workflows, docs, config, PLANS.md updates | ⏳ |
+| ----- | ----- | ------ |
+| **Faz 0: Foundation** | `cmake_parser.py`, `command_utils.py`, Jinja centralization, `create.py` stack hack fix, root-level script cleanup, test fixture | ✅ |
+| **Faz 1: perf.py** | ~1840 lines → 8 modules in `commands/perf/` | ✅ |
+| **Faz 2: sol.py** | ~1260 lines → 7 modules in `commands/sol/` | ✅ |
+| **Faz 3: build.py** | ~674 lines → 4 modules in `commands/build/` | ✅ |
+| **Faz 4: create.py** | Already well-structured (~394 lines, 5 functions) — skipped | ✅ |
+| **Faz 5: lib.py** | ~545 lines → 4 modules in `commands/lib/` | ✅ |
+| **Faz 6: ui.py** | TUI already decomposed — skipped | ✅ |
+| **Faz 7: E2E Tests** | 75/75 tests passing — verified | ✅ |
+| **Faz 8: References** | AGENTS.md updated with new package paths | ✅ |
 
 **Parallelism:** Faz 0 → {Faz 1 ∥ 2 ∥ 3 ∥ 6} → {Faz 4 → 5} → {Faz 7 ∥ 8}
 
@@ -262,11 +262,11 @@ main (protected — untouched until all phases complete)
 
 **Root Cleanup:**
 
-- `init_project.py` → `core/init_project.py`
-- `release.py` → `core/release_impl.py`
-- `publish_vsix.py` → `plugins/publish.py`
-- `verify_full.py` → `plugins/verify.py`
-- `setup_python_env.py` → `core/setup_env.py`
+- `init_project.py` → `core/init_impl.py` ✅
+- `release.py` → `core/release_impl.py` ✅
+- `publish_vsix.py` → `plugins/publish.py` ✅
+- `verify_full.py` → `plugins/verify.py` ✅
+- `setup_python_env.py` → `plugins/setup.py --env` ✅
 
 ---
 

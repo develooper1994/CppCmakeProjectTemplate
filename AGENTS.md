@@ -90,7 +90,7 @@ For changes that touch multiple files, introduce new subsystems, or carry meanin
 ### Status Marks
 
 | Mark | Meaning |
-|------|---------|
+| ---- | ------- |
 | ✅ DONE | Verified complete — tests pass, committed |
 | ⏳ IN PROGRESS | Currently being worked on |
 | 🔜 DEFERRED | Planned but not started |

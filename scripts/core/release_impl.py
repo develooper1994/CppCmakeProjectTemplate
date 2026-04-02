@@ -283,12 +283,14 @@ def publish_vcpkg(v: Version, dry_run: bool) -> None:
 
     portfile_content = f"""\
 # Auto-generated vcpkg overlay port for {project} {v.base()}
-# Fill in the SHA512 after the first download, then remove this comment.
+# After publishing the release, download the source archive and run:
+#   vcpkg hash <archive>.tar.gz
+# Then replace the SHA512 value below.
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO "<owner>/{project}"
     REF "v{v.base()}"
-    SHA512 0  # TODO: replace with actual SHA512
+    SHA512 0  # PLACEHOLDER: replace after release archive is published
     HEAD_REF main
 )
 
