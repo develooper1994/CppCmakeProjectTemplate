@@ -290,6 +290,7 @@ main
 scripts/core/generator/
 ├── __init__.py          # Public API: generate_project(), generate_component()
 ├── engine.py            # Orchestrator: tool.toml → context → generators → files
+├── wizard.py            # Interactive project creation wizard & WizardAnswers
 ├── manifest.py          # Hash tracking + staleness detection
 ├── merge.py             # Conflict resolution (ask/overwrite/skip/merge)
 ├── cmake_dynamic.py     # f-string generators for ProjectConfigs, FeatureFlags
@@ -300,11 +301,18 @@ scripts/core/generator/
 ├── sources.py           # C++ source scaffolding (headers, sources, test stubs, README)
 ├── ci.py                # CI/CD workflow tracking (reads .github/ from disk)
 ├── deps.py              # vcpkg.json + conanfile.py generation + hook config tracking
-├── configs.py           # Static config tracking (root configs, docker, vscode, extension)
+├── configs.py           # Config generation (root configs, docker, vscode, extension, license)
 └── tests/
     ├── __init__.py
-    ├── test_generator_e2e.py    # 10 E2E tests
-    └── test_generator_smoke.py  # 8 smoke tests
+    ├── test_generator_e2e.py    # 17 E2E tests (incl. wizard tests)
+    └── test_generator_smoke.py  # 14 smoke tests (incl. profile tests)
+```
+
+scripts/core/commands/
+```
+├── generate.py          # tool generate CLI — profiles, --interactive, --with/--without
+├── new.py               # tool new CLI — wizard-driven project creation
+└── license.py           # tool license CLI — recommend, list, --apply
 ```
 
 ---

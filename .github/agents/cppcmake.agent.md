@@ -1,6 +1,6 @@
 ---
 name: "CppCMake Project Agent"
-description: "Use when: working on the CppCmakeProjectTemplate repository — build, lib, sol, extension packaging, tests, templates, and repo orchestration."
+description: "Use when: working on the CppCmakeProjectTemplate repository — build, lib, sol, new, generate, license, extension packaging, tests, templates, and repo orchestration."
 author: "Copilot (assistant)"
 applyTo:
   - "CMakeLists.txt"
