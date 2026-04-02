@@ -258,6 +258,7 @@ COMPONENT_REGISTRY: dict[str, tuple[str, str]] = {
     "ci": ("core.generator.ci", "generate_all"),
     "deps": ("core.generator.deps", "generate_all"),
     "configs": ("core.generator.configs", "generate_all"),
+    "presets": ("core.generator.presets", "generate_all"),
 }
 
 PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
@@ -270,6 +271,7 @@ PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
         "sources",
         "deps",
         "configs",
+        "presets",
     ),
     "library": (
         "cmake-dynamic",
@@ -279,6 +281,7 @@ PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
         "sources",
         "deps",
         "configs",
+        "presets",
     ),
     "app": tuple(COMPONENT_REGISTRY.keys()),
     "embedded": tuple(COMPONENT_REGISTRY.keys()),
@@ -313,6 +316,7 @@ class GenerateResult:
     skipped: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    removed: list[str] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
 
     @property
@@ -329,6 +333,8 @@ class GenerateResult:
             parts.append(f"{len(self.skipped)} skipped")
         if self.conflicts:
             parts.append(f"{len(self.conflicts)} conflicts")
+        if self.removed:
+            parts.append(f"{len(self.removed)} removed")
         if self.errors:
             parts.append(f"{len(self.errors)} errors")
         return ", ".join(parts) if parts else "nothing to do"
@@ -358,6 +364,22 @@ def generate(
         GenerateResult with summary of actions taken.
     """
     ctx = build_context(config)
+
+    # Validate config before generation
+    try:
+        from core.utils.config_schema import validate_config
+        raw_cfg = config if config is not None else load_tool_config()
+        val_errors, val_warnings = validate_config(raw_cfg)
+        for w in val_warnings:
+            Logger.warn(f"config: {w}")
+        for e in val_errors:
+            Logger.error(f"config: {e}")
+        if val_errors:
+            result = GenerateResult()
+            result.errors.extend(f"validation:{e}" for e in val_errors)
+            return result
+    except Exception:
+        pass  # validation is best-effort
 
     # Resolve conflict policy
     if policy is None:
@@ -440,6 +462,28 @@ def generate(
                 if debug:
                     traceback.print_exc()
                 result.errors.append(f"{rel_path}:{exc}")
+
+    # Cleanup: remove files from disabled components
+    if not dry_run:
+        active_components = set(to_run)
+        for tracked_file in manifest.list_files():
+            entry = manifest.get_entry(tracked_file)
+            if entry is None:
+                continue
+            file_comp = entry.get("component", "")
+            if file_comp and file_comp not in active_components:
+                target_file = target_dir / tracked_file
+                if target_file.exists():
+                    disk_content = target_file.read_text(encoding="utf-8")
+                    if manifest.file_was_modified_by_user(tracked_file, disk_content):
+                        if verbose or debug:
+                            Logger.warn(f"  ⚠ skipping removal of user-modified: {tracked_file}")
+                        continue
+                    target_file.unlink()
+                    if verbose or debug:
+                        Logger.info(f"  🗑 removed: {tracked_file} (component '{file_comp}' disabled)")
+                    result.removed.append(tracked_file)
+                manifest.remove(tracked_file)
 
     if not dry_run:
         manifest.save()

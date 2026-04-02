@@ -36,8 +36,11 @@ CORE_COMMANDS = {
     "security": "core.commands.security",
     "session":  "core.commands.session",
     "sol":      "core.commands.sol",
-    "plugins":  "core.commands.plugins",
-    "tui":      "tui",  # scripts/tui.py
+    "validate":   "core.commands.validate",
+    "completion": "core.commands.completion",
+    "adopt":      "core.commands.adopt",
+    "plugins":    "core.commands.plugins",
+    "tui":        "tui",  # scripts/tui.py
 }
 
 def discover_plugins():
