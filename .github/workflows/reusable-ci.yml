@@ -15,14 +15,12 @@ on:
 jobs:
   build_and_optional_fuzz:
     runs-on: ubuntu-latest
-    outputs:
-      built: ${{ steps.build.outcome }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
@@ -47,4 +45,9 @@ jobs:
       - name: "Optional: short fuzz smoke-run"
         if: ${{ inputs.enable_fuzz == 'true' || inputs.enable_fuzz == true }}
         run: |
-          if [ -x build/fuzz_secure_ops_afl ]; then timeout 30s ./build/fuzz_secure_ops_afl -runs=100 -max_total_time=10 || true; else echo 'No fuzz target built'; fi
+          for bin in build/fuzz_*; do
+            if [ -x "$bin" ]; then
+              echo "Running smoke: $bin"
+              timeout 30s "$bin" -runs=100 -max_total_time=10 || true
+            fi
+          done

@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang clang++ cmake ninja-build build-essential
+          sudo apt-get install -y clang cmake ninja-build build-essential
 
       - name: Configure (clang, enable fuzzing)
         run: |
