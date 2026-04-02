@@ -49,7 +49,10 @@ scripts/
   plugins/      → Dynamic plugins (setup, hooks, init)
 extension/      VS Code extension (C++ CMake Scaffolder)
 docs/
-  PLANS.md      → Strategic Roadmap
+  PLANS.md      → Strategic Roadmap (active/planned work only)
+  CAPABILITIES.md → Completed features reference
+  USAGE.md      → CLI command reference
+  IDEAS.md      → Future improvement ideas
 ```
 
 ## Key Design Principles

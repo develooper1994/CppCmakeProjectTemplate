@@ -47,6 +47,12 @@ python3 scripts/tool.py lib export my_lib            # find_package support
 python3 scripts/tool.py build check --no-sync
 ```
 
+## Documentation Governance
+
+- **`docs/PLANS.md`** = upcoming/active work only. **`docs/CAPABILITIES.md`** = completed features.
+- When a feature is done: move its entry from PLANS.md → CAPABILITIES.md and delete it from PLANS.md.
+- New planned work goes into PLANS.md first.
+
 ## Mandatory Rules
 
 - Every library needs: `CMakeLists.txt`, `README.md`, `include/<n>/`, `docs/`
