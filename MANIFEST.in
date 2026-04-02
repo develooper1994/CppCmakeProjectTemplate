@@ -1,0 +1,15 @@
+include LICENSE
+include README.md
+include VERSION
+include tool.toml
+include pyproject.toml
+
+recursive-include scripts *.py *.jinja2
+
+prune build
+prune build-extreme
+prune build_logs
+prune .venv
+prune extension/templates
+prune scripts/cppcmake_tool.egg-info
+global-exclude __pycache__ *.pyc *.pyo
