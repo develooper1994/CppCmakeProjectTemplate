@@ -730,6 +730,241 @@ def _cmd_vec(args) -> CLIResult:
 
 
 # ---------------------------------------------------------------------------
+# Autotune → Preset promotion
+# ---------------------------------------------------------------------------
+
+def _cmd_promote(args) -> CLIResult:
+    """Promote autotune-winning flags into a CMakePresets.json entry.
+
+    Reads ``build_logs/autotune_results.json`` (output of ``tool perf autotune``),
+    extracts the best flag combination, and writes a new configure preset
+    named ``<base>-perf-tuned-<oracle>`` into ``CMakePresets.json``.
+
+    Use ``--min-improvement`` to require a minimum score delta versus baseline
+    before promoting.  ``--dry-run`` previews the preset without writing.
+    """
+    results_file = LOGS_DIR / "autotune_results.json"
+    if not results_file.exists():
+        return CLIResult(success=False, code=1,
+                         message="No autotune results found. Run 'tool perf autotune' first.")
+
+    data = json.loads(results_file.read_text(encoding="utf-8"))
+    best_flags = data.get("best_flags", [])
+    best_score = data.get("best_score")
+    oracle = data.get("oracle", "speed")
+    trials = data.get("trials", [])
+
+    if best_score is None:
+        return CLIResult(success=False, code=1, message="No valid best score in autotune results.")
+
+    # Check minimum improvement vs baseline
+    min_improvement = float(getattr(args, "min_improvement", 0))
+    baseline_trial = next((t for t in trials if t.get("trial") == "baseline"), None)
+    if baseline_trial and min_improvement > 0:
+        baseline_score = baseline_trial.get("score", best_score)
+        if baseline_score > 0:
+            improvement_pct = (1.0 - best_score / baseline_score) * 100.0
+            if improvement_pct < min_improvement:
+                return CLIResult(
+                    success=False, code=0,
+                    message=f"Improvement {improvement_pct:.1f}% is below threshold "
+                            f"{min_improvement:.1f}%. Not promoting.")
+
+    # Build the preset entry
+    flags_str = " ".join(f for f in best_flags if f)
+    base_preset = getattr(args, "base_preset", "gcc-release-static-x86_64")
+    preset_name = f"{base_preset}-perf-tuned-{oracle}"
+
+    new_preset = {
+        "name": preset_name,
+        "displayName": f"Perf-Tuned ({oracle}): {flags_str or '(defaults)'}",
+        "inherits": base_preset,
+        "cacheVariables": {
+            "CMAKE_CXX_FLAGS": flags_str,
+        },
+        "vendor": {
+            "tool-perf-promote": {
+                "oracle": oracle,
+                "best_score": best_score,
+                "flags": best_flags,
+                "promoted_from": str(results_file),
+            }
+        }
+    }
+
+    dry_run = getattr(args, "dry_run", False)
+    as_json = getattr(args, "json", False)
+
+    if dry_run or as_json:
+        Logger.info("Preset to promote:")
+        print(json.dumps(new_preset, indent=2))
+        if dry_run:
+            return CLIResult(success=True, message="Dry-run: preset shown above (not written).",
+                             data=new_preset)
+
+    # Read, update, write CMakePresets.json
+    presets_file = PROJECT_ROOT / "CMakePresets.json"
+    if not presets_file.exists():
+        return CLIResult(success=False, code=1, message="CMakePresets.json not found.")
+
+    presets_data = json.loads(presets_file.read_text(encoding="utf-8"))
+    configure_presets = presets_data.get("configurePresets", [])
+
+    # Remove existing preset with same name (replace)
+    configure_presets = [p for p in configure_presets if p.get("name") != preset_name]
+    configure_presets.append(new_preset)
+    presets_data["configurePresets"] = configure_presets
+
+    presets_file.write_text(json.dumps(presets_data, indent=2) + "\n", encoding="utf-8")
+    Logger.success(f"[Promote] Preset '{preset_name}' written to CMakePresets.json")
+    Logger.info(f"  CXX_FLAGS: {flags_str or '(defaults)'}")
+    Logger.info(f"  Oracle: {oracle}  Score: {best_score:.1f}")
+
+    return CLIResult(success=True, message=f"Preset '{preset_name}' promoted.",
+                     data=new_preset)
+
+
+# ---------------------------------------------------------------------------
+# Hardware-aware flag recommendations
+# ---------------------------------------------------------------------------
+
+def _cmd_hw_recommend(args) -> CLIResult:
+    """Recommend compiler flags based on host CPU capabilities.
+
+    Reads ``/proc/cpuinfo`` (Linux) or ``sysctl`` (macOS) to determine the
+    CPU architecture, vendor, model, and supported ISA extensions.  Produces
+    a recommended set of ``-march=``, ``-mtune=``, and ISA-specific flags.
+
+    Output: table + optional ``--json``.
+    """
+    import platform
+    import re
+
+    as_json = getattr(args, "json", False)
+
+    cpu_info: dict = {
+        "arch": platform.machine(),
+        "vendor": "",
+        "model": "",
+        "flags": [],
+        "cores": os.cpu_count() or 1,
+    }
+
+    # ── Parse CPU info ─────────────────────────────────────────────────────
+    cpuinfo_path = Path("/proc/cpuinfo")
+    if cpuinfo_path.exists():
+        text = cpuinfo_path.read_text(encoding="utf-8", errors="replace")
+        # Vendor
+        m = re.search(r"vendor_id\s*:\s*(.+)", text)
+        if m:
+            cpu_info["vendor"] = m.group(1).strip()
+        # Model name
+        m = re.search(r"model name\s*:\s*(.+)", text)
+        if m:
+            cpu_info["model"] = m.group(1).strip()
+        # Flags (all unique)
+        flag_lines = re.findall(r"flags\s*:\s*(.+)", text)
+        if flag_lines:
+            all_flags = set()
+            for line in flag_lines:
+                all_flags.update(line.strip().split())
+            cpu_info["flags"] = sorted(all_flags)
+    elif sys.platform == "darwin":
+        # macOS: use sysctl
+        try:
+            brand, _ = run_capture(["sysctl", "-n", "machdep.cpu.brand_string"])
+            cpu_info["model"] = brand.strip()
+            vendor, _ = run_capture(["sysctl", "-n", "machdep.cpu.vendor"])
+            cpu_info["vendor"] = vendor.strip()
+            features, _ = run_capture(["sysctl", "-n", "machdep.cpu.features"])
+            leaf7, _ = run_capture(["sysctl", "-n", "machdep.cpu.leaf7_features"])
+            all_flags = set(features.strip().lower().split() +
+                            leaf7.strip().lower().split())
+            cpu_info["flags"] = sorted(all_flags)
+        except Exception:
+            pass
+
+    if not cpu_info["model"]:
+        return CLIResult(success=False, code=1,
+                         message="Could not detect CPU info. "
+                                 "Ensure /proc/cpuinfo or sysctl is available.")
+
+    # ── Generate recommendations ───────────────────────────────────────────
+    flags_set = set(cpu_info["flags"])
+    recommendations: list[dict] = []
+
+    # -march= / -mtune=
+    recommendations.append({
+        "flag": "-march=native",
+        "reason": "Auto-detect all ISA extensions of the host CPU",
+        "priority": "high",
+    })
+    recommendations.append({
+        "flag": f"-mtune=native",
+        "reason": f"Tune scheduling for {cpu_info['model'][:40]}",
+        "priority": "high",
+    })
+
+    # ISA extension flags
+    isa_map = {
+        "avx": ("-mavx", "AVX 256-bit vector support"),
+        "avx2": ("-mavx2", "AVX2 extended integer vectors"),
+        "avx512f": ("-mavx512f", "AVX-512 Foundation"),
+        "avx512bw": ("-mavx512bw", "AVX-512 Byte/Word operations"),
+        "avx512vl": ("-mavx512vl", "AVX-512 Vector Length extensions"),
+        "fma": ("-mfma", "Fused Multiply-Add"),
+        "bmi": ("-mbmi", "Bit Manipulation Instructions"),
+        "bmi2": ("-mbmi2", "Bit Manipulation Instructions 2"),
+        "popcnt": ("-mpopcnt", "Population count instruction"),
+        "lzcnt": ("-mlzcnt", "Leading zero count"),
+        "aes": ("-maes", "AES-NI hardware encryption"),
+        "pclmulqdq": ("-mpclmul", "Carry-less multiplication (for CRC/GCM)"),
+        "sse4_1": ("-msse4.1", "SSE 4.1"),
+        "sse4_2": ("-msse4.2", "SSE 4.2 (string/CRC)"),
+        "f16c": ("-mf16c", "Half-precision float conversions"),
+    }
+
+    for cpu_flag, (compiler_flag, desc) in isa_map.items():
+        if cpu_flag in flags_set:
+            recommendations.append({
+                "flag": compiler_flag,
+                "reason": f"{desc} (detected)",
+                "priority": "medium",
+            })
+
+    # Parallelism
+    if cpu_info["cores"] >= 4:
+        recommendations.append({
+            "flag": f"-j{cpu_info['cores']}",
+            "reason": f"Parallel build ({cpu_info['cores']} cores)",
+            "priority": "info",
+        })
+
+    # Build the output
+    output = {
+        "cpu": cpu_info,
+        "recommendations": recommendations,
+    }
+
+    # Print table
+    Logger.info(f"CPU: {cpu_info['model']}")
+    Logger.info(f"Arch: {cpu_info['arch']}  Vendor: {cpu_info['vendor']}  "
+                f"Cores: {cpu_info['cores']}")
+    Logger.info(f"ISA flags detected: {len(cpu_info['flags'])}")
+    Logger.info("")
+    Logger.info(f"{'Priority':<10} {'Flag':<22} {'Reason'}")
+    Logger.info("-" * 70)
+    for rec in recommendations:
+        Logger.info(f"{rec['priority']:<10} {rec['flag']:<22} {rec['reason']}")
+
+    if as_json:
+        print(json.dumps(output, indent=2))
+
+    return CLIResult(success=True, message="Hardware recommendations shown above.",
+                     data=output)
+
+
+# ---------------------------------------------------------------------------
 # Compiler-flag auto-tuner — multi-oracle, multi-strategy
 # ---------------------------------------------------------------------------
 
@@ -783,6 +1018,7 @@ def _impl_cmd_autotune(args) -> CLIResult:
     import math
     import random as _random
     from core.utils.config_loader import load_tool_config
+    import statistics as _statistics
 
     rounds       = int(getattr(args, "rounds", 16))
     strategy     = getattr(args, "strategy", "hill")
@@ -792,6 +1028,7 @@ def _impl_cmd_autotune(args) -> CLIResult:
     list_tools   = getattr(args, "list_tools", False)
     t_init       = float(getattr(args, "T_init", 1.0))
     t_alpha      = float(getattr(args, "T_alpha", 0.92))
+    repeat       = max(1, int(getattr(args, "repeat", 1)))
 
     # ── Tool detection ─────────────────────────────────────────────────────
     available = _detect_available_tools()
@@ -997,13 +1234,32 @@ def _impl_cmd_autotune(args) -> CLIResult:
             Logger.warn("    No benchmark binaries found. Build with ENABLE_BENCHMARKS=ON.")
             return None
 
-        if oracle == "speed":
-            return _oracle_speed(bench_bins, bench_filter)
-        elif oracle == "size":
-            return _oracle_size(trial_dir, bench_bins)
-        elif oracle == "instructions":
-            return _oracle_instructions(bench_bins, bench_filter)
-        return None
+        def _run_oracle_once():
+            if oracle == "speed":
+                return _oracle_speed(bench_bins, bench_filter)
+            elif oracle == "size":
+                return _oracle_size(trial_dir, bench_bins)
+            elif oracle == "instructions":
+                return _oracle_instructions(bench_bins, bench_filter)
+            return None
+
+        # Run oracle `repeat` times and take the median for noise reduction
+        if repeat <= 1 or oracle == "size":
+            # Size oracle is deterministic — repeating is pointless
+            return _run_oracle_once()
+
+        scores = []
+        for run_idx in range(repeat):
+            s = _run_oracle_once()
+            if s is not None:
+                scores.append(s)
+        if not scores:
+            return None
+        median_score = _statistics.median(scores)
+        if repeat > 1:
+            Logger.info(f"    Repeat {repeat}x → scores={[f'{s:.1f}' for s in scores]} "
+                        f"median={median_score:.1f}")
+        return median_score
 
     # ── Run selected strategy ──────────────────────────────────────────────
     results: list[dict] = []
@@ -1530,7 +1786,32 @@ def perf_parser() -> argparse.ArgumentParser:
                    help="Print available analysis tools and exit")
     p.add_argument("--json", action="store_true",
                    help="Print full results JSON to stdout in addition to summary")
+    p.add_argument("--repeat", type=int, default=1, metavar="N",
+                   help="Run oracle N times per trial and use the median score. "
+                        "Reduces measurement noise (default: 1, no repeat)")
     p.set_defaults(func=_impl_cmd_autotune)
+
+    # promote  (autotune → preset)
+    p = sub.add_parser("promote",
+                       help="Promote autotune-winning flags into a CMakePresets.json entry")
+    p.add_argument("--min-improvement", type=float, default=0, metavar="PCT",
+                   dest="min_improvement",
+                   help="Minimum improvement %% vs baseline to promote (default: 0)")
+    p.add_argument("--base-preset", default="gcc-release-static-x86_64",
+                   dest="base_preset",
+                   help="Base preset to inherit from (default: gcc-release-static-x86_64)")
+    p.add_argument("--dry-run", action="store_true", dest="dry_run",
+                   help="Preview the preset without writing to CMakePresets.json")
+    p.add_argument("--json", action="store_true",
+                   help="Print preset JSON to stdout")
+    p.set_defaults(func=_cmd_promote)
+
+    # hw-recommend  (hardware-aware flag recommendations)
+    p = sub.add_parser("hw-recommend",
+                       help="Recommend compiler flags based on host CPU capabilities")
+    p.add_argument("--json", action="store_true",
+                   help="Print full CPU info and recommendations as JSON")
+    p.set_defaults(func=_cmd_hw_recommend)
 
     # size-diff
     p = sub.add_parser("size-diff",

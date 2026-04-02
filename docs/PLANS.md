@@ -185,24 +185,31 @@ Single source-of-truth `VERSION` file at repository root (`<major>.<middle>.<min
 - **vcpkg musl triplets:** `triplets/` overlay directory with 4 custom triplets (`x86_64-linux-musl`, `aarch64-linux-musl`, `x86_64-linux-musl-zig`, `aarch64-linux-musl-zig`). All static, chainload respective toolchain files. Usage: `vcpkg install --overlay-triplets=triplets`.
 - **Zig toolchain consistency:** All zig-musl toolchains now have search policy (`CMAKE_FIND_ROOT_PATH_MODE_*`) and sanitizer disabling.
 
+### GPU & Compute — SYCL + Metal _(Complete)_
+
+**Completed (Infrastructure):** SYCL and Metal CMake modules following the same pattern as CUDA and HIP (caveat header, option guard, find toolkit, target helper, auto-run at module level). All modules are untestable without their respective SDKs.
+
+- **Intel SYCL / DPC++:** `cmake/SYCL.cmake` — `ENABLE_SYCL` option, `_sycl_find_compiler()` (icpx / clang++ -fsycl), `_sycl_detect_devices()` (sycl-ls), `enable_sycl_support()`, `target_add_sycl()`, `set_sycl_targets()` (-fsycl-targets=spir64|spir64_gen|nvidia_gpu_sm_80|amd_gpu_gfx90a).
+- **Apple Metal:** `cmake/Metal.cmake` — `ENABLE_METAL` option (macOS-only), `_metal_find_sdk()` (xcrun), `_metal_find_cpp_headers()` (metal-cpp), `enable_metal_support()`, `target_add_metal()` (Metal + MetalKit + Foundation frameworks), `target_compile_metal_shaders()` (.metal → .air → .metallib pipeline).
+- **CMakeLists.txt wiring:** `include(SYCL)` and `include(Metal)` added after `include(HIP)`.
+- **Preset skip rules:** SYCL skipped for MSVC (no -fsycl), Metal skipped on non-Apple. `tool.toml` skip_combinations updated.
+- **Configuration:** `tool.toml [gpu]` section with commented `sycl_targets` and `metal_sdk` entries.
+
+### Automated Performance Tuning V2 _(Complete)_
+
+**Completed (V2 Additions):** Evidence-based preset promotion, hardware-aware recommendations, and multi-run noise reduction.
+
+- **`tool perf promote`:** Reads `autotune_results.json`, extracts winning flags, writes a `*-perf-tuned-*` configure preset into `CMakePresets.json`. `--min-improvement PCT` threshold gate, `--base-preset` override, `--dry-run` preview.
+- **`tool perf hw-recommend`:** Reads `/proc/cpuinfo` (Linux) or `sysctl` (macOS) to detect CPU vendor, model, ISA extensions. Recommends `-march=native`, `-mtune=native`, and specific ISA flags (`-mavx2`, `-mfma`, `-mavx512f`, etc.). Table + `--json` output.
+- **`tool perf autotune --repeat N`:** Runs the oracle N times per trial and uses the median score. Reduces measurement noise for speed/instructions oracles. Size oracle skips repeats (deterministic).
+
 ---
 
 ## 🔜 Not Completed (V2 / Future Backlog)
 
-### GPU & Compute _(V2)_
-
-- **Intel SYCL Support:** Architecture is in place (see `cmake/CUDA.cmake` and `cmake/HIP.cmake` patterns). Add `cmake/SYCL.cmake` when a concrete Intel GPU target exists.
-- **Apple Metal Support:** Architecture is in place. Add `cmake/Metal.cmake` (via Metal-cpp or similar) when macOS GPU compute targets are needed.
-
 ### Performance _(V2)_
 
 - **Hot Reloading:** C++ hot-reloading (LLVM JIT / cr.h) requires significant runtime scaffolding and OS-specific shared library reload. ccache + unity builds already minimize rebuild latency.
-- **Automated Performance Tuning:** PGO + BOLT (already implemented) cover V1. V2 expands into a closed-loop system:
-  - Phase 1 (safe defaults): Keep `tool perf autotune` strategies as optional non-blocking advisors.
-  - Phase 2 (evidence-based presets): Promote winning flag sets into optional presets (`*-perf-tuned-*`).
-  - Phase 3 (CI budget gates): Feed baseline and tuned runs into `tool perf check-budget`.
-  - Phase 4 (nightly exploration): Wider candidate sweeps at night, deterministic PR pipelines.
-  - Phase 5 (portfolio tuning): Separate profiles for speed-focused and size-focused outputs.
 
 ### Internal Tooling _(V2 / Structural)_
 
