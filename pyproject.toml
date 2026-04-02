@@ -44,8 +44,13 @@ dependencies = [
 tool = "scripts.tool:main"
 
 [tool.pytest.ini_options]
-testpaths = ["scripts"]
-norecursedirs = ["extension/templates", "build", ".venv", "__pycache__"]
+testpaths = [
+    "scripts/tests",
+    "scripts/core/commands/tests",
+    "scripts/core/libpkg/tests",
+    "scripts/core/utils/tests",
+]
+norecursedirs = ["extension/templates", "build", ".venv", "__pycache__", "tui"]
 
 [tool.setuptools.packages.find]
 where = ["scripts"]
