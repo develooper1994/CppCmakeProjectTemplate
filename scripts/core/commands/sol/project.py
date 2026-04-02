@@ -194,13 +194,17 @@ def _impl_cmd_init_skeleton(args) -> None:
 
     Logger.info(f"Regenerating project skeleton for '{name}' v{version}...")
 
+    from core.generator.engine import resolve_project_metadata
+
+    author, contact = resolve_project_metadata({"author": "", "contact": ""})
+
     # Root context
     ctx = {
         "project_name": name,
         "version": version,
         "description": "Professional Modern C++ / CMake Project Template",
-        "author": "develooper1994",
-        "contact": "https://github.com/develooper1994",
+        "author": author,
+        "contact": contact,
     }
 
     if dry:

@@ -1,6 +1,6 @@
 {
   "name": "cpp-cmake-scaffolder",
-  "publisher": "develooper1994",
+  "publisher": "cppcmake-template",
   "displayName": "C++ CMake Scaffolder",
   "description": "Professional C++ CMake Project Generator: Sanitizers, Cross-Platform Presets, Embedded Ready.",
   "version": "1.0.6",
@@ -8,7 +8,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/develooper1994/CppCmakeProjectTemplate.git"
+    "url": "https://github.com/your-org/your-project.git"
   },
   "engines": {
     "vscode": "^1.80.0"

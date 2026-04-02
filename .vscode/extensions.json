@@ -5,6 +5,6 @@
     "llvm-vs-code-extensions.vscode-clangd",
     "xaver.clang-format",
     "github.copilot-chat",
-    "develooper1994.cpp-cmake-scaffolder"
+    "github.vscode-pull-request-github"
   ]
 }

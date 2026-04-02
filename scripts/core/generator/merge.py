@@ -107,7 +107,7 @@ def _try_merge(
     entry = manifest.get_entry(rel_path)
     if entry is None:
         # No base version available → can't merge
-        Logger.warning(f"  conflict (no base): {rel_path}")
+        Logger.warn(f"  conflict (no base): {rel_path}")
         return MergeResult.CONFLICT
 
     # We need the original generated content as the base.
@@ -130,7 +130,7 @@ def _ask_user(
     dry_run: bool,
 ) -> MergeResult:
     """Prompt the user for conflict resolution."""
-    Logger.warning(f"  CONFLICT: {rel_path} was modified by user.")
+    Logger.warn(f"  CONFLICT: {rel_path} was modified by user.")
     print(f"\n  [o] Overwrite (backup old)  [s] Skip  [d] Show diff")
     try:
         choice = input("  Choice [o/s/d]: ").strip().lower()

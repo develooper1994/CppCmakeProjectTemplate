@@ -6,6 +6,7 @@ and writes files through the manifest/merge system.
 """
 from __future__ import annotations
 
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,6 +35,7 @@ class ProjectContext:
     license: str = "MIT"
     cxx_standard: str = "17"
     cmake_minimum: str = "3.25"
+    profile: str = "full"
 
     # [[project.libs]]
     libs: list[dict[str, Any]] = field(default_factory=list)
@@ -95,20 +97,125 @@ class ProjectContext:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
+def _read_git_config(key: str) -> str:
+    """Read a git config value, returning an empty string when unavailable."""
+    try:
+        proc = subprocess.run(
+            ["git", "config", key],
+            cwd=Path.cwd(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return ""
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def resolve_project_metadata(project: dict[str, Any]) -> tuple[str, str]:
+    """Resolve author/contact from config first, then git config, else warn."""
+    author = str(project.get("author", "") or "").strip()
+    contact = str(project.get("contact", "") or "").strip()
+
+    if not author:
+        author = _read_git_config("user.name")
+        if author:
+            Logger.info(f"Using git user.name as project author: {author}")
+        else:
+            Logger.warn("Project author is not set; pass --author or set git config user.name.")
+
+    if not contact:
+        contact = _read_git_config("user.email")
+        if contact:
+            Logger.info(f"Using git user.email as project contact: {contact}")
+        else:
+            Logger.warn("Project contact is not set; pass --contact or set git config user.email.")
+
+    return author, contact
+
+
+def resolve_profile_name(cfg: dict[str, Any]) -> str:
+    """Resolve the active generation profile."""
+    profile = (
+        cfg.get("generate", {}).get("profile")
+        or cfg.get("project", {}).get("profile")
+        or "full"
+    )
+    return str(profile).strip().lower() or "full"
+
+
+PROFILE_DEFAULT_FEATURES: dict[str, set[str]] = {
+    "full": set(),
+    "minimal": {"ci", "docker", "vscode", "extension"},
+    "library": {"apps", "ci", "docker", "vscode", "extension"},
+    "app": {"ci", "docker", "extension"},
+    "embedded": {"extension"},
+}
+
+
+def _normalize_feature_list(values: Any) -> set[str]:
+    if values is None:
+        return set()
+    if isinstance(values, str):
+        items = values.split(",")
+    elif isinstance(values, (list, tuple, set)):
+        items = values
+    else:
+        return set()
+    return {str(item).strip().lower() for item in items if str(item).strip()}
+
+
+def get_enabled_features(ctx: ProjectContext) -> set[str]:
+    return _normalize_feature_list(ctx.generate.get("with", []))
+
+
+def get_disabled_features(ctx: ProjectContext) -> set[str]:
+    profile_defaults = PROFILE_DEFAULT_FEATURES.get(ctx.profile, set())
+    explicit = _normalize_feature_list(ctx.generate.get("without", []))
+    return set(profile_defaults) | explicit
+
+
+def is_feature_enabled(ctx: ProjectContext, feature: str, *, default: bool = True) -> bool:
+    feature_name = str(feature).strip().lower()
+    if feature_name in get_enabled_features(ctx):
+        return True
+    if feature_name in get_disabled_features(ctx):
+        return False
+    return default
+
+
+def apply_profile_defaults(ctx: ProjectContext) -> None:
+    """Apply profile-driven defaults directly onto the resolved context."""
+    if not is_feature_enabled(ctx, "apps"):
+        ctx.apps = []
+    if not is_feature_enabled(ctx, "vscode", default=ctx.vscode.get("generate", True)):
+        ctx.vscode = {**ctx.vscode, "generate": False}
+    if not is_feature_enabled(ctx, "extension", default=ctx.extension.get("generate", True)):
+        ctx.extension = {**ctx.extension, "generate": False}
+    if not is_feature_enabled(ctx, "docs", default=ctx.docs.get("generate", True)):
+        ctx.docs = {**ctx.docs, "generate": False}
+    if not is_feature_enabled(ctx, "fuzz", default=ctx.tests.get("fuzz", False)):
+        ctx.tests = {**ctx.tests, "fuzz": False}
+
+
 def build_context(config: dict[str, Any] | None = None) -> ProjectContext:
     """Build a ProjectContext from tool.toml (or a provided dict)."""
     cfg = config if config is not None else load_tool_config()
     project = cfg.get("project", {})
+    author, contact = resolve_project_metadata(project)
+    profile = resolve_profile_name(cfg)
 
     ctx = ProjectContext(
         name=project.get("name", "CppCmakeProjectTemplate"),
         version=project.get("version", "1.0.0"),
         description=project.get("description", ""),
-        author=project.get("author", ""),
-        contact=project.get("contact", ""),
+        author=author,
+        contact=contact,
         license=project.get("license", "MIT"),
         cxx_standard=project.get("cxx_standard", "17"),
         cmake_minimum=project.get("cmake_minimum", "3.25"),
+        profile=profile,
         libs=cfg.get("project", {}).get("libs", []),
         apps=cfg.get("project", {}).get("apps", []),
         tests=project.get("tests", {"framework": "gtest", "fuzz": True, "auto_generate": True}),
@@ -129,6 +236,7 @@ def build_context(config: dict[str, Any] | None = None) -> ProjectContext:
         gpu=cfg.get("gpu", {}),
         raw=cfg,
     )
+    apply_profile_defaults(ctx)
     return ctx
 
 
@@ -149,6 +257,36 @@ COMPONENT_REGISTRY: dict[str, tuple[str, str]] = {
     "deps": ("core.generator.deps", "generate_all"),
     "configs": ("core.generator.configs", "generate_all"),
 }
+
+PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
+    "full": tuple(COMPONENT_REGISTRY.keys()),
+    "minimal": (
+        "cmake-dynamic",
+        "cmake-static",
+        "cmake-root",
+        "cmake-targets",
+        "sources",
+        "deps",
+        "configs",
+    ),
+    "library": (
+        "cmake-dynamic",
+        "cmake-static",
+        "cmake-root",
+        "cmake-targets",
+        "sources",
+        "deps",
+        "configs",
+    ),
+    "app": tuple(COMPONENT_REGISTRY.keys()),
+    "embedded": tuple(COMPONENT_REGISTRY.keys()),
+}
+
+
+def get_profile_components(profile: str) -> list[str]:
+    """Return the component list for a named generation profile."""
+    normalized = str(profile or "full").strip().lower() or "full"
+    return list(PROFILE_COMPONENTS.get(normalized, PROFILE_COMPONENTS["full"]))
 
 
 def _load_generator(component: str):
@@ -232,13 +370,15 @@ def generate(
     backup_dir = target_dir / backup_rel
 
     # Determine which components to run
-    to_run = components if components else list(COMPONENT_REGISTRY.keys())
+    to_run = components if components else get_profile_components(ctx.profile)
+    if not is_feature_enabled(ctx, "ci"):
+        to_run = [name for name in to_run if name != "ci"]
 
     result = GenerateResult()
 
     for comp_name in to_run:
         if comp_name not in COMPONENT_REGISTRY:
-            Logger.warning(f"Unknown component: {comp_name}")
+            Logger.warn(f"Unknown component: {comp_name}")
             result.errors.append(f"unknown:{comp_name}")
             continue
 

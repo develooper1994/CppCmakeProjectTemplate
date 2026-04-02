@@ -25,6 +25,7 @@ _scripts_dir = Path(__file__).resolve().parents[3]
 if str(_scripts_dir) not in sys.path:
     sys.path.insert(0, str(_scripts_dir))
 
+from core.commands import generate as generate_cmd
 from core.generator.engine import generate, build_context, COMPONENT_REGISTRY, GenerateResult
 from core.generator.merge import ConflictPolicy
 
@@ -179,3 +180,9 @@ class TestGeneratorE2E:
         # No actual files should exist
         assert not (target_dir / "CMakeLists.txt").exists()
         assert not (target_dir / ".tool").exists()
+
+    def test_generate_cli_initializes_git_for_new_target(self, tmp_path):
+        """CLI generation should initialize git for a fresh target directory."""
+        target = tmp_path / "fresh-project"
+        generate_cmd.main(["--target-dir", str(target), "--force"])
+        assert (target / ".git").exists()

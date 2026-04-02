@@ -308,8 +308,8 @@ default_preset = "gcc-debug-static-x86_64"
 name = "CppCmakeProjectTemplate"
 version = "1.0.0"
 description = "A professional C++ CMake project template with full automation"
-author = "develooper1994"
-contact = "https://github.com/develooper1994"
+author = ""
+contact = ""
 license = "MIT"
 cxx_standard = "17"
 cmake_minimum = "3.25"
@@ -432,6 +432,7 @@ generate = true
 generate_gitignore = true
 generate_gitattributes = true
 generate_editorconfig = true
+init = "auto"
 
 # ---------------------------------------------------------------------------
 # [docs] — Documentation generation
@@ -453,3 +454,4 @@ generate = true
 on_conflict = "ask"
 backup_dir = ".tool/backup"
 manifest_file = ".tool/generation_manifest.json"
+profile = "full"
