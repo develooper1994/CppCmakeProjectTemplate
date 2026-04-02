@@ -23,7 +23,7 @@ _SCRIPTS = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-import init_project as _impl  # scripts/init_project.py
+import core.init_impl as _impl  # scripts/core/init_impl.py
 
 
 def main(argv: list[str]) -> None:

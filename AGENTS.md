@@ -60,7 +60,7 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
 
 ## Implementation Notes
 
-The modules `scripts/build.py`, `scripts/toollib.py`, and `scripts/toolsolution.py` implement the command logic used by the unified dispatcher `scripts/tool.py`.
+The packages `scripts/core/commands/build/`, `scripts/core/commands/lib/`, `scripts/core/commands/sol/`, and `scripts/core/commands/perf/` implement the command logic used by the unified dispatcher `scripts/tool.py`.
 
 - Public interface: use `python3 scripts/tool.py <command>` (e.g. `tool lib`, `tool sol`, `tool build`).
 - Internal modules: the files above are internal implementation details — do not call them directly from outside the `scripts/` package.

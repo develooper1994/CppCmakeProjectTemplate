@@ -16,20 +16,14 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 try:
-    # Prefer importing the top-level `release` module (scripts/ is on sys.path)
-    import release as _release  # type: ignore
+    from core.release_impl import main as _release_main
 except Exception:
-    try:
-        # Fallback: import as part of the `scripts` package if available
-        from scripts import release as _release  # type: ignore
-    except Exception:
-        _release = None
+    _release_main = None
 
 
 def main(argv: list[str]) -> None:
-    if _release is None:
+    if _release_main is None:
         print("Release helper not available.")
         raise SystemExit(1)
-    # Delegate to the existing scripts/release.py main
-    rc = _release.main(argv)
+    rc = _release_main(argv)
     raise SystemExit(rc)

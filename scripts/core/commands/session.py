@@ -24,6 +24,7 @@ from core.utils.common import (
     save_session,
     backup_session,
 )
+from core.utils.command_utils import wrap_command
 
 
 def _impl_cmd_save(args) -> None:
@@ -72,24 +73,16 @@ def _impl_cmd_set(args) -> None:
     print(f"Set session {key}")
 
 
-def _wrap(fn, args) -> CLIResult:
-    try:
-        fn(args)
-        return CLIResult(success=True)
-    except SystemExit as e:
-        return CLIResult(success=(e.code == 0), code=e.code or 1)
-
-
 def cmd_save(args):
-    return _wrap(_impl_cmd_save, args)
+    return wrap_command(_impl_cmd_save, args)
 
 
 def cmd_load(args):
-    return _wrap(_impl_cmd_load, args)
+    return wrap_command(_impl_cmd_load, args)
 
 
 def cmd_set(args):
-    return _wrap(_impl_cmd_set, args)
+    return wrap_command(_impl_cmd_set, args)
 
 
 def build_parser() -> argparse.ArgumentParser:

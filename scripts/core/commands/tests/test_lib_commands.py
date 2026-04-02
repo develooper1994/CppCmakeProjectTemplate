@@ -9,6 +9,7 @@ import pytest
 sys.path.insert(0, os.path.abspath("scripts"))
 
 from core.libpkg import create as create_mod
+import core.commands.lib.commands as lib_cmds
 
 
 def setup_minimal_project(root: Path):
@@ -26,14 +27,12 @@ def test_remove_detach_and_delete(tmp_path: Path):
     # create a library
     create_mod.create_library("toy", dry_run=False, root=root)
 
-    import core.commands.lib as lib_cmd
-
     # Point CLI module to our tmp project root
-    lib_cmd.PROJECT_ROOT = root
+    lib_cmds.PROJECT_ROOT = root
 
     # Detach (remove CMake registration, keep files)
     args = SimpleNamespace(name="toy", delete=False, dry_run=False)
-    lib_cmd._impl_cmd_remove(args)
+    lib_cmds._impl_cmd_remove(args)
 
     # Library folder should still exist
     assert (root / "libs" / "toy").exists()
@@ -44,7 +43,7 @@ def test_remove_detach_and_delete(tmp_path: Path):
 
     # Now delete
     args = SimpleNamespace(name="toy", delete=True, dry_run=False)
-    lib_cmd._impl_cmd_remove(args)
+    lib_cmds._impl_cmd_remove(args)
     assert not (root / "libs" / "toy").exists()
 
 
@@ -53,11 +52,10 @@ def test_rename_library_updates_files_and_cmake(tmp_path: Path):
     setup_minimal_project(root)
     create_mod.create_library("oldlib", dry_run=False, root=root)
 
-    import core.commands.lib as lib_cmd
-    lib_cmd.PROJECT_ROOT = root
+    lib_cmds.PROJECT_ROOT = root
 
     args = SimpleNamespace(old="oldlib", new="newlib", dry_run=False)
-    lib_cmd._impl_cmd_rename(args)
+    lib_cmds._impl_cmd_rename(args)
 
     assert not (root / "libs" / "oldlib").exists()
     assert (root / "libs" / "newlib").exists()
@@ -70,11 +68,10 @@ def test_move_library_updates_cmake_and_path(tmp_path: Path):
     setup_minimal_project(root)
     create_mod.create_library("movelib", dry_run=False, root=root)
 
-    import core.commands.lib as lib_cmd
-    lib_cmd.PROJECT_ROOT = root
+    lib_cmds.PROJECT_ROOT = root
 
     args = SimpleNamespace(name="movelib", dest="subdir/movelib", dry_run=False)
-    lib_cmd._impl_cmd_move(args)
+    lib_cmds._impl_cmd_move(args)
 
     assert not (root / "libs" / "movelib").exists()
     assert (root / "libs" / "subdir" / "movelib").exists()
@@ -91,11 +88,10 @@ def test_move_library_with_name_change(tmp_path: Path):
     setup_minimal_project(root)
     create_mod.create_library("oldlib", dry_run=False, root=root)
 
-    import core.commands.lib as lib_cmd
-    lib_cmd.PROJECT_ROOT = root
+    lib_cmds.PROJECT_ROOT = root
 
     args = SimpleNamespace(name="oldlib", dest="sub/newlib", dry_run=False)
-    lib_cmd._impl_cmd_move(args)
+    lib_cmds._impl_cmd_move(args)
 
     # libs moved
     assert not (root / "libs" / "oldlib").exists()
@@ -139,15 +135,14 @@ def test_move_library_dry_run(tmp_path: Path):
     setup_minimal_project(root)
     create_mod.create_library("drylib", dry_run=False, root=root)
 
-    import core.commands.lib as lib_cmd
-    lib_cmd.PROJECT_ROOT = root
+    lib_cmds.PROJECT_ROOT = root
 
     args = SimpleNamespace(name="drylib", dest="sub/drylib", dry_run=True)
 
     import io, contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        lib_cmd._impl_cmd_move(args)
+        lib_cmds._impl_cmd_move(args)
     out = buf.getvalue()
 
     assert "[dry-run] move libs/drylib → libs/sub/drylib" in out
@@ -163,19 +158,18 @@ def test_remove_after_move_prunes_empty_parents(tmp_path: Path):
     setup_minimal_project(root)
     create_mod.create_library("movelib", dry_run=False, root=root)
 
-    import core.commands.lib as lib_cmd
-    lib_cmd.PROJECT_ROOT = root
+    lib_cmds.PROJECT_ROOT = root
 
     # move library into a nested subdir
     args_move = SimpleNamespace(name="movelib", dest="nested/sub/movelib", dry_run=False)
-    lib_cmd._impl_cmd_move(args_move)
+    lib_cmds._impl_cmd_move(args_move)
 
     # verify moved
     assert (root / "libs" / "nested" / "sub" / "movelib").exists()
 
     # now remove (delete) by original name; implementation should resolve moved path and prune empty parents
     args_remove = SimpleNamespace(name="movelib", delete=True, dry_run=False)
-    lib_cmd._impl_cmd_remove(args_remove)
+    lib_cmds._impl_cmd_remove(args_remove)
 
     # parents under libs/nested/sub should be pruned if empty
     assert not (root / "libs" / "nested").exists()

@@ -2,16 +2,11 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-try:
-    from .jinja_helpers import render_template_file
-    _USE_JINJA = True
-except Exception:
-    render_template_file = None
-    _USE_JINJA = False
+from .jinja_helpers import render_template_file, JINJA_AVAILABLE
 
 
 def lib_cmakelists(name: str, version: str, namespace: Optional[str], deps: List[str], cxx_standard: str = "") -> str:
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file(
             "lib_cmakelists.jinja2",
             name=name,
@@ -32,7 +27,7 @@ def lib_cmakelists(name: str, version: str, namespace: Optional[str], deps: List
 
 
 def lib_cmakelists_header_only(name: str, version: str, namespace: Optional[str], deps: List[str], cxx_standard: str = "") -> str:
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file(
             "lib_cmakelists_header_only.jinja2",
             name=name,
@@ -51,7 +46,7 @@ def lib_cmakelists_header_only(name: str, version: str, namespace: Optional[str]
 
 
 def lib_header(name: str, namespace: Optional[str]) -> str:
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_header.jinja2", name=name, namespace=namespace)
 
     if namespace:
@@ -61,7 +56,7 @@ def lib_header(name: str, namespace: Optional[str]) -> str:
 
 
 def lib_source(name: str, namespace: Optional[str]) -> str:
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_source.jinja2", name=name, namespace=namespace)
 
     inc = f'#include "{name}/{name}.h"\n\n'
@@ -74,7 +69,7 @@ def lib_source(name: str, namespace: Optional[str]) -> str:
 # Templates for patterns
 def lib_header_singleton(name: str, namespace: Optional[str]) -> str:
     cls = name.capitalize()
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_header_singleton.jinja2", name=name, namespace=namespace)
 
     if namespace:
@@ -89,7 +84,7 @@ def lib_header_singleton(name: str, namespace: Optional[str]) -> str:
 
 def lib_source_singleton(name: str, namespace: Optional[str]) -> str:
     cls = name.capitalize()
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_source_singleton.jinja2", name=name, namespace=namespace)
 
     inc = f'#include "{name}/{name}.h"\n\n'
@@ -107,7 +102,7 @@ def lib_source_singleton(name: str, namespace: Optional[str]) -> str:
 
 def lib_header_pimpl(name: str, namespace: Optional[str]) -> str:
     cls = name.capitalize()
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_header_pimpl.jinja2", name=name, namespace=namespace)
 
     ns_open = f"namespace {namespace} {{\n\n" if namespace else ""
@@ -119,7 +114,7 @@ def lib_header_pimpl(name: str, namespace: Optional[str]) -> str:
 
 def lib_source_pimpl(name: str, namespace: Optional[str]) -> str:
     cls = name.capitalize()
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_source_pimpl.jinja2", name=name, namespace=namespace)
 
     inc = f'#include "{name}/{name}.h"\n\n'
@@ -135,7 +130,7 @@ def lib_source_pimpl(name: str, namespace: Optional[str]) -> str:
 
 def lib_header_factory(name: str, namespace: Optional[str]) -> str:
     cls = name.capitalize()
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_header_factory.jinja2", name=name, namespace=namespace)
 
     if namespace:
@@ -150,7 +145,7 @@ def lib_header_factory(name: str, namespace: Optional[str]) -> str:
 
 def lib_source_factory(name: str, namespace: Optional[str]) -> str:
     cls = name.capitalize()
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_source_factory.jinja2", name=name, namespace=namespace)
 
     inc = f'#include "{name}/{name}.h"\n#include <memory>\n\n'
@@ -161,7 +156,7 @@ def lib_source_factory(name: str, namespace: Optional[str]) -> str:
 
 
 def lib_header_observer(name: str, namespace: Optional[str]) -> str:
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_header_observer.jinja2", name=name, namespace=namespace)
 
     if namespace:
@@ -175,7 +170,7 @@ def lib_header_observer(name: str, namespace: Optional[str]) -> str:
 
 
 def lib_source_observer(name: str, namespace: Optional[str]) -> str:
-    if _USE_JINJA:
+    if JINJA_AVAILABLE:
         return render_template_file("lib_source_observer.jinja2", name=name, namespace=namespace)
 
     return f"#include \"{name}/{name}.h\"\n\n// Minimal observer implementation (no-op)\n"

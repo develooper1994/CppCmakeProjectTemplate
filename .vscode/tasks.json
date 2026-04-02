@@ -133,7 +133,8 @@
       "type": "shell",
       "command": "python3",
       "args": [
-        "scripts/verify_full.py"
+        "scripts/tool.py",
+        "verify"
       ],
       "problemMatcher": []
     },
