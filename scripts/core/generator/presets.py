@@ -9,7 +9,6 @@ Wraps the existing ``core.commands.presets`` logic so that
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -65,7 +64,6 @@ def generate_all(ctx: "ProjectContext", target_dir: "Path") -> dict[str, str]:
         "cmakeMinimumRequired": {"major": maj, "minor": min_, "patch": 0},
         "vendor": {
             "tool-presets-generator": {
-                "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "note": (
                     "AUTO-GENERATED — DO NOT EDIT MANUALLY. "
                     "Edit tool.toml [presets] and re-run `tool generate`."
