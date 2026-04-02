@@ -362,6 +362,22 @@ def generate(
     """
     ctx = build_context(config)
 
+    # Validate config before generation
+    try:
+        from core.utils.config_schema import validate_config
+        raw_cfg = config if config is not None else load_tool_config()
+        val_errors, val_warnings = validate_config(raw_cfg)
+        for w in val_warnings:
+            Logger.warn(f"config: {w}")
+        for e in val_errors:
+            Logger.error(f"config: {e}")
+        if val_errors:
+            result = GenerateResult()
+            result.errors.extend(f"validation:{e}" for e in val_errors)
+            return result
+    except Exception:
+        pass  # validation is best-effort
+
     # Resolve conflict policy
     if policy is None:
         policy_str = ctx.generate.get("on_conflict", "ask")

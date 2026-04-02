@@ -36,6 +36,7 @@ CORE_COMMANDS = {
     "security": "core.commands.security",
     "session":  "core.commands.session",
     "sol":      "core.commands.sol",
+    "validate": "core.commands.validate",
     "plugins":  "core.commands.plugins",
     "tui":      "tui",  # scripts/tui.py
 }
