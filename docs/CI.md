@@ -3,26 +3,38 @@
 ## Pre-commit hooks
 
 ```bash
-python3 scripts/setup_hooks.py
+# One-time setup
+pip install pre-commit
+pre-commit install
+
+# Run all hooks manually
+pre-commit run --all-files
+
+# Optional: install repo hook templates into .git/hooks/
+python3 scripts/tool.py hooks --install
 ```
 
-Runs: clang-format, clang-tidy, secret scanner on every commit.
+Runs on every commit: `gitleaks` (secrets), `ruff` + `ruff-format` (Python), `cmake-format` + `cmake-lint`, `clang-format` (C/C++), and general hygiene checks.
 
 ## CI matrix
 
-Four jobs run on every push (`.github/workflows/ci.yml`):
+The following jobs run on push / PR to `main` (`.github/workflows/ci.yml`):
 
-| Job | OS | Compiler |
-|---|---|---|
-| `build-linux` | Ubuntu | GCC 13 |
-| `build-linux-clang` | Ubuntu | Clang |
-| `build-windows` | Windows | MSVC 2022 |
-| `build-macos` | macOS | AppleClang |
+| Job | OS | Purpose |
+| --- | --- | --- |
+| `python-tests` | Ubuntu | Python tests + template smoke-run |
+| `detect-changes` | Ubuntu | Detect changed C/C++ paths (gates C++ jobs) |
+| `cpp-build` | Ubuntu | Full verification via `tool.py build check --no-sync` |
+| `build-linux-gcc` | Ubuntu | GCC preset matrix (debug + release) |
+| `build-linux-clang` | Ubuntu | Clang preset matrix (debug + release) |
+| `build-windows` | Windows | MSVC preset matrix (debug + release) |
+| `build-macos` | macOS 13 | AppleClang x86_64 (`clang-debug-static-x86_64`) |
 
 ## Manual CI simulation
 
 ```bash
 python3 scripts/tool.py sol doctor
+python3 scripts/tool.py build check --no-sync
 ctest --preset gcc-debug-static-x86_64 --output-on-failure
 ```
 
