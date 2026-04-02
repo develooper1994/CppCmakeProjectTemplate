@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import time
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -311,6 +313,7 @@ class GenerateResult:
     skipped: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    timings: dict[str, float] = field(default_factory=dict)
 
     @property
     def total(self) -> int:
@@ -337,6 +340,8 @@ def generate(
     policy: ConflictPolicy | None = None,
     dry_run: bool = False,
     config: dict[str, Any] | None = None,
+    debug: bool = False,
+    verbose: bool = False,
 ) -> GenerateResult:
     """Run the generation engine.
 
@@ -346,6 +351,8 @@ def generate(
         policy: Conflict resolution policy. None = read from tool.toml.
         dry_run: If True, no files are written.
         config: Optional config dict (overrides reading tool.toml).
+        debug: If True, print full tracebacks and per-component timing.
+        verbose: If True, print extra progress messages.
 
     Returns:
         GenerateResult with summary of actions taken.
@@ -382,13 +389,25 @@ def generate(
             result.errors.append(f"unknown:{comp_name}")
             continue
 
+        if verbose:
+            Logger.info(f"  → generating component: {comp_name}")
+
+        t0 = time.monotonic()
         try:
             gen_func = _load_generator(comp_name)
             files = gen_func(ctx, target_dir)
         except Exception as exc:
             Logger.error(f"Generator {comp_name} failed: {exc}")
+            if debug:
+                traceback.print_exc()
             result.errors.append(f"{comp_name}:{exc}")
             continue
+        elapsed = time.monotonic() - t0
+
+        if debug or verbose:
+            result.timings[comp_name] = round(elapsed, 4)
+            if debug:
+                Logger.info(f"  ⏱ {comp_name}: {elapsed:.4f}s ({len(files)} files)")
 
         for rel_path, content in files.items():
             target_file = target_dir / rel_path
@@ -418,9 +437,15 @@ def generate(
 
             except Exception as exc:
                 Logger.error(f"Failed to write {rel_path}: {exc}")
+                if debug:
+                    traceback.print_exc()
                 result.errors.append(f"{rel_path}:{exc}")
 
     if not dry_run:
         manifest.save()
+
+    if debug and result.timings:
+        total = sum(result.timings.values())
+        Logger.info(f"  ⏱ Total generation time: {total:.4f}s")
 
     return result

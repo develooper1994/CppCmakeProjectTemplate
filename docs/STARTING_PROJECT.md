@@ -7,6 +7,7 @@ python3 scripts/tool.py new MyProject
 ```
 
 The wizard prompts for:
+
 - Project name, description, author, contact
 - License (MIT, Apache-2.0, GPL-3.0, etc.)
 - C++ standard (11, 14, 17, 20, 23)

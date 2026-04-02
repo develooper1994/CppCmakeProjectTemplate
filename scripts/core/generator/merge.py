@@ -165,5 +165,6 @@ def _show_diff(old: str, new: str, label: str) -> None:
             tofile=f"b/{label} (generated)",
         )
         print("".join(diff))
-    except Exception:
+    except Exception as exc:
+        Logger.warn(f"  diff failed for {label}: {exc}")
         print("  (diff unavailable)")
