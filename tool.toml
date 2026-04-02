@@ -330,6 +330,7 @@ cxx_standard = "17"
 deps = []
 export = true
 benchmarks = true
+build_info = true
 
 [[project.libs]]
 name = "fuzzable"
@@ -341,8 +342,9 @@ fuzz = true
 [[project.libs]]
 name = "secure_ops"
 type = "normal"
-template = "normal"
+template = "hasher"
 deps = []
+fuzz = true
 
 # ---------------------------------------------------------------------------
 # [[project.apps]] — Application declarations

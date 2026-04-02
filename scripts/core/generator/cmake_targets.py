@@ -27,6 +27,7 @@ def _gen_lib_cmake(lib: dict[str, Any], ctx: ProjectContext) -> str:
     has_export = lib.get("export", False)
     has_benchmarks = lib.get("benchmarks", False)
     has_fuzz = lib.get("fuzz", False)
+    has_build_info = lib.get("build_info", False)
     deps = lib.get("deps", [])
     cxx_override = lib.get("cxx_standard", "")
     cmake_min = ctx.cmake_minimum
@@ -64,6 +65,13 @@ set({NAME_UPPER}_CXX_STANDARD "" CACHE STRING
         parts.append(f"add_library({name} INTERFACE)\n")
     else:
         parts.append(f"add_library({name})\n")
+
+    # Per-target build info
+    if has_build_info and not is_header_only:
+        parts.append(f"""\
+target_generate_build_info({name}
+    NAMESPACE {name}_info)
+""")
 
     # Sources
     if not is_header_only:
