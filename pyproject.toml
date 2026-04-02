@@ -12,7 +12,6 @@ exclude = [
   ".venv/**",
   "build_logs",
   "build_logs/**",
-  "extension/templates",
   "extension/*.vsix",
   "__pycache__",
   "**/__pycache__",
@@ -28,7 +27,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cppcmake-tool"
-version = "1.1.0"
+version = "1.2.0"
 description = "Professional C++ CMake project scaffolding and automation CLI"
 readme = "README.md"
 license = "MIT"

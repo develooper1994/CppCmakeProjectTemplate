@@ -1,48 +1,8 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const cp = require('child_process');
 
-// ─── Rename helpers ───────────────────────────────────────────────────────────
-
-const LICENSE_NAMES = new Set([
-    'license', 'licence', 'copying', 'copyright', 'notice',
-    'license.txt', 'licence.txt', 'license.md', 'licence.md',
-]);
-
-const BINARY_EXTS = new Set([
-    '.png', '.jpg', '.jpeg', '.gif', '.ico', '.bmp', '.webp',
-    '.bin', '.hex', '.a', '.so', '.lib', '.dll', '.exe',
-    '.zip', '.tar', '.gz', '.7z', '.pdf',
-]);
-
-const OLD_NAME = 'CppCmakeProjectTemplate';
-
-function isBinary(filePath) { return BINARY_EXTS.has(path.extname(filePath).toLowerCase()); }
-function isLicense(filePath) { return LICENSE_NAMES.has(path.basename(filePath).toLowerCase()); }
-
-function copyDir(src, dst, projectName) {
-    fs.mkdirSync(dst, { recursive: true });
-    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-        const srcPath = path.join(src, entry.name);
-        const dstName = entry.name.includes(OLD_NAME)
-            ? entry.name.replace(OLD_NAME, projectName) : entry.name;
-        const dstPath = path.join(dst, dstName);
-
-        if (entry.isDirectory()) {
-            copyDir(srcPath, dstPath, projectName);
-        } else if (isBinary(srcPath) || isLicense(srcPath)) {
-            fs.copyFileSync(srcPath, dstPath);
-        } else {
-            let content = fs.readFileSync(srcPath, 'utf8');
-            if (content.includes(OLD_NAME))
-                content = content.split(OLD_NAME).join(projectName);
-            fs.writeFileSync(dstPath, content, 'utf8');
-        }
-    }
-}
-
-// ─── toollib runner ───────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getWorkspaceRoot() {
     return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null;
@@ -306,7 +266,7 @@ async function toolsolutionUI() {
 
 function activate(context) {
 
-    // 1. Create new project from template
+    // 1. Create new project via CLI
     const initCmd = vscode.commands.registerCommand(
         'cpp-cmake-scaffolder.init',
         async () => {
@@ -323,18 +283,10 @@ function activate(context) {
             });
             if (!projectName) return;
 
-            const templateDir = path.join(context.extensionPath, 'templates');
-            try {
-                copyDir(templateDir, targetDir, projectName);
-                vscode.window.showInformationMessage(`✅ "${projectName}" created.`);
-                await vscode.commands.executeCommand(
-                    'vscode.openFolder',
-                    vscode.Uri.file(targetDir),
-                    { forceNewWindow: true }
-                );
-            } catch (err) {
-                vscode.window.showErrorMessage(`Error: ${err.message}`);
-            }
+            const terminal = vscode.window.createTerminal({ name: 'cppcmake-new', cwd: targetDir });
+            terminal.show();
+            terminal.sendText(`cppcmake-tool new "${projectName}" --non-interactive --target-dir "${targetDir}"`);
+            vscode.window.showInformationMessage(`Creating "${projectName}" via cppcmake-tool CLI...`);
         }
     );
 

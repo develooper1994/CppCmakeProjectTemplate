@@ -3,7 +3,7 @@
   "publisher": "cppcmake-template",
   "displayName": "C++ CMake Scaffolder",
   "description": "Professional C++ CMake Project Generator: Sanitizers, Cross-Platform Presets, Embedded Ready.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "icon": "icons/icon.png",
   "license": "MIT",
   "repository": {

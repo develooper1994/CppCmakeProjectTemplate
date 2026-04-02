@@ -7,6 +7,7 @@ Release*/
 x64/Debug/
 x64/Release/
 /build/
+build-extreme/
 bin/
 out/
 CMakeUserPresets.json
@@ -63,6 +64,16 @@ build_logs/
 
 # Python
 __pycache__/
+
+# PyPI / packaging
+dist/
+*.egg-info/
+
+# Generator state
+.tool/
+
+# Dependency lock files (local only)
+conan.lock
 
 # Session backups (tool.toml is the canonical session store)
 *.bak.toml

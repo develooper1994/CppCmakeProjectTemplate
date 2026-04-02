@@ -19,7 +19,6 @@ from core.utils.common import (
 from ._helpers import (
     _choose_preset,
     _generate_clang_tidy,
-    _sync_templates,
     _sync_version,
     _sync_license,
 )
@@ -197,10 +196,50 @@ def _impl_cmd_check(args) -> None:
 
 def _impl_cmd_clean(args) -> None:
     if getattr(args, "all", False):
-        build_dir = PROJECT_ROOT / "build"
-        if build_dir.exists():
-            Logger.info("Removing build directory")
-            shutil.rmtree(build_dir)
+        # Directories to remove
+        dirs_to_remove = [
+            "build", "build-extreme", "build_logs",
+            "dist", ".tool",
+            ".mypy_cache", ".pytest_cache", ".ruff_cache",
+            "extension/templates", "extension/node_modules",
+        ]
+        removed = []
+        for name in dirs_to_remove:
+            d = PROJECT_ROOT / name
+            if d.exists():
+                shutil.rmtree(d)
+                removed.append(name)
+
+        # Glob patterns for files at project root
+        file_globs = ["*.egg-info", "conan.lock"]
+        for pattern in file_globs:
+            for f in PROJECT_ROOT.glob(pattern):
+                if f.is_dir():
+                    shutil.rmtree(f)
+                else:
+                    f.unlink()
+                removed.append(f.name)
+
+        # *.vsix in extension/
+        ext_dir = PROJECT_ROOT / "extension"
+        if ext_dir.exists():
+            for f in ext_dir.glob("*.vsix"):
+                f.unlink()
+                removed.append(f"extension/{f.name}")
+
+        # Recursive __pycache__ cleanup
+        pycache_count = 0
+        for pc in PROJECT_ROOT.rglob("__pycache__"):
+            if pc.is_dir():
+                shutil.rmtree(pc)
+                pycache_count += 1
+        if pycache_count:
+            removed.append(f"__pycache__ ({pycache_count} dirs)")
+
+        if removed:
+            Logger.info(f"Removed: {', '.join(removed)}")
+        else:
+            Logger.info("Nothing to clean")
         return
     preset = _choose_preset(None)
     targets = getattr(args, "targets", []) or []
@@ -234,13 +273,12 @@ def _impl_cmd_extension(args) -> None:
     if not ext_dir.exists():
         Logger.error("extension/ directory not found")
         raise SystemExit(2)
-    # Sync templates, version and license into extension/ before packaging
+    # Sync version and license into extension/ before packaging
     try:
-        _sync_templates()
         _sync_version()
         _sync_license()
     except Exception:
-        Logger.warn("Template/version/license sync encountered an error (continuing)")
+        Logger.warn("Version/license sync encountered an error (continuing)")
     # npm build (best-effort) — be tolerant if no `build` script exists
     pkg_json = ext_dir / "package.json"
     pkg_data = {}

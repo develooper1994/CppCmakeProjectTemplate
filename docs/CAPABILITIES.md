@@ -236,3 +236,9 @@ SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
 - **Profile-aware:** Disabled by default for `minimal` and `embedded` profiles; override with `--with docs`.
 - **API docs toggle:** `doc.generate_api_docs = false` skips engine configs while still producing markdown skeleton.
 - **Unified roadmap:** `docs/PLANS.md` and `docs/IDEAS.md` merged into single `docs/ROADMAP.md`.
+
+## Enhanced Clean & Extension Refactor _(Completed)_
+
+- **Comprehensive `build clean --all`:** Removes all build/generated artifacts — `build/`, `build-extreme/`, `build_logs/`, `dist/`, `*.egg-info`, `__pycache__` (recursive), `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `.tool/`, `extension/templates/`, `extension/node_modules/`, `*.vsix`, `conan.lock`. Summary logging of what was removed.
+- **Extension refactor:** VS Code extension `init` command now uses `cppcmake-tool new` CLI instead of copying template files. Removed `_sync_templates()`, `copyDir()`, and all template-copy infrastructure. Extension uses the same Python CLI that the terminal uses.
+- **`.gitignore` gaps fixed:** Added missing entries: `build-extreme/`, `dist/`, `*.egg-info/`, `.tool/`, `conan.lock`.
