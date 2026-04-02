@@ -25,6 +25,13 @@ from .templates import (
 from .tokens import apply_template_dir
 from core.utils.fileops import Transaction
 from core.utils.common import Logger
+from core.utils.cmake_parser import (
+    add_subdirectory as _cmake_add_subdirectory,
+    remove_subdirectory as _cmake_remove_subdirectory,
+    rename_subdirectory as _cmake_rename_subdirectory,
+    update_target_link as _update_cmake_references,
+    remove_target_link as _remove_cmake_references,
+)
 
 try:
     from .jinja_helpers import render_template_file as _render_template_file
@@ -35,103 +42,6 @@ except Exception:
 
 
 PROTECTED_LIBS = {"dummy_lib"}
-
-
-# ── CMakeLists helpers ────────────────────────────────────────────────────────
-
-def _cmake_add_subdirectory(cmake_path: Path, name: str) -> bool:
-    """Append add_subdirectory(name) if not already present. Returns True if added."""
-    entry = f"add_subdirectory({name})"
-    # Optional transactional write: callers may pass a Transaction via kwargs
-    txn = None
-    # inspect caller locals for a Transaction (conservative; common call sites pass txn parameter)
-    try:
-        import inspect
-        frame = inspect.currentframe().f_back
-        if frame is not None and "txn" in frame.f_locals:
-            txn = frame.f_locals.get("txn")
-    except Exception:
-        txn = None
-
-    if cmake_path.exists():
-        content = cmake_path.read_text(encoding="utf-8")
-        if re.search(rf"^\s*add_subdirectory\(\s*{re.escape(name)}\s*\)", content, re.MULTILINE):
-            return False  # already present
-        new_content = content.rstrip() + f"\n{entry}\n"
-        if txn:
-            txn.safe_write_text(cmake_path, new_content)
-        else:
-            cmake_path.write_text(new_content, encoding="utf-8")
-    else:
-        if cmake_path.parent.exists() is False:
-            if txn:
-                txn.safe_mkdir(cmake_path.parent, parents=True, exist_ok=True)
-            else:
-                cmake_path.parent.mkdir(parents=True, exist_ok=True)
-        if txn:
-            txn.safe_write_text(cmake_path, f"{entry}\n")
-        else:
-            cmake_path.write_text(f"{entry}\n", encoding="utf-8")
-    return True
-
-
-def _cmake_remove_subdirectory(cmake_path: Path, name: str) -> bool:
-    """Remove add_subdirectory(name) line. Returns True if removed."""
-    if not cmake_path.exists():
-        return False
-    content = cmake_path.read_text(encoding="utf-8")
-    new_content = re.sub(
-        rf"^\s*add_subdirectory\(\s*{re.escape(name)}\s*\)\s*\n?",
-        "",
-        content,
-        flags=re.MULTILINE,
-    )
-    if new_content == content:
-        return False
-    # Check for Transaction in caller context
-    txn = None
-    try:
-        import inspect
-        frame = inspect.currentframe().f_back
-        if frame is not None and "txn" in frame.f_locals:
-            txn = frame.f_locals.get("txn")
-    except Exception:
-        pass
-
-    if txn:
-        txn.safe_write_text(cmake_path, new_content)
-    else:
-        cmake_path.write_text(new_content, encoding="utf-8")
-    return True
-
-
-def _cmake_rename_subdirectory(cmake_path: Path, old: str, new: str) -> bool:
-    """Replace add_subdirectory(old) with add_subdirectory(new)."""
-    if not cmake_path.exists():
-        return False
-    content = cmake_path.read_text(encoding="utf-8")
-    new_content = re.sub(
-        rf"(add_subdirectory\(\s*){re.escape(old)}(\s*\))",
-        rf"\g<1>{new}\2",
-        content,
-    )
-    if new_content == content:
-        return False
-
-    txn = None
-    try:
-        import inspect
-        frame = inspect.currentframe().f_back
-        if frame is not None and "txn" in frame.f_locals:
-            txn = frame.f_locals.get("txn")
-    except Exception:
-        pass
-
-    if txn:
-        txn.safe_write_text(cmake_path, new_content)
-    else:
-        cmake_path.write_text(new_content, encoding="utf-8")
-    return True
 
 
 def _replace_tokens_in_tree(root: Path, old: str, new: str) -> None:
@@ -154,40 +64,6 @@ def _replace_tokens_in_tree(root: Path, old: str, new: str) -> None:
         if old in p.name:
             new_name = p.name.replace(old, new)
             p.rename(p.parent / new_name)
-
-
-def _update_cmake_references(old: str, new: str, root: Path, txn: Optional[Transaction] = None) -> None:
-    """Update target_link_libraries references from 'old' to 'new' in all CMakeLists.txt."""
-    for p in root.rglob("CMakeLists.txt"):
-        if p.is_file():
-            content = p.read_text(encoding="utf-8")
-            # Match target_link_libraries and replace the dependency
-            new_content = re.sub(rf"\b{re.escape(old)}\b", new, content)
-            if new_content != content:
-                if txn:
-                    txn.safe_write_text(p, new_content)
-                else:
-                    p.write_text(new_content, encoding="utf-8")
-
-
-def _remove_cmake_references(target: str, root: Path, txn: Optional[Transaction] = None) -> None:
-    """Remove references to 'target' from all target_link_libraries in CMakeLists.txt."""
-    for p in root.rglob("CMakeLists.txt"):
-        if p.is_file():
-            content = p.read_text(encoding="utf-8")
-            # Remove the target from target_link_libraries
-            new_content = re.sub(rf"(target_link_libraries\([^)]*)\b{re.escape(target)}\b([^)]*\))",
-                                 lambda m: m.group(1) + m.group(2).replace("  ", " ").strip(),
-                                 content)
-            # Cleanup double spaces or spaces before closing parenthesis
-            new_content = re.sub(r'\s+\)', ')', new_content)
-            new_content = re.sub(r'\(\s+', '(', new_content)
-
-            if new_content != content:
-                if txn:
-                    txn.safe_write_text(p, new_content)
-                else:
-                    p.write_text(new_content, encoding="utf-8")
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
@@ -306,9 +182,9 @@ def create_library(
                 txn.safe_write_text(p.tests_dir / f"{name}_test.cpp",
                     f"#include <gtest/gtest.h>\n\nTEST({name}_Test, Placeholder) {{ EXPECT_TRUE(true); }}\n")
 
-        _cmake_add_subdirectory(libs_cmake, name)
+        _cmake_add_subdirectory(libs_cmake, name, txn)
         if not interface:
-            _cmake_add_subdirectory(tests_cmake, name)
+            _cmake_add_subdirectory(tests_cmake, name, txn)
 
     print(f"✅ libs/{name}/")
     if not interface: print(f"✅ tests/unit/{name}/")
@@ -371,9 +247,9 @@ def remove_library(name: str, delete: bool = False, dry_run: bool = False, root:
         return
 
     with Transaction(project_root) as txn:
-        _cmake_remove_subdirectory(libs_cmake, cmake_entry)
-        _cmake_remove_subdirectory(tests_cmake, cmake_entry)
-        _remove_cmake_references(name, project_root, txn)
+        _cmake_remove_subdirectory(libs_cmake, cmake_entry, txn)
+        _cmake_remove_subdirectory(tests_cmake, cmake_entry, txn)
+        _remove_cmake_references(project_root, name, txn)
 
         if delete:
             # remove actual library and tests directories (where present)
@@ -451,9 +327,9 @@ def rename_library(old: str, new: str, dry_run: bool = False, root: Optional[Pat
         if p_new.tests_dir.exists():
             _replace_tokens_in_tree(p_new.tests_dir, old, new)
 
-        _cmake_rename_subdirectory(libs_cmake, old, new)
-        _cmake_rename_subdirectory(tests_cmake, old, new)
-        _update_cmake_references(old, new, project_root, txn)
+        _cmake_rename_subdirectory(libs_cmake, old, new, txn)
+        _cmake_rename_subdirectory(tests_cmake, old, new, txn)
+        _update_cmake_references(project_root, old, new, txn)
 
     print(f"✅ Renamed: {old} → {new}")
 
@@ -504,19 +380,19 @@ def move_library(name: str, dest: str, dry_run: bool = False, root: Optional[Pat
                 txn.safe_mkdir(new_tests_dir.parent, parents=True, exist_ok=True)
             txn.safe_rename(p.tests_dir, new_tests_dir)
             # update tests CMake registration
-            _cmake_remove_subdirectory(tests_cmake, name)
-            _cmake_add_subdirectory(tests_cmake, dest)
+            _cmake_remove_subdirectory(tests_cmake, name, txn)
+            _cmake_add_subdirectory(tests_cmake, dest, txn)
 
         # update libs CMake registration
-        _cmake_remove_subdirectory(libs_cmake, name)
-        _cmake_add_subdirectory(libs_cmake, dest)
+        _cmake_remove_subdirectory(libs_cmake, name, txn)
+        _cmake_add_subdirectory(libs_cmake, dest, txn)
 
         # If the final name changed (e.g. move to 'sub/newname'), update tokens and CMake references
         if dest_name != name:
             _replace_tokens_in_tree(new_dir, name, dest_name)
             if has_tests and new_tests_dir.exists():
                 _replace_tokens_in_tree(new_tests_dir, name, dest_name)
-            _update_cmake_references(name, dest_name, project_root, txn)
+            _update_cmake_references(project_root, name, dest_name, txn)
 
     print(f"✅ Moved: libs/{name} → libs/{dest}")
     if has_tests:
