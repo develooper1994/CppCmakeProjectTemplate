@@ -148,6 +148,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--explain", action="store_true", default=False, help="Show the effective profile and feature toggles before generating.")
     parser.add_argument("--init-git", action="store_true", default=False, help="Always initialize git in the target directory after generation.")
     parser.add_argument("--no-init-git", action="store_true", default=False, help="Do not initialize git even for a new target directory.")
+    parser.add_argument("--interactive", "-i", action="store_true", default=False, help="Start the interactive project creation wizard.")
 
     args = parser.parse_args(argv)
 
@@ -178,6 +179,50 @@ def main(argv: list[str] | None = None) -> None:
         for name in sorted(PROFILE_COMPONENTS.keys()):
             components = ", ".join(PROFILE_COMPONENTS[name])
             Logger.info(f"  {name:10s} → {components}")
+        return
+
+    # Interactive wizard mode
+    if args.interactive:
+        from core.generator.wizard import Wizard
+        wiz = Wizard(interactive=True)
+        answers = wiz.run()
+        cfg = copy.deepcopy(answers.to_config())
+
+        # Allow CLI overrides on top of wizard answers
+        if args.profile:
+            cfg["generate"]["profile"] = args.profile
+        if args.license_name:
+            cfg["project"]["license"] = args.license_name
+        if args.author is not None:
+            cfg["project"]["author"] = args.author
+        if args.contact is not None:
+            cfg["project"]["contact"] = args.contact
+
+        target_dir = args.target_dir or Path.cwd() / answers.name
+        target_dir = Path(target_dir).resolve()
+        target_preexisted = target_dir.exists()
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        policy = ConflictPolicy.OVERWRITE if args.force else None
+        components = [args.component] if args.component else None
+
+        Logger.info(f"Generating into: {target_dir}")
+        result = generate(
+            target_dir=target_dir,
+            components=components,
+            policy=policy or ConflictPolicy.OVERWRITE,
+            dry_run=dry_run,
+            config=cfg,
+        )
+        for f in result.created:
+            Logger.success(f"  + {f}")
+        for f in result.errors:
+            Logger.error(f"  ✗ {f}")
+        Logger.info(f"Done: {result.summary()}")
+
+        if result.errors:
+            sys.exit(1)
+        _maybe_init_git(target_dir, target_preexisted, args, cfg)
         return
 
     # Resolve target directory

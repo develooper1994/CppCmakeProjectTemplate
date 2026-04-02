@@ -29,6 +29,7 @@ CORE_COMMANDS = {
     "generate": "core.commands.generate",
     "license":  "core.commands.license",
     "lib":      "core.commands.lib",
+    "new":      "core.commands.new",
     "perf":     "core.commands.perf",
     "presets":  "core.commands.presets",
     "release":  "core.commands.release",
@@ -176,11 +177,13 @@ Core Commands:
                Subcommands: check, tidy-fix [--dry-run] [--apply], iwyu
   generate     Generate project files from tool.toml
                Flags: --target-dir, --component, --merge, --force, --diff, --list,
-                      --profile, --with, --without, --explain, --init-git
+                      --profile, --with, --without, --explain, --init-git, --interactive
   license      Recommend and apply a project license
                Subcommands: recommend, list
   lib          Library CRUD (add/remove/rename/move/deps/export/info/test)
                Subcommands: add, remove, rename, move, list, tree, info, deps, export, doctor
+  new          Create a new project (interactive wizard)
+               Usage: tool new [ProjectName] [--non-interactive] [--target-dir PATH]
   perf         Performance analysis and optimization
                Subcommands: size, build-time, track, check-budget, bench, valgrind, graph
   presets      Generate and manage CMakePresets.json
@@ -202,6 +205,8 @@ Plugins (scripts/plugins/):
   hello        Example plugin
 
 Examples:
+  tool new MyProject                  # Interactive wizard → ./MyProject
+  tool new MyProject --non-interactive # Quick project with defaults
   tool build check --no-sync          # Build + test (skip dependency sync)
   tool build --lto --profile hardened # Release build with LTO + hardening
   tool generate --profile minimal --without ci --without vscode --explain

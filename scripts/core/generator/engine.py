@@ -149,8 +149,8 @@ PROFILE_DEFAULT_FEATURES: dict[str, set[str]] = {
     "full": set(),
     "minimal": {"ci", "docker", "vscode", "extension"},
     "library": {"apps", "ci", "docker", "vscode", "extension"},
-    "app": {"ci", "docker", "extension"},
-    "embedded": {"extension"},
+    "app": {"extension"},
+    "embedded": {"extension", "docker"},
 }
 
 

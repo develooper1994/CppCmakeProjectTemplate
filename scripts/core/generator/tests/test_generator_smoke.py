@@ -275,3 +275,35 @@ class TestSmokeScenarios:
         assert len(result.errors) == 0
         assert not (tmp_path / ".github/workflows/ci.yml").exists()
         assert not (tmp_path / ".vscode/settings.json").exists()
+
+    def test_app_profile_disables_extension(self, tmp_path):
+        """App profile should disable extension generation but keep CI."""
+        cfg = _make_config(
+            **{
+                "generate.profile": "app",
+                "project.libs": [{"name": "svc", "type": "normal", "deps": []}],
+                "project.apps": [{"name": "runner", "deps": ["svc"], "gui": False}],
+            }
+        )
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        assert len(result.errors) == 0
+        # App profile should keep apps and libs
+        assert (tmp_path / "libs/svc/CMakeLists.txt").exists()
+        assert (tmp_path / "apps/runner/CMakeLists.txt").exists()
+        # Extension should be disabled by default for app profile
+        assert not (tmp_path / "extension/package.json").exists()
+
+    def test_embedded_profile_keeps_libs_disables_extension(self, tmp_path):
+        """Embedded profile should keep static libs, omit extension."""
+        cfg = _make_config(
+            **{
+                "generate.profile": "embedded",
+                "project.libs": [{"name": "driver", "type": "normal", "deps": []}],
+                "project.apps": [{"name": "firmware", "deps": ["driver"], "gui": False}],
+            }
+        )
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        assert len(result.errors) == 0
+        assert (tmp_path / "libs/driver/CMakeLists.txt").exists()
+        assert (tmp_path / "apps/firmware/CMakeLists.txt").exists()
+        assert not (tmp_path / "extension/package.json").exists()
