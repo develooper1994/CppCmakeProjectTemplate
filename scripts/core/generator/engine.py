@@ -259,6 +259,7 @@ COMPONENT_REGISTRY: dict[str, tuple[str, str]] = {
     "deps": ("core.generator.deps", "generate_all"),
     "configs": ("core.generator.configs", "generate_all"),
     "presets": ("core.generator.presets", "generate_all"),
+    "docs": ("core.generator.docs", "generate_all"),
 }
 
 PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {

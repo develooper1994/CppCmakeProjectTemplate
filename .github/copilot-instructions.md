@@ -49,9 +49,9 @@ python3 scripts/tool.py build check --no-sync
 
 ## Documentation Governance
 
-- **`docs/PLANS.md`** = upcoming/active work only. **`docs/CAPABILITIES.md`** = completed features.
-- When a feature is done: move its entry from PLANS.md → CAPABILITIES.md and delete it from PLANS.md.
-- New planned work goes into PLANS.md first.
+- **`docs/ROADMAP.md`** = upcoming/active work & ideas. **`docs/CAPABILITIES.md`** = completed features.
+- When a feature is done: move its entry from ROADMAP.md → CAPABILITIES.md and delete it from ROADMAP.md.
+- New planned work goes into ROADMAP.md first.
 
 ## Mandatory Rules
 

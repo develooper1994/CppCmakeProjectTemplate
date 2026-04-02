@@ -24,7 +24,7 @@ The full project README has been split into focused topic pages inside the `docs
 - **Performance:** [docs/PERFORMANCE.md](docs/PERFORMANCE.md)
 - **CI / Quality Guards:** [docs/CI.md](docs/CI.md)
 - **Capabilities Reference:** [docs/CAPABILITIES.md](docs/CAPABILITIES.md)
-- **Ideas & Future Directions:** [docs/IDEAS.md](docs/IDEAS.md)
+- **Roadmap & Ideas:** [docs/ROADMAP.md](docs/ROADMAP.md)
 
 If you'd like these pages further split (for example `docs/BUILDING.md` → `docs/VS_CODE.md`, `docs/PRESETS.md`), tell me which area to subdivide next.
 
@@ -53,4 +53,4 @@ python3 scripts/tool.py build check
 ./build/gcc-debug-static-x86_64/apps/main_app/main_app
 ```
 
-Full documentation: [docs/README_FULL.md](docs/README_FULL.md) | Plans: [docs/PLANS.md](docs/PLANS.md) | Capabilities: [docs/CAPABILITIES.md](docs/CAPABILITIES.md) | Embedded guide: [docs/EMBEDDED.md](docs/EMBEDDED.md)
+Full documentation: [docs/README_FULL.md](docs/README_FULL.md) | Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) | Capabilities: [docs/CAPABILITIES.md](docs/CAPABILITIES.md) | Embedded guide: [docs/EMBEDDED.md](docs/EMBEDDED.md)

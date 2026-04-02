@@ -21,7 +21,7 @@ This document outlines the rules and guidelines for AI agents interacting with t
 - **Core Logic:** `scripts/core/commands/` contains the main command implementations (build, lib, sol).
 - **Core Utilities:** `scripts/core/utils/common.py` provides shared infrastructure (Logger, Config, Result).
 - **Plugins:** `scripts/plugins/` hosts dynamic commands (e.g., setup, hooks, init).
-- **Documentation:** `docs/PLANS.md` outlines the project roadmap.
+- **Documentation:** `docs/ROADMAP.md` outlines the project roadmap and ideas.
 
 ## Recommended Workflows
 
