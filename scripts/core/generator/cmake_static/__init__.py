@@ -105,6 +105,6 @@ def generate_all(ctx, target_dir: str) -> dict[str, str]:
         if src.exists():
             result[rel_path] = src.read_text(encoding="utf-8")
         else:
-            Logger.warning(f"Static template not found: {src}")
+            Logger.warn(f"Static template not found: {src}")
 
     return result

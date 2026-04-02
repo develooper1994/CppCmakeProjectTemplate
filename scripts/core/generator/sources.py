@@ -34,7 +34,7 @@ def _gen_lib_header(lib: dict[str, Any], ctx: ProjectContext) -> str:
     parts = [
         "#pragma once",
         "",
-        "#include <string>",
+        "#include <string_view>",
     ]
 
     if has_export and not is_header_only:
@@ -43,7 +43,7 @@ def _gen_lib_header(lib: dict[str, Any], ctx: ProjectContext) -> str:
     parts.extend(["", f"namespace {ns} {{", ""])
 
     export_macro = f"{name.upper()}_EXPORT " if (has_export and not is_header_only) else ""
-    parts.append(f"{export_macro}std::string get_name();")
+    parts.append(f"{export_macro}std::string_view get_name();")
 
     parts.extend(["", f"}} // namespace {ns}", ""])
     return "\n".join(parts)
@@ -59,7 +59,7 @@ def _gen_lib_source(lib: dict[str, Any], ctx: ProjectContext) -> str:
 namespace {ns} {{
 
 // cppcheck-suppress unusedFunction
-std::string get_name() {{
+std::string_view get_name() {{
     return "{name}";
 }}
 
@@ -206,6 +206,7 @@ python3 scripts/tool.py build check
 
 def generate_all(ctx: ProjectContext, target_dir: Path) -> dict[str, str]:
     files: dict[str, str] = {}
+    is_minimal = str(getattr(ctx, "profile", "full") or "full").strip().lower() == "minimal"
 
     # Root files
     files["VERSION"] = _gen_version(ctx)
@@ -223,15 +224,14 @@ def generate_all(ctx: ProjectContext, target_dir: Path) -> dict[str, str]:
         if not is_header_only:
             files[f"libs/{name}/src/{name}.cpp"] = _gen_lib_source(lib, ctx)
 
-        # README
-        files[f"libs/{name}/README.md"] = _gen_lib_readme(lib, ctx)
+        # README / tests are omitted for the lighter minimal profile
+        if not is_minimal:
+            files[f"libs/{name}/README.md"] = _gen_lib_readme(lib, ctx)
 
-        # Unit test
-        if ctx.tests.get("auto_generate", True):
+        if ctx.tests.get("auto_generate", True) and not is_minimal:
             files[f"tests/unit/{name}/{name}_test.cpp"] = _gen_unit_test(lib, ctx)
 
-        # Fuzz harness
-        if lib.get("fuzz") and ctx.tests.get("fuzz"):
+        if lib.get("fuzz") and ctx.tests.get("fuzz") and not is_minimal:
             files[f"tests/fuzz/fuzz_{name}.cpp"] = _gen_fuzz_harness(lib, ctx)
 
     for app in ctx.apps:

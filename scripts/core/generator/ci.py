@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 if __name__ != "__main__":
-    from core.generator.engine import ProjectContext
+    from core.generator.engine import ProjectContext, is_feature_enabled
 
 
 # Workflow files tracked by the generator
@@ -45,6 +45,9 @@ def _find_project_root() -> Path:
 
 
 def generate_all(ctx: ProjectContext, target_dir: Path) -> dict[str, str]:
+    if not is_feature_enabled(ctx, "ci"):
+        return {}
+
     root = _find_project_root()
     files: dict[str, str] = {}
 

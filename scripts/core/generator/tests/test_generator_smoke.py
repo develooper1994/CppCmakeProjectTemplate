@@ -220,3 +220,90 @@ class TestSmokeScenarios:
         # lib_b should depend on lib_a
         lib_b = (tmp_path / "libs/lib_b/CMakeLists.txt").read_text()
         assert "lib_a" in lib_b
+
+    def test_blank_author_uses_git_fallback_in_license(self, tmp_path, monkeypatch):
+        """Blank author should fall back to git config when generating LICENSE."""
+        import subprocess
+
+        def fake_run(cmd, **kwargs):
+            text = kwargs.get("text", False)
+            if cmd[:3] == ["git", "config", "user.name"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="Template User\n" if text else b"Template User\n")
+            if cmd[:3] == ["git", "config", "user.email"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="template@example.com\n" if text else b"template@example.com\n")
+            return subprocess.CompletedProcess(cmd, 1, stdout="" if text else b"")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        cfg = _make_config(**{"project.author": "", "project.contact": ""})
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+
+        assert len(result.errors) == 0
+        license_text = (tmp_path / "LICENSE").read_text()
+        assert "Template User" in license_text
+        assert "develooper1994" not in license_text
+
+    def test_minimal_profile_skips_heavy_generated_artifacts(self, tmp_path):
+        """Minimal profile should keep the generated repo lighter."""
+        cfg = _make_config(**{"generate.profile": "minimal"})
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+
+        assert len(result.errors) == 0
+        assert not (tmp_path / "extension/package.json").exists()
+        assert not (tmp_path / "docker/Dockerfile").exists()
+
+    def test_library_profile_skips_app_scaffolding(self, tmp_path):
+        """Library profile should omit app entrypoints to keep the repo focused."""
+        cfg = _make_config(
+            **{
+                "generate.profile": "library",
+                "project.libs": [{"name": "core_only", "type": "normal", "deps": []}],
+                "project.apps": [{"name": "demo_app", "deps": ["core_only"], "gui": False}],
+            }
+        )
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+
+        assert len(result.errors) == 0
+        assert (tmp_path / "libs/core_only/CMakeLists.txt").exists()
+        assert not (tmp_path / "apps/demo_app/src/main.cpp").exists()
+
+    def test_without_features_can_disable_ci_and_vscode(self, tmp_path):
+        """Feature toggles should allow opting out of CI and editor metadata."""
+        cfg = _make_config(**{"generate.without": ["ci", "vscode"]})
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+
+        assert len(result.errors) == 0
+        assert not (tmp_path / ".github/workflows/ci.yml").exists()
+        assert not (tmp_path / ".vscode/settings.json").exists()
+
+    def test_app_profile_disables_extension(self, tmp_path):
+        """App profile should disable extension generation but keep CI."""
+        cfg = _make_config(
+            **{
+                "generate.profile": "app",
+                "project.libs": [{"name": "svc", "type": "normal", "deps": []}],
+                "project.apps": [{"name": "runner", "deps": ["svc"], "gui": False}],
+            }
+        )
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        assert len(result.errors) == 0
+        # App profile should keep apps and libs
+        assert (tmp_path / "libs/svc/CMakeLists.txt").exists()
+        assert (tmp_path / "apps/runner/CMakeLists.txt").exists()
+        # Extension should be disabled by default for app profile
+        assert not (tmp_path / "extension/package.json").exists()
+
+    def test_embedded_profile_keeps_libs_disables_extension(self, tmp_path):
+        """Embedded profile should keep static libs, omit extension."""
+        cfg = _make_config(
+            **{
+                "generate.profile": "embedded",
+                "project.libs": [{"name": "driver", "type": "normal", "deps": []}],
+                "project.apps": [{"name": "firmware", "deps": ["driver"], "gui": False}],
+            }
+        )
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        assert len(result.errors) == 0
+        assert (tmp_path / "libs/driver/CMakeLists.txt").exists()
+        assert (tmp_path / "apps/firmware/CMakeLists.txt").exists()
+        assert not (tmp_path / "extension/package.json").exists()

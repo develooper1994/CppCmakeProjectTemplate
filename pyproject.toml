@@ -33,7 +33,7 @@ description = "CLI for CppCmakeProjectTemplate"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-  { name = "develooper1994" }
+  { name = "Template Maintainer" }
 ]
 dependencies = [
   "Jinja2>=3.1",
