@@ -3,7 +3,7 @@
 ## Project Overview
 
 This is a **professional C++ CMake project template** with full automation tooling.
-Read `AGENTS.md` and `GEMINI.md` for the complete reference.
+Read `AGENTS.md` for the complete reference.
 
 ## Critical: Use Existing Tools
 
