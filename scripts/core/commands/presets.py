@@ -209,6 +209,12 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
     if compiler == "msvc":
         if arch not in _MSVC_ARCH_MAP:
             return f"MSVC preset not generated for non-Windows arch '{arch}'"
+    if compiler == "msvc" and any(v in name for v in ("sycl", "SYCL")):
+        return "SYCL (-fsycl) is not supported by MSVC"
+    if compiler == "cuda" and any(v in name for v in ("sycl", "SYCL")):
+        return "SYCL and CUDA use different GPU compute models"
+    if "metal" in name.lower() and not any(p in arch for p in ("macos", "darwin", "apple")):
+        return "Metal is only available on macOS / Apple platforms"
 
     # Embedded / bare-metal targets (arm-none-eabi, cortex-m0, cortex-m7, etc.)
     _EMBEDDED_PATTERNS = ("arm-none-eabi", "arm-cortex-")

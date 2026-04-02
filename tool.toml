@@ -214,6 +214,10 @@ skip_combinations = [
     "*-*-dynamic-arm-cortex-*",  # embedded targets are bare-metal (static only)
     "clang-*-*-*mingw*",         # MinGW only supports gcc
     "cuda-*-*-*mingw*",          # CUDA does not support MinGW cross-compilation
+    # SYCL: -fsycl not supported by MSVC
+    # "msvc-*-*-*sycl*",
+    # Metal: macOS-only (skip on non-Apple platforms)
+    # "*-*-*-*metal*-linux-*",
 ]
 
 # ---------------------------------------------------------------------------
@@ -252,6 +256,22 @@ size_flag_candidates = [
     ["", "-flto"],
     ["", "-fno-exceptions"],
 ]
+
+# ---------------------------------------------------------------------------
+# [gpu] — GPU compute backend configuration
+# ---------------------------------------------------------------------------
+[gpu]
+# Enable flags for GPU compute backends (all OFF by default).
+# Pass -DENABLE_CUDA=ON, -DENABLE_HIP=ON, -DENABLE_SYCL=ON, -DENABLE_METAL=ON
+# or use CLI: tool build --cuda / --hip / --sycl / --metal
+
+# SYCL backend targets (comma-separated).
+# Values: spir64 (generic), spir64_gen (Intel AOT), nvidia_gpu_sm_80, amd_gpu_gfx90a
+# sycl_targets = "spir64"
+
+# Metal SDK (macOS only).
+# Values: macosx, iphoneos, iphonesimulator
+# metal_sdk = "macosx"
 
 # ---------------------------------------------------------------------------
 # [embedded] — cross-compilation / embedded defaults
