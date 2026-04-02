@@ -11,7 +11,10 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
   - `lib`: Library management (add, remove, list, etc.).
   - `sol`: Project orchestration (presets, toolchains, CI, doctor).
   - `new`: Interactive project creation wizard.
+  - `adopt`: In-place adoption of existing C++ projects (auto-detect sources, generate tool.toml + CMake).
   - `generate`: Generate project from `tool.toml` (profiles, feature toggles).
+  - `validate`: Schema-based validation for `tool.toml` (typos, type checks, cross-references).
+  - `completion`: Shell completion scripts for Bash/Zsh/Fish.
   - `license`: License recommendation and selection.
 - **Plugin Commands:** Dynamically discovered from `scripts/plugins/` (e.g., `hello`, `setup`, `init`).
 - **Structured Output:** Use `--json` flag for machine-readable output.
@@ -21,7 +24,7 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
 ## Key Files & Directories
 
 - **Dispatcher:** `scripts/tool.py` is the main entry point.
-- **Core Logic:** `scripts/core/commands/` (build, lib, sol, generate, new, license)
+- **Core Logic:** `scripts/core/commands/` (build, lib, sol, generate, new, adopt, validate, completion, license)
 - **Generator Engine:** `scripts/core/generator/` (engine, wizard, profiles, merge, manifest)
 - **Core Utilities:** `scripts/core/utils/common.py`
 - **Plugins:** `scripts/plugins/` (dynamic commands)

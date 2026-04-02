@@ -19,10 +19,15 @@ This document lists all completed and production-ready features.
 ## Project Creation & Generation
 
 - **Interactive Wizard (`tool new`):** Prompts for name, author, license, C++ standard, profile, libs, apps, feature toggles. `--non-interactive` uses git config defaults. Generates into subdirectory with auto `git init`.
+- **In-Place Adoption (`tool adopt`):** Like `cargo init` — auto-detects existing C++ sources, identifies libraries and apps (via `main()` heuristic), generates `tool.toml` + CMake scaffolding around them. Supports `--non-interactive` for CI and `--force` to overwrite.
 - **Generation Profiles:** 5 profiles (`full`, `minimal`, `library`, `app`, `embedded`) control which components are generated.
 - **Feature Toggles:** `--with`/`--without` flags for granular control. `--explain` previews effective settings.
 - **License Engine (`tool license`):** `recommend` (decision tree), `list` (7 licenses), `--apply` writes to `tool.toml`.
 - **Generator Debug & Observability:** `--debug` (tracebacks + per-component timing), `--verbose` (progress messages), `--json` (machine-readable output).
+- **Generated File Cleanup:** When a component is disabled (e.g. `--without ci`), previously generated files tracked in the manifest are automatically removed. User-modified files are preserved with a warning.
+- **CMakePresets Generator Component:** `presets` registered in the generator engine — `tool generate` also regenerates `CMakePresets.json` from `tool.toml [presets]`.
+- **Config Validation (`tool validate`):** Schema-based validation for `tool.toml` — reports unknown sections/keys, type mismatches, invalid enum values, duplicate lib/app names, broken app→lib dependencies, and Levenshtein-based "did you mean?" typo suggestions.
+- **DevContainer Generation:** `.devcontainer/devcontainer.json` auto-generated with Ubuntu 24.04, CMake + Python features, C++ VS Code extensions, and `postCreateCommand` running `tool setup --install`. Gated by `devcontainer` feature flag (enabled in `full` profile).
 
 ## Build System
 
@@ -143,6 +148,7 @@ This document lists all completed and production-ready features.
 
 ## Configuration
 
+- **Shell Completion (`tool completion`):** Generates Bash, Zsh, and Fish completion scripts for all CLI commands, subcommands, and global flags. `tool completion bash|zsh|fish` outputs the script; `--install` auto-installs for the current shell.
 - **`tool.toml`:** 9+ sections. Read by `config_loader.py` via `tomllib`/`tomli`. CLI args override.
 - **Session State:** `[session]` section. `tool session save/load/set`.
 
