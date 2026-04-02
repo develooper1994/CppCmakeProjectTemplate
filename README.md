@@ -20,6 +20,7 @@ The full project README has been split into focused topic pages inside the `docs
 - **Project Orchestration:** [docs/PROJECT_ORCHESTRATION.md](docs/PROJECT_ORCHESTRATION.md)
 - **Compile-time Build Info:** [docs/BUILD_INFO.md](docs/BUILD_INFO.md)
 - **Starting a New Project:** [docs/STARTING_PROJECT.md](docs/STARTING_PROJECT.md)
+- **Performance:** [docs/PERFORMANCE.md](docs/PERFORMANCE.md)
 - **CI / Quality Guards:** [docs/CI.md](docs/CI.md)
 
 If you'd like these pages further split (for example `docs/BUILDING.md` → `docs/VS_CODE.md`, `docs/PRESETS.md`), tell me which area to subdivide next.
@@ -27,6 +28,16 @@ If you'd like these pages further split (for example `docs/BUILDING.md` → `doc
 This repository's full documentation was long; the complete README has been moved to the `docs/README_FULL.md` file. The short quick-start is below — for all details, examples and the full reference, see the full document.
 
 ## Quick Start
+
+```bash
+# Create a new project interactively
+python3 scripts/tool.py new MyProject
+
+# Or non-interactive with defaults
+python3 scripts/tool.py new MyProject --non-interactive
+```
+
+For an existing clone:
 
 ```bash
 # 1. Install mandatory dependencies (Ubuntu/Debian)
@@ -39,10 +50,4 @@ python3 scripts/tool.py build check
 ./build/gcc-debug-static-x86_64/apps/main_app/main_app
 ```
 
-Full documentation: [docs/README_FULL.md](docs/README_FULL.md)
-
-Project plans: [docs/PLANS.md](docs/PLANS.md)
-
-Embedded guide: [docs/EMBEDDED.md](docs/EMBEDDED.md)
-
-If you prefer the README split into smaller topic files (e.g. BUILDING.md, TESTING.md), tell me and I will split it further.
+Full documentation: [docs/README_FULL.md](docs/README_FULL.md) | Project plans: [docs/PLANS.md](docs/PLANS.md) | Embedded guide: [docs/EMBEDDED.md](docs/EMBEDDED.md)

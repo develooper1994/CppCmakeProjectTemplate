@@ -13,7 +13,22 @@ Read `AGENTS.md` and `GEMINI.md` for the complete reference.
 python3 scripts/tool.py lib --help       # Library management
 python3 scripts/tool.py sol --help       # Project orchestration
 python3 scripts/tool.py build --help     # Build automation
+python3 scripts/tool.py new --help       # Project creation wizard
+python3 scripts/tool.py generate --help  # Code generation with profiles
+python3 scripts/tool.py license --help   # License recommendation
 ```
+
+## Creating a New Project
+
+```bash
+python3 scripts/tool.py new MyProject               # interactive wizard
+python3 scripts/tool.py new MyProject --non-interactive  # CI-friendly defaults
+python3 scripts/tool.py generate --profile library   # profile-based generation
+python3 scripts/tool.py generate --profile minimal --with ci --without fuzz  # fine-tuned
+python3 scripts/tool.py generate --explain           # preview effective settings
+```
+
+Profiles: `full` (default), `minimal`, `library`, `app`, `embedded`
 
 ## Adding a Library
 

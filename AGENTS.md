@@ -10,6 +10,9 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
   - `build`: Build, check, clean, deploy.
   - `lib`: Library management (add, remove, list, etc.).
   - `sol`: Project orchestration (presets, toolchains, CI, doctor).
+  - `new`: Interactive project creation wizard.
+  - `generate`: Generate project from `tool.toml` (profiles, feature toggles).
+  - `license`: License recommendation and selection.
 - **Plugin Commands:** Dynamically discovered from `scripts/plugins/` (e.g., `hello`, `setup`, `init`).
 - **Structured Output:** Use `--json` flag for machine-readable output.
 - **Non-interactive Mode:** Use `--yes` flag for automated execution.
@@ -18,7 +21,8 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
 ## Key Files & Directories
 
 - **Dispatcher:** `scripts/tool.py` is the main entry point.
-- **Core Logic:** `scripts/core/commands/` (build, lib, sol)
+- **Core Logic:** `scripts/core/commands/` (build, lib, sol, generate, new, license)
+- **Generator Engine:** `scripts/core/generator/` (engine, wizard, profiles, merge, manifest)
 - **Core Utilities:** `scripts/core/utils/common.py`
 - **Plugins:** `scripts/plugins/` (dynamic commands)
 - **Documentation:** `docs/PLANS.md` outlines the project roadmap.
@@ -45,6 +49,13 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
     ```bash
     python3 scripts/tool.py build check --no-sync
     ```
+
+### Project Creation
+
+- **Interactive Wizard:** `python3 scripts/tool.py new <name>`
+- **Non-Interactive:** `python3 scripts/tool.py new <name> --non-interactive`
+- **With Profile:** `python3 scripts/tool.py generate --profile library --target-dir ./MyLib`
+- **License Help:** `python3 scripts/tool.py license recommend`
 
 ### Library Management
 

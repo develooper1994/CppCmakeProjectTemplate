@@ -8,11 +8,20 @@ This is a **professional C++ CMake project template** with full automation tooli
 ## Quick Reference
 
 ```bash
+# Create a new project (interactive wizard)
+python3 scripts/tool.py new MyProject
+
 # Build + test (always run this after changes)
 python3 scripts/tool.py build check --no-sync
 
 # Add a library
 python3 scripts/tool.py lib add my_lib
+
+# Generate project from tool.toml (with profile)
+python3 scripts/tool.py generate --profile library --explain
+
+# License recommendation
+python3 scripts/tool.py license recommend
 
 # All library management
 python3 scripts/tool.py lib --help
@@ -34,12 +43,13 @@ cmake/          CMake modules + auto-generated C++ headers
 scripts/
   tool.py       → Central Dispatcher (Grand Entrypoint)
   core/
-    commands/   → Core logic (build, lib, sol)
+    commands/   → Core logic (build, lib, sol, generate, new, license)
+    generator/  → Project generator engine, wizard, profiles
     utils/      → Infrastructure (common.py)
   plugins/      → Dynamic plugins (setup, hooks, init)
 extension/      VS Code extension (C++ CMake Scaffolder)
 docs/
-  PLANS.md      → Strategic Roadmap (Phase 1-7)
+  PLANS.md      → Strategic Roadmap
 ```
 
 ## Key Design Principles
