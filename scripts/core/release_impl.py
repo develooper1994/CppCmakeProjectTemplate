@@ -30,7 +30,7 @@ import sys
 from pathlib import Path as _Path
 
 # Ensure `scripts/` is on sys.path so we can import `core.*` packages.
-SCRIPTS_DIR = _Path(__file__).resolve().parent
+SCRIPTS_DIR = _Path(__file__).resolve().parent.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 

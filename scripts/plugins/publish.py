@@ -2,7 +2,7 @@
 """
 Publish a .vsix file to GitHub Releases for the current repository.
 
-Usage: python3 scripts/publish_vsix.py [path/to/file.vsix] [tag]
+Usage: tool publish [path/to/file.vsix] [tag]
 
 If no file is provided the first .vsix in extension/ is used. If no tag
 is provided, 'v1.03' is used by default (this repo already has that tag).
@@ -13,15 +13,23 @@ This script will try to extract a token embedded in the remote.origin.url
 """
 from __future__ import annotations
 
+PLUGIN_META = {
+    "name": "publish",
+    "description": "Publish a .vsix extension to GitHub Releases.",
+    "args": [
+        {"name": "file", "help": "Path to .vsix file (auto-detected if omitted)", "type": "string", "required": False},
+        {"name": "tag", "help": "Git tag for the release", "type": "string", "required": False},
+    ],
+}
+
 import json
 import os
 import re
 import sys
 from pathlib import Path
 
-# Ensure scripts/ is on sys.path so `core.*` imports work whether the module
-# is executed directly or imported as `scripts.publish_vsix`.
-_SCRIPTS = Path(__file__).resolve().parent
+# Ensure scripts/ is on sys.path so `core.*` imports work
+_SCRIPTS = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 from core.utils.common import run_capture
@@ -126,22 +134,29 @@ def parse_owner_repo() -> tuple[str, str]:
     raise SystemExit("Could not determine owner/repo from git remote URL")
 
 
-def main():
-    path_arg = sys.argv[1] if len(sys.argv) > 1 else None
-    tag = sys.argv[2] if len(sys.argv) > 2 else "v1.03"
-    vsix = get_vsix(path_arg)
-    token = get_token()
-    if not token:
-        raise SystemExit("No GitHub token found (set GITHUB_TOKEN or embed token in remote.origin.url)")
-    owner, repo = parse_owner_repo()
-    print(f"Creating release {tag} for {owner}/{repo}...")
-    rel = create_release(owner, repo, tag, token, tag, f"Automated release for {tag}")
-    upload_url = rel.get('upload_url')
-    if not upload_url:
-        raise SystemExit("Release created but no upload_url returned")
-    print(f"Uploading asset {vsix.name}...")
-    asset = upload_asset(upload_url, vsix, token)
-    print(f"Uploaded: {asset.get('browser_download_url')}")
+def main(argv: list[str] | None = None):
+    if argv is not None:
+        old_argv = sys.argv
+        sys.argv = ["tool publish"] + argv
+    try:
+        path_arg = sys.argv[1] if len(sys.argv) > 1 else None
+        tag = sys.argv[2] if len(sys.argv) > 2 else "v1.03"
+        vsix = get_vsix(path_arg)
+        token = get_token()
+        if not token:
+            raise SystemExit("No GitHub token found (set GITHUB_TOKEN or embed token in remote.origin.url)")
+        owner, repo = parse_owner_repo()
+        print(f"Creating release {tag} for {owner}/{repo}...")
+        rel = create_release(owner, repo, tag, token, tag, f"Automated release for {tag}")
+        upload_url = rel.get('upload_url')
+        if not upload_url:
+            raise SystemExit("Release created but no upload_url returned")
+        print(f"Uploading asset {vsix.name}...")
+        asset = upload_asset(upload_url, vsix, token)
+        print(f"Uploaded: {asset.get('browser_download_url')}")
+    finally:
+        if argv is not None:
+            sys.argv = old_argv
 
 
 if __name__ == '__main__':

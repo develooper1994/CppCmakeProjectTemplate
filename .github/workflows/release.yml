@@ -58,8 +58,8 @@ jobs:
           VERSION_TO_SET="${BASE_VERSION}+${REVISION}"
           echo "Version to set: $VERSION_TO_SET"
           if [ "$APPLY" = "true" ]; then
-            python3 scripts/release.py set "$VERSION_TO_SET"
-            python3 scripts/release.py tag --push
+            python3 scripts/tool.py release set "$VERSION_TO_SET"
+            python3 scripts/tool.py release tag --push
           else
-            python3 scripts/release.py set "$VERSION_TO_SET" --dry-run
+            python3 scripts/tool.py release set "$VERSION_TO_SET" --dry-run
           fi
