@@ -5,12 +5,7 @@ from typing import Optional
 
 from .paths import paths_for
 
-try:
-    from .jinja_helpers import render_template_file as _render_template_file
-    _USE_JINJA_EXPORT = True
-except Exception:
-    _render_template_file = None
-    _USE_JINJA_EXPORT = False
+from .jinja_helpers import render_template_file as _render_template_file, JINJA_AVAILABLE as _USE_JINJA_EXPORT
 
 
 def create_export_snippet(name: str, root: Optional[Path] = None, dry_run: bool = False) -> Path:

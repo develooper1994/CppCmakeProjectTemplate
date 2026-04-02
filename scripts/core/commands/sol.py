@@ -29,12 +29,7 @@ from core.utils.command_utils import wrap_command
 import json
 import re
 from functools import lru_cache
-try:
-    from core.libpkg.jinja_helpers import render_template_file as _render_template_file
-    _USE_JINJA_SOL = True
-except Exception:
-    _render_template_file = None
-    _USE_JINJA_SOL = False
+from core.libpkg.jinja_helpers import render_template_file as _render_template_file, JINJA_AVAILABLE as _USE_JINJA_SOL
 
 TOOLCHAINS_DIR = PROJECT_ROOT / "cmake" / "toolchains"
 PRESETS_FILE = PROJECT_ROOT / "CMakePresets.json"

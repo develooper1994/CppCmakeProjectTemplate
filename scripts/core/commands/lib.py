@@ -27,12 +27,7 @@ from core.libpkg import (
     rename_library,
     move_library,
 )
-try:
-    from core.libpkg.jinja_helpers import render_template_file as _render_template_file
-    _USE_JINJA_LIBCMD = True
-except Exception:
-    _render_template_file = None
-    _USE_JINJA_LIBCMD = False
+from core.libpkg.jinja_helpers import render_template_file as _render_template_file, JINJA_AVAILABLE as _USE_JINJA_LIBCMD
 
 LIBS_DIR = PROJECT_ROOT / "libs"
 

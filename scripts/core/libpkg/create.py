@@ -33,12 +33,7 @@ from core.utils.cmake_parser import (
     remove_target_link as _remove_cmake_references,
 )
 
-try:
-    from .jinja_helpers import render_template_file as _render_template_file
-    _USE_JINJA_CREATE = True
-except Exception:
-    _render_template_file = None
-    _USE_JINJA_CREATE = False
+from .jinja_helpers import render_template_file as _render_template_file, JINJA_AVAILABLE as _USE_JINJA_CREATE
 
 
 PROTECTED_LIBS = {"dummy_lib"}
