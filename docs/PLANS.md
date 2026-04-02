@@ -12,7 +12,7 @@ For completed capabilities, see [CAPABILITIES.md](CAPABILITIES.md).
 
 ---
 
-##  📜 Governance
+## 📜 Governance
 
 - **SemVer:** Semantic versioning for CLI and templates.
 - **LTS Support:** Maintain both Latest and LTS release streams.

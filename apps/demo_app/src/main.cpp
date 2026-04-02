@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-#include "dummy_lib/greet.h"
+#include "dummy_lib/dummy_lib.h"
 
 // ---------------------------------------------------------------------------
 // Lightweight runtime performance metrics helper.

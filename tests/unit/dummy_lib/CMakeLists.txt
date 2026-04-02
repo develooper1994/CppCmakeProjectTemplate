@@ -1,4 +1,4 @@
-add_executable(dummy_lib_tests greet_test.cpp)
+add_executable(dummy_lib_tests dummy_lib_test.cpp)
 
 target_link_libraries(dummy_lib_tests
     PRIVATE

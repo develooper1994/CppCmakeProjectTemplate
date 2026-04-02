@@ -1,5 +1,5 @@
 #include <iostream>
-#include "dummy_lib/greet.h"
+#include "dummy_lib/dummy_lib.h"
 #include "ProjectInfo.h"   // BuildInfo.h + FeatureFlags.h + BuildInfoHelper.h
 
 int main()

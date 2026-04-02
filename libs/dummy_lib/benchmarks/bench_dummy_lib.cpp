@@ -1,5 +1,5 @@
 /**
- * bench_greet.cpp — Google Benchmark: compute-intensive math benchmarks.
+ * bench_dummy_lib.cpp — Google Benchmark: compute-intensive math benchmarks.
  *
  * Demonstrates real performance differences between:
  *   • Sieve of Eratosthenes  (cache-friendly array access)
@@ -18,9 +18,9 @@
  *   LTO     : cmake --preset gcc-release-static-x86_64 -DENABLE_BENCHMARKS=ON -DENABLE_LTO=ON
  *
  * Run:
- *   ./build/<preset>/libs/dummy_lib/bench_greet
- *   ./build/<preset>/libs/dummy_lib/bench_greet --benchmark_filter=BM_Sudoku
- *   ./build/<preset>/libs/dummy_lib/bench_greet --benchmark_format=json \
+ *   ./build/<preset>/libs/dummy_lib/bench_dummy_lib
+ *   ./build/<preset>/libs/dummy_lib/bench_dummy_lib --benchmark_filter=BM_Sudoku
+ *   ./build/<preset>/libs/dummy_lib/bench_dummy_lib --benchmark_format=json \
  *       --benchmark_out=build_logs/bench_results.json
  *
  * Expected optimization ratios (Debug → Release):
@@ -245,7 +245,7 @@ BENCHMARK(BM_FibRecursive)->Arg(20)->Arg(30)->Arg(35);
 // ===========================================================================
 // Library-level call (kept for regression baseline)
 // ===========================================================================
-#include <dummy_lib/greet.h>
+#include <dummy_lib/dummy_lib.h>
 
 static void BM_Greet_Baseline(benchmark::State& state) {
     for (auto _ : state) {

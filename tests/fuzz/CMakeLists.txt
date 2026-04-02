@@ -6,10 +6,10 @@ endif()
 
 include(Fuzzing)
 
-# Example fuzz target that exercises dummy_lib API.
-add_fuzz_target(fuzz_dummy_lib SOURCES dummy_fuzzer.cpp)
-# Link with library under test
-target_link_libraries(fuzz_dummy_lib PRIVATE dummy_lib)
+# Fuzz target for the secure_ops library
+add_fuzz_target(fuzz_secure_ops SOURCES fuzz_secure_ops.cpp)
+target_link_libraries(fuzz_secure_ops PRIVATE secure_ops)
+apply_relaxed_analyzers(fuzz_secure_ops)
 
 # Fuzz target for the new `fuzzable` library
 add_fuzz_target(fuzz_fuzzable SOURCES fuzz_fuzzable.cpp)

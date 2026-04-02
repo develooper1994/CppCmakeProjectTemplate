@@ -69,7 +69,7 @@ def _impl_cmd_target_add(args) -> None:
         # Write main.cpp
         cpp_content = (
             f"#include <iostream>\n"
-            f"#include \"dummy_lib/greet.h\"\n\n"
+            f"#include \"dummy_lib/dummy_lib.h\"\n\n"
             f"int main() {{\n"
             f"    std::cout << \"Hello from {name}!\" << std::endl;\n"
             f"    std::cout << \"Library says: \" << dummy_lib::get_greeting() << std::endl;\n"
