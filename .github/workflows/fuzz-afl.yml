@@ -1,0 +1,122 @@
+name: "AFL++ Fuzz"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tests/fuzz/**"
+      - "libs/**/src/**"
+      - "cmake/Fuzzing.cmake"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tests/fuzz/**"
+      - "libs/**/src/**"
+      - "cmake/Fuzzing.cmake"
+  schedule:
+    - cron: "0 3 * * *" # nightly long-run at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Fuzz mode: smoke (60s) or long (1h)"
+        required: false
+        default: "smoke"
+        type: choice
+        options:
+          - smoke
+          - long
+
+env:
+  TARGET: secure_ops
+  ARTIFACT_CORPUS: afl-seed-corpus
+  ARTIFACT_FINDINGS: afl-findings
+
+jobs:
+  afl-fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build afl++
+
+      - name: Determine fuzz duration
+        id: duration
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "seconds=3600" >> "$GITHUB_OUTPUT"
+            echo "mode=long" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.mode }}" = "long" ]; then
+            echo "seconds=3600" >> "$GITHUB_OUTPUT"
+            echo "mode=long" >> "$GITHUB_OUTPUT"
+          else
+            echo "seconds=60" >> "$GITHUB_OUTPUT"
+            echo "mode=smoke" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download previous seed corpus (best-effort)
+        if: steps.duration.outputs.mode == 'long'
+        run: |
+          if command -v python3 &>/dev/null && [ -f scripts/ci/afl_corpus_manager.py ]; then
+            python3 scripts/ci/afl_corpus_manager.py \
+              --token "${{ secrets.GITHUB_TOKEN }}" \
+              --artifact-name "${{ env.ARTIFACT_CORPUS }}" \
+              --output "tests/fuzz/corpus/${{ env.TARGET }}" || true
+          fi
+
+      - name: Configure with AFL compilers
+        env:
+          CC: afl-clang-fast
+          CXX: afl-clang-fast++
+        run: |
+          cmake -S . -B build-afl \
+            -DENABLE_FUZZING=ON \
+            -DENABLE_AFL=ON \
+            -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build fuzz target
+        run: cmake --build build-afl --target fuzz_${{ env.TARGET }} -j
+
+      - name: Ensure seed corpus exists
+        run: |
+          mkdir -p "tests/fuzz/corpus/${{ env.TARGET }}"
+          if [ -z "$(ls -A tests/fuzz/corpus/${{ env.TARGET }})" ]; then
+            echo "seed" > "tests/fuzz/corpus/${{ env.TARGET }}/seed_default"
+          fi
+
+      - name: Run AFL++ (${{ steps.duration.outputs.mode }})
+        run: |
+          mkdir -p afl_out
+          timeout ${{ steps.duration.outputs.seconds }}s \
+            afl-fuzz -i "tests/fuzz/corpus/${{ env.TARGET }}" \
+                     -o afl_out \
+                     -- ./build-afl/fuzz_${{ env.TARGET }} @@ || true
+
+      - name: Collect findings
+        if: always()
+        run: |
+          if [ -f scripts/ci/afl_collect_findings.py ]; then
+            python3 scripts/ci/afl_collect_findings.py \
+              --input afl_out --output findings.zip || true
+          fi
+
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.ARTIFACT_FINDINGS }}-${{ github.run_id }}"
+          path: |
+            findings.zip
+            afl_out/default/crashes/
+          if-no-files-found: ignore
+
+      - name: Upload updated seed corpus
+        if: steps.duration.outputs.mode == 'long'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_CORPUS }}
+          path: "tests/fuzz/corpus/${{ env.TARGET }}"
