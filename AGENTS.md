@@ -27,6 +27,14 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
 - **Plugins:** `scripts/plugins/` (dynamic commands)
 - **Documentation:** `docs/PLANS.md` outlines the project roadmap.
 
+## Documentation Governance
+
+- **PLANS.md** contains upcoming work, active tasks, and backlog items.
+- **CAPABILITIES.md** contains completed, verified capabilities.
+- When a plan/feature is **fully implemented and verified**, the agent **MUST** move its description from `PLANS.md` to `CAPABILITIES.md` and remove it from `PLANS.md`.
+- Never leave completed items in `PLANS.md` — it must only reflect remaining or in-progress work.
+- New planned work is always added to `PLANS.md` first.
+
 ## Recommended Workflows
 
 ### Project Setup & Build
