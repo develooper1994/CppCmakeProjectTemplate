@@ -258,6 +258,7 @@ COMPONENT_REGISTRY: dict[str, tuple[str, str]] = {
     "ci": ("core.generator.ci", "generate_all"),
     "deps": ("core.generator.deps", "generate_all"),
     "configs": ("core.generator.configs", "generate_all"),
+    "presets": ("core.generator.presets", "generate_all"),
 }
 
 PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
@@ -270,6 +271,7 @@ PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
         "sources",
         "deps",
         "configs",
+        "presets",
     ),
     "library": (
         "cmake-dynamic",
@@ -279,6 +281,7 @@ PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
         "sources",
         "deps",
         "configs",
+        "presets",
     ),
     "app": tuple(COMPONENT_REGISTRY.keys()),
     "embedded": tuple(COMPONENT_REGISTRY.keys()),

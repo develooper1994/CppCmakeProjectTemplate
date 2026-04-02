@@ -121,6 +121,7 @@ class TestGeneratorE2E:
         expected = {
             "cmake-dynamic", "cmake-static", "cmake-root",
             "cmake-targets", "sources", "ci", "deps", "configs",
+            "presets",
         }
         assert set(COMPONENT_REGISTRY.keys()) == expected
 
