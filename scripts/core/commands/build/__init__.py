@@ -15,7 +15,4 @@ from .commands import (  # noqa: F401
 from ._helpers import (  # noqa: F401
     DEFAULT_PRESET,
     EXT_DIR,
-    TEMPLATE_DIR,
-    EXT_INCLUDE,
-    EXT_EXCLUDE,
 )
