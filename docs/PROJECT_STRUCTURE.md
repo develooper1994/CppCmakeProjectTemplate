@@ -30,7 +30,7 @@ CppCmakeProjectTemplate/
 │   │   └── utils/         # Infrastructure (common.py)
 │   └── plugins/           # Dynamic plugins (setup, init, hooks, ...)
 ├── docs/
-│   └── PLANS.md           # Strategic roadmap
+│   └── ROADMAP.md         # Strategic roadmap & ideas
 ├── extension/             # VS Code extension (C++ CMake Scaffolder)
 ├── tool.toml              # Project configuration (single source of truth)
 ├── CMakeLists.txt

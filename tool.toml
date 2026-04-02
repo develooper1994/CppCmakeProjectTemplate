@@ -92,7 +92,7 @@ default_template = "normal"
 auto_register = true
 
 # ---------------------------------------------------------------------------
-# [doc] — `tool doc` defaults
+# [doc] — `tool doc` defaults & documentation generation
 # ---------------------------------------------------------------------------
 [doc]
 # Port used by `tool doc serve`
@@ -100,6 +100,22 @@ serve_port = 8080
 
 # Automatically open browser when starting the doc server
 serve_open_browser = false
+
+# Documentation engine(s): "doxygen", "mkdocs", "sphinx", or a list
+# Example: engine = ["doxygen", "mkdocs"]
+engine = "doxygen"
+
+# Generate API documentation config (Doxyfile / mkdocs.yml / conf.py)
+generate_api_docs = true
+
+# Doxygen: enable DOT graph generation (requires Graphviz)
+doxygen_dot = true
+
+# Doxygen: extract all symbols (even undocumented)
+doxygen_extract_all = true
+
+# MkDocs theme (only used when engine includes "mkdocs")
+mkdocs_theme = "material"
 
 # ---------------------------------------------------------------------------
 # [release] — `tool release` defaults

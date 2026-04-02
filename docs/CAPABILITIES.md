@@ -224,3 +224,15 @@ SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
 - **GEMINI.md removed:** Content unified into `AGENTS.md` (single source of truth for AI agents).
 - **AGENTS.md enhanced:** Added Repository Structure tree, updated documentation index references.
 - **Pytest config fixed:** Added `pythonpath = ["scripts"]` and `scripts/core/generator/tests` to `testpaths` in `pyproject.toml`. All 31 generator tests pass in <2s.
+
+## Documentation Generation _(Completed)_
+
+- **Docs generator component** (`scripts/core/generator/docs.py`): Full documentation scaffolding as part of `tool generate`.
+- **Configurable doc engine** (`tool.toml [doc].engine`): Supports `doxygen`, `mkdocs`, `sphinx`, or any combination.
+- **Doxygen support:** Generates `Doxyfile` with project metadata, source paths, DOT graphs, extraction settings.
+- **MkDocs support:** Generates `mkdocs.yml` with Material theme, navigation, Markdown extensions, search plugin.
+- **Sphinx support:** Generates `docs/conf.py` + `docs/index.rst` with optional Breathe integration for Doxygen XML.
+- **Markdown doc skeleton:** Always generates `docs/index.md`, `getting-started.md`, `api-reference.md`, `contributing.md` with project-aware content.
+- **Profile-aware:** Disabled by default for `minimal` and `embedded` profiles; override with `--with docs`.
+- **API docs toggle:** `doc.generate_api_docs = false` skips engine configs while still producing markdown skeleton.
+- **Unified roadmap:** `docs/PLANS.md` and `docs/IDEAS.md` merged into single `docs/ROADMAP.md`.

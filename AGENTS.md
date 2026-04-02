@@ -28,7 +28,7 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
 - **Generator Engine:** `scripts/core/generator/` (engine, wizard, profiles, merge, manifest)
 - **Core Utilities:** `scripts/core/utils/common.py`
 - **Plugins:** `scripts/plugins/` (dynamic commands)
-- **Documentation:** `docs/PLANS.md` (roadmap), `docs/CAPABILITIES.md` (completed features), `docs/USAGE.md` (CLI reference), `docs/IDEAS.md` (future directions)
+- **Documentation:** `docs/ROADMAP.md` (roadmap & ideas), `docs/CAPABILITIES.md` (completed features), `docs/USAGE.md` (CLI reference)
 
 ### Repository Structure
 
@@ -53,11 +53,11 @@ triplets/       vcpkg custom triplets (musl static builds)
 
 ## Documentation Governance
 
-- **PLANS.md** contains upcoming work, active tasks, and backlog items.
+- **ROADMAP.md** contains upcoming work, active tasks, backlog items, and future ideas.
 - **CAPABILITIES.md** contains completed, verified capabilities.
-- When a plan/feature is **fully implemented and verified**, the agent **MUST** move its description from `PLANS.md` to `CAPABILITIES.md` and remove it from `PLANS.md`.
-- Never leave completed items in `PLANS.md` — it must only reflect remaining or in-progress work.
-- New planned work is always added to `PLANS.md` first.
+- When a plan/feature is **fully implemented and verified**, the agent **MUST** move its description from `ROADMAP.md` to `CAPABILITIES.md` and remove it from `ROADMAP.md`.
+- Never leave completed items in `ROADMAP.md` — it must only reflect remaining or in-progress work.
+- New planned work is always added to `ROADMAP.md` first.
 
 ## Recommended Workflows
 

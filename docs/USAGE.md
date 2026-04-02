@@ -10,6 +10,9 @@ Complete command reference for `python3 scripts/tool.py`.
 |---------|---------|
 | `new` | Interactive project creation wizard |
 | `generate` | Generate project from `tool.toml` (profiles, feature toggles) |
+| `adopt` | In-place adoption of existing C++ projects |
+| `validate` | Schema-based validation for `tool.toml` |
+| `completion` | Shell completion scripts for Bash/Zsh/Fish |
 | `build` | Build, check, clean, deploy |
 | `lib` | Library management (add, remove, list, rename, move) |
 | `sol` | Project orchestration (presets, toolchains, CI, doctor) |
@@ -19,7 +22,7 @@ Complete command reference for `python3 scripts/tool.py`.
 | `security` | Security scanning and CVE auditing |
 | `format` | Code formatting and static analysis |
 | `deps` | Dependency manager operations |
-| `doc` | Documentation build and serve |
+| `doc` | Documentation build, serve, and generation |
 | `session` | Session state save/load |
 
 Global flags: `--json` (machine-readable output), `--yes` (non-interactive), `--dry-run` (preview).
@@ -61,6 +64,38 @@ python3 scripts/tool.py generate --json         # machine-readable JSON output
 ```
 
 See also: [STARTING_PROJECT.md](STARTING_PROJECT.md)
+
+---
+
+## Project Adoption
+
+```bash
+python3 scripts/tool.py adopt                         # auto-detect sources, generate tool.toml + CMake
+python3 scripts/tool.py adopt --dry-run                # preview without writing
+```
+
+Runs inside an existing directory with C++ sources — inverse of `tool new`.
+
+---
+
+## Config Validation
+
+```bash
+python3 scripts/tool.py validate                       # validate tool.toml schema
+python3 scripts/tool.py validate --json                # machine-readable errors
+```
+
+Reports typos, unknown keys, type mismatches, and cross-reference issues.
+
+---
+
+## Shell Completion
+
+```bash
+python3 scripts/tool.py completion bash > /etc/bash_completion.d/tool
+python3 scripts/tool.py completion zsh  > ~/.zsh/completions/_tool
+python3 scripts/tool.py completion fish > ~/.config/fish/completions/tool.fish
+```
 
 ---
 
@@ -183,8 +218,30 @@ python3 scripts/tool.py license recommend --apply  # write to tool.toml
 
 ```bash
 python3 scripts/tool.py doc serve [--port N] [--open]  # live server
-python3 scripts/tool.py doc build                      # mkdocs/sphinx
+python3 scripts/tool.py doc build                      # mkdocs/sphinx/doxygen
+python3 scripts/tool.py doc list                       # list docs files
 ```
+
+Documentation generation is integrated into `tool generate`. The doc engine is
+configured in `tool.toml [doc]`:
+
+```toml
+[doc]
+engine = "doxygen"        # "doxygen", "mkdocs", "sphinx", or a list
+generate_api_docs = true  # generate Doxyfile / mkdocs.yml / conf.py
+doxygen_dot = true        # Graphviz DOT graphs (requires graphviz)
+mkdocs_theme = "material" # MkDocs theme (when engine includes "mkdocs")
+```
+
+Running `tool generate` with docs enabled produces:
+
+- Markdown skeleton: `docs/index.md`, `getting-started.md`, `api-reference.md`, `contributing.md`
+- **Doxygen**: `Doxyfile` (run `doxygen Doxyfile` to build API docs)
+- **MkDocs**: `mkdocs.yml` (run `mkdocs serve` / `mkdocs build`)
+- **Sphinx**: `docs/conf.py` + `docs/index.rst` (run `sphinx-build`)
+
+Profiles `minimal` and `embedded` disable docs generation by default.
+Override with `--with docs`.
 
 ---
 
