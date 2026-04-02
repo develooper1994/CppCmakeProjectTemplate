@@ -38,6 +38,7 @@ CORE_COMMANDS = {
     "sol":      "core.commands.sol",
     "validate":   "core.commands.validate",
     "completion": "core.commands.completion",
+    "adopt":      "core.commands.adopt",
     "plugins":    "core.commands.plugins",
     "tui":        "tui",  # scripts/tui.py
 }
