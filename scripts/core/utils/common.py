@@ -189,7 +189,17 @@ def list_presets() -> list[str]:
 
 @lru_cache(maxsize=None)
 def get_project_version(root: Path = PROJECT_ROOT) -> str:
-    """Resolve project version from CMakeLists.txt or git tags, fallback '0.0.0'."""
+    """Resolve project version from VERSION, CMakeLists.txt, or git tags."""
+    version_file = root / "VERSION"
+    try:
+        if version_file.exists():
+            raw = version_file.read_text(encoding="utf-8").strip()
+            match = re.match(r"^([0-9]+\.[0-9]+\.[0-9]+)", raw)
+            if match:
+                return match.group(1)
+    except Exception:
+        pass
+
     from core.utils.cmake_parser import extract_project_version
     ver = extract_project_version(root / "CMakeLists.txt")
     if ver:
