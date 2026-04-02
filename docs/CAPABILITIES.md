@@ -212,3 +212,9 @@ SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
 - **`--json` flag:** Machine-readable JSON output with created/written/skipped/conflicts/errors/timings.
 - **Timing infrastructure:** `GenerateResult.timings` dict with per-component durations via `time.monotonic()`.
 - **merge.py fix:** Silent exception in `_show_diff()` now logged via `Logger.warn()`.
+
+## Documentation & Agent Unification _(Completed)_
+
+- **GEMINI.md removed:** Content unified into `AGENTS.md` (single source of truth for AI agents).
+- **AGENTS.md enhanced:** Added Repository Structure tree, updated documentation index references.
+- **Pytest config fixed:** Added `pythonpath = ["scripts"]` and `scripts/core/generator/tests` to `testpaths` in `pyproject.toml`. All 31 generator tests pass in <2s.

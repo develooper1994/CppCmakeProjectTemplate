@@ -25,7 +25,28 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
 - **Generator Engine:** `scripts/core/generator/` (engine, wizard, profiles, merge, manifest)
 - **Core Utilities:** `scripts/core/utils/common.py`
 - **Plugins:** `scripts/plugins/` (dynamic commands)
-- **Documentation:** `docs/PLANS.md` outlines the project roadmap.
+- **Documentation:** `docs/PLANS.md` (roadmap), `docs/CAPABILITIES.md` (completed features), `docs/USAGE.md` (CLI reference), `docs/IDEAS.md` (future directions)
+
+### Repository Structure
+
+```
+apps/           Executable apps (main_app, demo_app, extreme_app, gui_app)
+libs/           Libraries — each independent, versioned, with its own BuildInfo
+tests/unit/     GoogleTest per-library test suites
+tests/fuzz/     Fuzz testing harnesses (libFuzzer)
+cmake/          CMake modules + auto-generated C++ headers
+scripts/
+  tool.py       → Central Dispatcher (Grand Entrypoint)
+  core/
+    commands/   → Core logic (build, lib, sol, generate, new, license)
+    generator/  → Project generator engine, wizard, profiles, 31 tests
+    utils/      → Infrastructure (common.py)
+  plugins/      → Dynamic plugins (setup, hooks, init, verify)
+extension/      VS Code extension (C++ CMake Scaffolder)
+docs/           Documentation (PLANS, CAPABILITIES, USAGE, IDEAS, etc.)
+docker/         Dockerfiles (Ubuntu, Alpine, Zig-musl)
+triplets/       vcpkg custom triplets (musl static builds)
+```
 
 ## Documentation Governance
 
