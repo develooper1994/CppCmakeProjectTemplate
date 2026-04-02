@@ -123,8 +123,8 @@ class TestAnalyzeNinjaLog:
         assert isinstance(result.success, bool)
 
     def test_report_written(self, tmp_path: Path, monkeypatch):
-        import core.commands.perf as perf_mod
-        monkeypatch.setattr(perf_mod, "LOGS_DIR", tmp_path)
+        import core.commands.perf.analysis as analysis_mod
+        monkeypatch.setattr(analysis_mod, "LOGS_DIR", tmp_path)
         log = self._write_log(tmp_path, [(0, 1000, "x.o")])
         _analyze_ninja_log(log)
         report = tmp_path / "build_time_report.json"
@@ -142,8 +142,8 @@ class TestCmdSize:
         assert not result.success
 
     def test_detects_static_lib(self, tmp_path: Path, monkeypatch):
-        import core.commands.perf as perf_mod
-        monkeypatch.setattr(perf_mod, "LOGS_DIR", tmp_path / "logs")
+        import core.commands.perf.analysis as analysis_mod
+        monkeypatch.setattr(analysis_mod, "LOGS_DIR", tmp_path / "logs")
         lib_dir = tmp_path / "lib"
         lib_dir.mkdir()
         (lib_dir / "libtest.a").write_bytes(b"\x00" * 200)
@@ -154,9 +154,9 @@ class TestCmdSize:
         assert result.data[0]["size_bytes"] == 200
 
     def test_report_saved(self, tmp_path: Path, monkeypatch):
-        import core.commands.perf as perf_mod
+        import core.commands.perf.analysis as analysis_mod
         logs_dir = tmp_path / "logs"
-        monkeypatch.setattr(perf_mod, "LOGS_DIR", logs_dir)
+        monkeypatch.setattr(analysis_mod, "LOGS_DIR", logs_dir)
         lib_dir = tmp_path / "lib"
         lib_dir.mkdir()
         (lib_dir / "libfoo.a").write_bytes(b"\x00" * 50)
