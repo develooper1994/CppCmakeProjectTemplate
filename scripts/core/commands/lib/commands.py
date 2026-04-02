@@ -1,23 +1,8 @@
-#!/usr/bin/env python3
-"""
-core/commands/lib.py — Library management implementation.
-
-This module implements library management commands that used to live in
-`scripts/toollib.py`. It is now the authoritative implementation for
-`tool lib`.
-"""
+"""Library management command implementations and CLIResult wrappers."""
 from __future__ import annotations
 
-import argparse
-import shutil
 import re
 import sys
-from pathlib import Path
-
-# ── Path bootstrap ────────────────────────────────────────────────────────────
-_SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
 
 from core.utils.common import CLIResult, run_proc, PROJECT_ROOT, GlobalConfig
 from core.utils.command_utils import wrap_command
@@ -27,29 +12,14 @@ from core.libpkg import (
     rename_library,
     move_library,
 )
-from core.libpkg.jinja_helpers import render_template_file as _render_template_file, JINJA_AVAILABLE as _USE_JINJA_LIBCMD
-
-LIBS_DIR = PROJECT_ROOT / "libs"
-
-
-def _ensure_libs() -> None:
-    LIBS_DIR.mkdir(exist_ok=True)
+from core.libpkg.jinja_helpers import (
+    render_template_file as _render_template_file,
+    JINJA_AVAILABLE as _USE_JINJA_LIBCMD,
+)
+from ._helpers import LIBS_DIR, _ensure_libs, _get_lib_deps
 
 
-def _get_lib_deps(name: str) -> list[str]:
-    """Parse CMakeLists.txt to find target_link_libraries."""
-    cm = LIBS_DIR / name / "CMakeLists.txt"
-    if not cm.exists():
-        return []
-    content = cm.read_text(encoding="utf-8")
-    # Simple regex for target_link_libraries(...)
-    match = re.search(r'target_link_libraries\(\s*\w+\s+(?:PUBLIC|PRIVATE|INTERFACE)\s+([^)]+)\)', content, re.DOTALL)
-    if not match:
-        return []
-    raw_deps = match.group(1).split()
-    # Filter out standard keywords and empty strings
-    return [d for d in raw_deps if d not in ("PUBLIC", "PRIVATE", "INTERFACE") and d.strip()]
-
+# ── Implementation functions ──────────────────────────────────────────────────
 
 def _impl_cmd_list(args) -> None:
     _ensure_libs()
@@ -78,7 +48,6 @@ def _impl_cmd_tree(args) -> None:
                 print("  " * (indent + 1) + f"└─ {d} (external)")
 
     for lib in libs:
-        # Check if any other lib depends on this one. If so, don't show as root.
         is_root = True
         for other in libs:
             if lib in _get_lib_deps(other):
@@ -92,7 +61,6 @@ def _impl_cmd_doctor(args) -> None:
     _ensure_libs()
     problems = 0
 
-    # 1. Check existing directories
     for d in LIBS_DIR.iterdir():
         if d.is_dir():
             name = d.name
@@ -102,7 +70,6 @@ def _impl_cmd_doctor(args) -> None:
                 problems += 1
             inc = d / "include" / name
             if not inc.exists() and not (d / "include").exists():
-                # check if it is header-only interface
                 content = cm.read_text(encoding="utf-8") if cm.exists() else ""
                 if "INTERFACE" not in content:
                     print(f"⚠️ {name}: Missing standard include structure")
@@ -112,7 +79,6 @@ def _impl_cmd_doctor(args) -> None:
                 if "::" not in dep and not (LIBS_DIR / dep).exists() and dep not in ("GTest::gtest_main", "GTest::gtest"):
                     print(f"⚠️ {name}: Depends on '{dep}' which is not in libs/ and not namespaced")
 
-    # 2. Check for orphaned add_subdirectory in libs/CMakeLists.txt
     libs_cm = PROJECT_ROOT / "libs" / "CMakeLists.txt"
     if libs_cm.exists():
         content = libs_cm.read_text(encoding="utf-8")
@@ -123,7 +89,6 @@ def _impl_cmd_doctor(args) -> None:
                 print(f"❌ Orphaned entry in libs/CMakeLists.txt: add_subdirectory({sub})")
                 problems += 1
 
-    # 3. Check for orphaned add_subdirectory in tests/unit/CMakeLists.txt
     tests_cm = PROJECT_ROOT / "tests" / "unit" / "CMakeLists.txt"
     if tests_cm.exists():
         content = tests_cm.read_text(encoding="utf-8")
@@ -232,9 +197,7 @@ def _impl_cmd_deps(args) -> None:
     if getattr(args, "add_url", ""):
         url = args.add_url
         via = getattr(args, "via", "fetchcontent")
-        # Simple handling: create a deps.cmake with FetchContent usage for fetchcontent
         if via == "fetchcontent":
-            # try to derive a safe name from the URL
             m = re.search(r'([^/]+?)(?:\.git)?(?:@.*)?$', url)
             depname = (m.group(1) if m else "external_dep").replace('-', '_')
             deps_cmake = lib_dir / "deps.cmake"
@@ -248,7 +211,6 @@ def _impl_cmd_deps(args) -> None:
                     f"FetchContent_MakeAvailable({depname})\n"
                 )
             deps_cmake.write_text(content, encoding="utf-8")
-            # ensure CMakeLists includes deps.cmake
             cm = lib_dir / "CMakeLists.txt"
             if cm.exists():
                 cm_text = cm.read_text(encoding="utf-8")
@@ -257,7 +219,6 @@ def _impl_cmd_deps(args) -> None:
             print("Added external URL dependency (FetchContent) ->", deps_cmake)
             return
         else:
-            # For vcpkg/conan just record into deps.txt for manual action
             deps_file.write_text((deps_file.read_text(encoding="utf-8") if deps_file.exists() else "") + url + "\n",
                                   encoding="utf-8")
             print(f"Recorded external dependency ({via}) -> deps.txt")
@@ -304,12 +265,10 @@ def _impl_cmd_test(args) -> None:
         except SystemExit:
             raise
     else:
-        # Fallback: run project-wide check
         run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "build", "check"])
 
 
 def _impl_cmd_export(args) -> None:
-    # Use the modular libpkg export helper when available.
     name = args.name
     try:
         from core.libpkg import export as lib_export
@@ -335,9 +294,7 @@ def _impl_cmd_export(args) -> None:
             return
         except Exception as e:
             print("export: failed to generate advanced export files:", e)
-            # fallback to simple install snippet below
 
-    # fallback simple behavior
     install_file = lib_dir / "install.cmake"
     if _USE_JINJA_LIBCMD:
         content = _render_template_file("install_snippet.jinja2", name=name)
@@ -363,8 +320,8 @@ def _impl_cmd_export(args) -> None:
 
 def _impl_cmd_lib_upgrade_std(args) -> None:
     name = getattr(args, "name")
-    std  = getattr(args, "std")
-    dry  = getattr(args, "dry_run", False)
+    std = getattr(args, "std")
+    dry = getattr(args, "dry_run", False)
     lib_cm = LIBS_DIR / name / "CMakeLists.txt"
     if not lib_cm.exists():
         print(f"Library '{name}' not found at {lib_cm}")
@@ -380,6 +337,8 @@ def _impl_cmd_lib_upgrade_std(args) -> None:
         lib_cm.write_text(new_content, encoding="utf-8")
         print(f"Upgraded {lib_cm.relative_to(PROJECT_ROOT)} to C++{std}")
 
+
+# ── CLIResult wrapper functions ───────────────────────────────────────────────
 
 def cmd_lib_upgrade_std(args):
     return wrap_command(_impl_cmd_lib_upgrade_std, args)
@@ -402,7 +361,6 @@ def cmd_add(args):
 
 
 def cmd_remove(args):
-    # CLI-level protection: require explicit --yes to skip confirmation for destructive deletes
     if getattr(args, "delete", False) and not GlobalConfig.YES and not getattr(args, "dry_run", False):
         try:
             resp = input(f"Confirm delete of library '{getattr(args, 'name', '')}' and its files? [y/N]: ")
@@ -436,110 +394,3 @@ def cmd_test(args):
 
 def cmd_export(args):
     return wrap_command(_impl_cmd_export, args)
-
-
-# ── Parser (mirrors previous build_parser) ─────────────────────────────────
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="tool lib",
-        description="Library management (add/remove/rename/move/deps/info/test/export)",
-    )
-    sub = parser.add_subparsers(dest="subcommand", required=True)
-
-    # add
-    p = sub.add_parser("add", help="Create a new library skeleton")
-    p.add_argument("name")
-    p.add_argument("--version",   default=GlobalConfig.VERSION)
-    p.add_argument("--namespace", default=None)
-    p.add_argument("--deps",      default="")
-    p.add_argument("--cxx-standard", default="", dest="cxx_standard")
-    p.add_argument("--link-app",  action="store_true")
-    p.add_argument("--dry-run",   action="store_true")
-    type_grp = p.add_mutually_exclusive_group()
-    type_grp.add_argument("--header-only", action="store_true", dest="header_only")
-    type_grp.add_argument("--interface",   action="store_true")
-    type_grp.add_argument("--modules",     action="store_true",
-                          help="Generate a C++20 module-unit library (.cppm). "
-                               "Requires CXX_STANDARD >= 20 and CMake >= 3.28.")
-    p.add_argument("--template", default="",
-                   help="Template name (builtin: singleton,pimpl,observer,factory or a folder under extension/templates/libs)")
-    p.set_defaults(func=cmd_add)
-
-    # export
-    p = sub.add_parser("export", help="Add find_package-compatible install/export rules")
-    p.add_argument("name")
-    p.add_argument("--dry-run", action="store_true")
-    p.set_defaults(func=cmd_export)
-
-    # remove
-    p = sub.add_parser("remove", help="Detach or delete a library")
-    p.add_argument("name")
-    p.add_argument("--delete",  action="store_true")
-    p.add_argument("--dry-run", action="store_true")
-    p.set_defaults(func=cmd_remove)
-
-    # rename
-    p = sub.add_parser("rename", help="Rename a library")
-    p.add_argument("old")
-    p.add_argument("new")
-    p.add_argument("--dry-run", action="store_true")
-    p.set_defaults(func=cmd_rename)
-
-    # move
-    p = sub.add_parser("move", help="Move library to new location")
-    p.add_argument("name")
-    p.add_argument("dest")
-    p.add_argument("--dry-run", action="store_true")
-    p.set_defaults(func=cmd_move)
-
-    # deps
-    p = sub.add_parser("deps", help="Add/remove local deps or add external URL deps")
-    p.add_argument("name")
-    p.add_argument("--add",     default="")
-    p.add_argument("--remove",  default="")
-    p.add_argument("--add-url", default="", dest="add_url")
-    p.add_argument("--via",     default="fetchcontent",
-                   choices=["fetchcontent", "vcpkg", "conan"])
-    p.add_argument("--target",  default="")
-    p.add_argument("--dry-run", action="store_true")
-    p.set_defaults(func=cmd_deps)
-
-    # info
-    p = sub.add_parser("info", help="Show detailed info about a library")
-    p.add_argument("name")
-    p.set_defaults(func=cmd_info)
-
-    # test
-    p = sub.add_parser("test", help="Build and run tests for a single library")
-    p.add_argument("name")
-    p.add_argument("--preset", default=None)
-    p.set_defaults(func=cmd_test)
-
-    # list
-    # upgrade-std
-    p = sub.add_parser("upgrade-std", help="Set C++ standard for one library")
-    p.add_argument("name", help="Library name (must exist under libs/)")
-    p.add_argument("--std", required=True, choices=["11", "14", "17", "20", "23"],
-                   help="Target C++ standard")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Print what would change without modifying files")
-    p.set_defaults(func=cmd_lib_upgrade_std)
-
-    sub.add_parser("list",   help="List all libraries").set_defaults(func=cmd_list)
-    # tree
-    sub.add_parser("tree",   help="ASCII dependency tree").set_defaults(func=cmd_tree)
-    # doctor
-    sub.add_parser("doctor", help="Check project consistency").set_defaults(func=cmd_doctor)
-
-    return parser
-
-
-def main(argv: list[str]) -> None:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if hasattr(args, "func"):
-        args.func(args).exit()
-    else:
-        parser.print_help()
