@@ -211,14 +211,58 @@ Single source-of-truth `VERSION` file at repository root (`<major>.<middle>.<min
 
 - **Hot Reloading:** C++ hot-reloading (LLVM JIT / cr.h) requires significant runtime scaffolding and OS-specific shared library reload. ccache + unity builds already minimize rebuild latency.
 
-### Internal Tooling _(V2 / Structural)_
+### Internal Tooling _(V2 / Structural — Active Refactor Program)_
 
-- **Internal Tooling Refactor Program:** Large-scale refactor planned after stabilization milestones.
-  - Motivation: some script files are too long, responsibilities overlap, code duplication exists.
-  - Refactor principle: split by clear domain ownership, not by micro-fragmentation.
-  - Target: command facade → execution/service → shared utility → plugin boundary.
-  - Execution: phased vertical slices (domain-by-domain), each with full regression checks.
-  - Guardrails: no "big bang" rewrites; each phase must remain buildable/testable and reversible.
+**Internal Tooling Refactor Program:** SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
+
+**Branching Strategy:**
+```
+main (protected — untouched until all phases complete)
+  └── refactor (main refactor branch)
+        ├── refactor/faz-0-foundation → merge to refactor when done
+        ├── refactor/faz-{1..6}-* → merge to refactor when done
+        ├── refactor/faz-7-tests → merge to refactor when done
+        ├── refactor/faz-8-refs → merge to refactor when done
+        └── ALL ✅ → refactor → main merge (--no-ff)
+```
+
+**Principles:**
+- SOLID: SRP, OCP, DIP enforced across all command modules.
+- `scripts/` root: only `tool.py` + `tui.py` remain.
+- Subprocess minimized: only for external tools (cmake, git, valgrind, npm).
+- Each module has `main()`: standalone-runnable + importable by `tool.py`.
+- Conservative grouping: no micro-fragmentation.
+- Import rules: no command→command imports, no utils→commands imports, shared code in `core/utils/`.
+- Backward compat: old single-file modules become import proxies.
+
+**Phase Plan:**
+
+| Phase | Scope | Status |
+|-------|-------|--------|
+| **Faz 0: Foundation** | `cmake_parser.py`, `command_utils.py`, Jinja centralization, `create.py` stack hack fix, root-level script cleanup, test fixture | ⏳ |
+| **Faz 1: perf.py** | ~1840 lines → 7 modules in `commands/perf/` | ⏳ |
+| **Faz 2: sol.py** | ~1260 lines → 6 modules in `commands/sol/` | ⏳ |
+| **Faz 3: build.py** | ~523 lines → 5 modules in `commands/build/` | ⏳ |
+| **Faz 4: create.py** | ~580 lines → 5 modules in `libpkg/ops/` (before Faz 5) | ⏳ |
+| **Faz 5: lib.py** | ~760 lines → 5 modules in `commands/lib/` (after Faz 4) | ⏳ |
+| **Faz 6: ui.py** | ~1100 lines → skeleton + 5 panel modules in `tui/panels/` | ⏳ |
+| **Faz 7: E2E Tests** | Realistic workflow tests (library lifecycle, build profiles, presets, perf) | ⏳ |
+| **Faz 8: References** | CI workflows, docs, config, PLANS.md updates | ⏳ |
+
+**Parallelism:** Faz 0 → {Faz 1 ∥ 2 ∥ 3 ∥ 6} → {Faz 4 → 5} → {Faz 7 ∥ 8}
+
+**Code Duplication Targets:**
+- `_wrap()` in 4 files → `core/utils/command_utils.py`
+- CMake regex in 4 files → `core/utils/cmake_parser.py`
+- Jinja2 check in 6 files → centralized `jinja_helpers.py`
+- `inspect.stack()` anti-pattern in `create.py` → explicit `txn` parameter
+
+**Root Cleanup:**
+- `init_project.py` → `core/init_project.py`
+- `release.py` → `core/release_impl.py`
+- `publish_vsix.py` → `plugins/publish.py`
+- `verify_full.py` → `plugins/verify.py`
+- `setup_python_env.py` → `core/setup_env.py`
 
 ---
 
