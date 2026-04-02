@@ -223,6 +223,47 @@ def _is_full_profile(ctx: ProjectContext) -> bool:
     return str(getattr(ctx, "profile", "full") or "full").strip().lower() == "full"
 
 
+def _gen_devcontainer(ctx: ProjectContext) -> str:
+    """Generate .devcontainer/devcontainer.json."""
+    import json
+
+    name = ctx.name or "CppProject"
+
+    extensions = [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "twxs.cmake",
+        "ms-vscode.cpptools-extension-pack",
+        "GitHub.copilot",
+    ]
+
+    devcontainer: dict[str, Any] = {
+        "name": name,
+        "image": "mcr.microsoft.com/devcontainers/cpp:1-ubuntu-24.04",
+        "features": {
+            "ghcr.io/devcontainers/features/cmake:1": {
+                "version": ctx.cmake_minimum or "3.25",
+            },
+            "ghcr.io/devcontainers/features/python:1": {
+                "version": "3.12",
+            },
+        },
+        "customizations": {
+            "vscode": {
+                "extensions": extensions,
+                "settings": {
+                    "cmake.configureOnOpen": True,
+                    "cmake.buildDirectory": "${workspaceFolder}/build/${buildKitVendor}-${buildType}",
+                },
+            }
+        },
+        "postCreateCommand": "python3 scripts/tool.py setup --install || true",
+        "remoteUser": "vscode",
+    }
+
+    return json.dumps(devcontainer, indent=2) + "\n"
+
+
 def generate_all(ctx: ProjectContext, target_dir: Path) -> dict[str, str]:
     root = _find_project_root()
     files: dict[str, str] = {
@@ -265,5 +306,8 @@ def generate_all(ctx: ProjectContext, target_dir: Path) -> dict[str, str]:
                 if ef.is_file():
                     files[f"extension/{ef_name}"] = ef.read_text(encoding="utf-8")
 
+    # DevContainer
+    if is_feature_enabled(ctx, "devcontainer", default=_is_full_profile(ctx)):
+        files[".devcontainer/devcontainer.json"] = _gen_devcontainer(ctx)
 
     return files
