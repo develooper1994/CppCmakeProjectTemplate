@@ -20,6 +20,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from core.utils.common import CLIResult
+from core.utils.command_utils import wrap_command
 import pkgutil
 
 
@@ -158,16 +159,8 @@ def _impl_cmd_list(args) -> None:
         print(n)
 
 
-def _wrap(fn, args) -> CLIResult:
-    try:
-        fn(args)
-        return CLIResult(success=True)
-    except SystemExit as e:
-        return CLIResult(success=(e.code == 0), code=e.code or 1)
-
-
 def cmd_list(args):
-    return _wrap(_impl_cmd_list, args)
+    return wrap_command(_impl_cmd_list, args)
 
 
 def _impl_cmd_describe(args) -> None:
@@ -188,7 +181,7 @@ def _impl_cmd_describe(args) -> None:
 
 
 def cmd_describe(args):
-    return _wrap(_impl_cmd_describe, args)
+    return wrap_command(_impl_cmd_describe, args)
 
 
 def build_parser() -> argparse.ArgumentParser:

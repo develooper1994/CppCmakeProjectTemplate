@@ -190,12 +190,10 @@ def list_presets() -> list[str]:
 @lru_cache(maxsize=None)
 def get_project_version(root: Path = PROJECT_ROOT) -> str:
     """Resolve project version from CMakeLists.txt or git tags, fallback '0.0.0'."""
-    cmake_path = root / "CMakeLists.txt"
-    if cmake_path.exists():
-        clean = re.sub(r'#.*', '', cmake_path.read_text(encoding="utf-8"))
-        m = re.search(r'project\s*\([^)]*VERSION\s+([\d.]+)', clean, re.IGNORECASE | re.DOTALL)
-        if m:
-            return m.group(1)
+    from core.utils.cmake_parser import extract_project_version
+    ver = extract_project_version(root / "CMakeLists.txt")
+    if ver:
+        return ver
     try:
         out, rc = run_capture(["git", "describe", "--tags", "--abbrev=0"], cwd=root)
         if rc == 0 and out:
@@ -208,9 +206,9 @@ def get_project_version(root: Path = PROJECT_ROOT) -> str:
 
 @lru_cache(maxsize=None)
 def get_project_name(root: Path = PROJECT_ROOT) -> str:
-    cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8") if (root / "CMakeLists.txt").exists() else ""
-    m = re.search(r'project\s*\(\s*(\S+)', cmake, re.IGNORECASE)
-    return m.group(1) if m else "CppProject"
+    from core.utils.cmake_parser import extract_project_name
+    name = extract_project_name(root / "CMakeLists.txt")
+    return name if name else "CppProject"
 
 
 # Small JSON file cache to avoid repeated parsing of small config files during a single run.

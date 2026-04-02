@@ -216,6 +216,7 @@ Single source-of-truth `VERSION` file at repository root (`<major>.<middle>.<min
 **Internal Tooling Refactor Program:** SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
 
 **Branching Strategy:**
+
 ```
 main (protected — untouched until all phases complete)
   └── refactor (main refactor branch)
@@ -227,6 +228,7 @@ main (protected — untouched until all phases complete)
 ```
 
 **Principles:**
+
 - SOLID: SRP, OCP, DIP enforced across all command modules.
 - `scripts/` root: only `tool.py` + `tui.py` remain.
 - Subprocess minimized: only for external tools (cmake, git, valgrind, npm).
@@ -252,12 +254,14 @@ main (protected — untouched until all phases complete)
 **Parallelism:** Faz 0 → {Faz 1 ∥ 2 ∥ 3 ∥ 6} → {Faz 4 → 5} → {Faz 7 ∥ 8}
 
 **Code Duplication Targets:**
+
 - `_wrap()` in 4 files → `core/utils/command_utils.py`
 - CMake regex in 4 files → `core/utils/cmake_parser.py`
 - Jinja2 check in 6 files → centralized `jinja_helpers.py`
 - `inspect.stack()` anti-pattern in `create.py` → explicit `txn` parameter
 
 **Root Cleanup:**
+
 - `init_project.py` → `core/init_project.py`
 - `release.py` → `core/release_impl.py`
 - `publish_vsix.py` → `plugins/publish.py`

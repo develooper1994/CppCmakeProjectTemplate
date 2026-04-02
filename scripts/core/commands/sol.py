@@ -25,15 +25,11 @@ from core.utils.common import (
     json_cache_clear,
     GlobalConfig,
 )
+from core.utils.command_utils import wrap_command
 import json
 import re
 from functools import lru_cache
-try:
-    from core.libpkg.jinja_helpers import render_template_file as _render_template_file
-    _USE_JINJA_SOL = True
-except Exception:
-    _render_template_file = None
-    _USE_JINJA_SOL = False
+from core.libpkg.jinja_helpers import render_template_file as _render_template_file, JINJA_AVAILABLE as _USE_JINJA_SOL
 
 TOOLCHAINS_DIR = PROJECT_ROOT / "cmake" / "toolchains"
 PRESETS_FILE = PROJECT_ROOT / "CMakePresets.json"
@@ -716,108 +712,100 @@ def _impl_cmd_clangd(args) -> None:
     print(f"   CompilationDatabase: {db_dir}")
 
 
-def _wrap(fn, args) -> CLIResult:
-    try:
-        fn(args)
-        return CLIResult(success=True)
-    except SystemExit as e:
-        return CLIResult(success=(e.code == 0), code=e.code or 1)
-
-
 def cmd_target_list(args):
-    return _wrap(_impl_cmd_target_list, args)
+    return wrap_command(_impl_cmd_target_list, args)
 
 
 def cmd_target_build(args):
-    return _wrap(_impl_cmd_target_build, args)
+    return wrap_command(_impl_cmd_target_build, args)
 
 
 def cmd_target_add(args):
-    return _wrap(_impl_cmd_target_add, args)
+    return wrap_command(_impl_cmd_target_add, args)
 
 
 def cmd_preset_list(args):
-    return _wrap(_impl_cmd_preset_list, args)
+    return wrap_command(_impl_cmd_preset_list, args)
 
 
 def cmd_preset_add(args):
-    return _wrap(_impl_cmd_preset_add, args)
+    return wrap_command(_impl_cmd_preset_add, args)
 
 
 def cmd_preset_remove(args):
-    return _wrap(_impl_cmd_preset_remove, args)
+    return wrap_command(_impl_cmd_preset_remove, args)
 
 
 def cmd_toolchain_list(args):
-    return _wrap(_impl_cmd_toolchain_list, args)
+    return wrap_command(_impl_cmd_toolchain_list, args)
 
 
 def cmd_toolchain_add(args):
-    return _wrap(_impl_cmd_toolchain_add, args)
+    return wrap_command(_impl_cmd_toolchain_add, args)
 
 
 def cmd_toolchain_remove(args):
-    return _wrap(_impl_cmd_toolchain_remove, args)
+    return wrap_command(_impl_cmd_toolchain_remove, args)
 
 
 def cmd_config_get(args):
-    return _wrap(_impl_cmd_config_get, args)
+    return wrap_command(_impl_cmd_config_get, args)
 
 
 def cmd_config_set(args):
-    return _wrap(_impl_cmd_config_set, args)
+    return wrap_command(_impl_cmd_config_set, args)
 
 
 def cmd_doctor(args):
-    return _wrap(_impl_cmd_doctor, args)
+    return wrap_command(_impl_cmd_doctor, args)
 
 
 def cmd_test_run(args):
-    return _wrap(_impl_cmd_test_run, args)
+    return wrap_command(_impl_cmd_test_run, args)
 
 
 def cmd_upgrade_std(args):
-    return _wrap(_impl_cmd_upgrade_std, args)
+    return wrap_command(_impl_cmd_upgrade_std, args)
 
 
 def cmd_repo_list(args):
-    return _wrap(_impl_cmd_repo_list, args)
+    return wrap_command(_impl_cmd_repo_list, args)
 
 
 def cmd_repo_add_submodule(args):
-    return _wrap(_impl_cmd_repo_add_submodule, args)
+    return wrap_command(_impl_cmd_repo_add_submodule, args)
 
 
 def cmd_repo_add_fetch(args):
-    return _wrap(_impl_cmd_repo_add_fetch, args)
+    return wrap_command(_impl_cmd_repo_add_fetch, args)
 
 
 def cmd_repo_sync(args):
-    return _wrap(_impl_cmd_repo_sync, args)
+    return wrap_command(_impl_cmd_repo_sync, args)
 
 
 def cmd_repo_versions(args):
-    return _wrap(_impl_cmd_repo_versions, args)
+    return wrap_command(_impl_cmd_repo_versions, args)
 
 
 def cmd_check_extra(args):
-    return _wrap(_impl_cmd_check_extra, args)
+    return wrap_command(_impl_cmd_check_extra, args)
 
 
 def cmd_init_skeleton(args):
-    return _wrap(_impl_cmd_init_skeleton, args)
+    return wrap_command(_impl_cmd_init_skeleton, args)
 
 
 def cmd_ci(args):
-    return _wrap(_impl_cmd_ci, args)
+    return wrap_command(_impl_cmd_ci, args)
 
 
 def cmd_cmake_version(args):
-    return _wrap(_impl_cmd_cmake_version, args)
+    return wrap_command(_impl_cmd_cmake_version, args)
 
 
 def cmd_clangd(args):
-    return _wrap(_impl_cmd_clangd, args)
+    return wrap_command(_impl_cmd_clangd, args)
 
 
 def _cmd_sysroot_list() -> CLIResult:
