@@ -142,6 +142,11 @@ def build_context(config: dict[str, Any] | None = None) -> ProjectContext:
 COMPONENT_REGISTRY: dict[str, tuple[str, str]] = {
     "cmake-dynamic": ("core.generator.cmake_dynamic", "generate_all"),
     "cmake-static": ("core.generator.cmake_static", "generate_all"),
+    "cmake-root": ("core.generator.cmake_root", "generate_all"),
+    "cmake-targets": ("core.generator.cmake_targets", "generate_all"),
+    "ci": ("core.generator.ci", "generate_all"),
+    "deps": ("core.generator.deps", "generate_all"),
+    "configs": ("core.generator.configs", "generate_all"),
 }
 
 

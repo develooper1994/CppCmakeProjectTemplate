@@ -262,16 +262,16 @@ main
 
 | Phase | Scope | Status |
 | ----- | ----- | ------ |
-| **Faz 0: Foundation** | Generator engine, manifest, merge, tool.toml schema extension, config_loader | ⏳ |
-| **Faz 1: Root CMake** | Root CMakeLists.txt + subdirectory aggregators from tool.toml | 🔜 |
-| **Faz 2: Apps + Libs** | App/lib scaffolding (CMakeLists, main.cpp, headers) | 🔜 |
-| **Faz 3: cmake/ Modules** | 22 STATIC + 2 DYNAMIC + 2 PARAMETRIC cmake modules, headers, toolchains | 🔜 |
-| **Faz 4: CI/CD** | GitHub workflows, actions, issue templates from `[ci]` | 🔜 |
-| **Faz 5: Deps + Hooks** | vcpkg.json, conanfile.py, pre-commit, gitleaks config | 🔜 |
-| **Faz 6: Docker/Docs/Configs** | Dockerfiles, docs/, .vscode/, .gitignore, .clang-*, extension/ | 🔜 |
-| **Faz 7: Unified Command** | `tool generate` with full CLI (--target-dir, --component, --merge) | 🔜 |
-| **Faz 8: Migration + E2E** | `tool migrate` (reverse-engineer tool.toml), E2E tests | 🔜 |
-| **Faz 9: Smoke Test** | 8 scenarios: minimal, full, header-only, Qt, embedded, fuzz, empty, single-app | 🔜 |
+| **Faz 0: Foundation** | Generator engine, manifest, merge, tool.toml schema extension, config_loader | ✅ |
+| **Faz 1: Root CMake** | Root CMakeLists.txt + subdirectory aggregators from tool.toml | ✅ |
+| **Faz 2: Apps + Libs** | App/lib scaffolding (CMakeLists, main.cpp, headers) | ✅ |
+| **Faz 3: cmake/ Modules** | 22 STATIC + 2 DYNAMIC + 2 PARAMETRIC cmake modules, headers, toolchains | ✅ |
+| **Faz 4: CI/CD** | GitHub workflows, actions, issue templates from `[ci]` | ✅ |
+| **Faz 5: Deps + Hooks** | vcpkg.json, conanfile.py, pre-commit, gitleaks config | ✅ |
+| **Faz 6: Docker/Docs/Configs** | Dockerfiles, docs/, .vscode/, .gitignore, .clang-*, extension/ | ✅ |
+| **Faz 7: Unified Command** | `tool generate` with full CLI (--target-dir, --component, --merge) | ✅ |
+| **Faz 8: Migration + E2E** | E2E tests (10 tests) — fresh gen, idempotency, conflict, manifest | ✅ |
+| **Faz 9: Smoke Test** | 8 scenarios: minimal, full, header-only, no-tests, fuzz, empty, single-app, multi-deps | ✅ |
 
 ### cmake Module Classification
 
