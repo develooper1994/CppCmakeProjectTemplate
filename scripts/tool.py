@@ -26,6 +26,7 @@ CORE_COMMANDS = {
     "deps":     "core.commands.deps",
     "doc":      "core.commands.doc",
     "format":   "core.commands.format",
+    "generate": "core.commands.generate",
     "lib":      "core.commands.lib",
     "perf":     "core.commands.perf",
     "presets":  "core.commands.presets",
@@ -172,6 +173,8 @@ Core Commands:
                Subcommands: serve [--port N] [--open], list, build
   format       Code formatting and clang-tidy
                Subcommands: check, tidy-fix [--dry-run] [--apply], iwyu
+  generate     Generate project files from tool.toml
+               Flags: --target-dir, --component, --merge, --force, --diff, --list
   lib          Library CRUD (add/remove/rename/move/deps/export/info/test)
                Subcommands: add, remove, rename, move, list, tree, info, deps, export, doctor
   perf         Performance analysis and optimization

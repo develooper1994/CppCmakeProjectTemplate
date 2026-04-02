@@ -300,3 +300,156 @@ yes = false
 dry_run = false
 default_command = "build check"
 default_preset = "gcc-debug-static-x86_64"
+
+# ---------------------------------------------------------------------------
+# [project] — Project identity (used by generators)
+# ---------------------------------------------------------------------------
+[project]
+name = "CppCmakeProjectTemplate"
+version = "1.0.0"
+description = "A professional C++ CMake project template with full automation"
+author = "develooper1994"
+contact = "https://github.com/develooper1994"
+license = "MIT"
+cxx_standard = "17"
+cmake_minimum = "3.25"
+
+[project.tests]
+framework = "gtest"
+fuzz = true
+auto_generate = true
+
+# ---------------------------------------------------------------------------
+# [[project.libs]] — Library declarations
+# ---------------------------------------------------------------------------
+[[project.libs]]
+name = "dummy_lib"
+type = "normal"
+template = "normal"
+cxx_standard = "17"
+deps = []
+export = true
+benchmarks = true
+
+[[project.libs]]
+name = "fuzzable"
+type = "normal"
+template = "normal"
+deps = []
+fuzz = true
+
+[[project.libs]]
+name = "secure_ops"
+type = "normal"
+template = "normal"
+deps = []
+
+# ---------------------------------------------------------------------------
+# [[project.apps]] — Application declarations
+# ---------------------------------------------------------------------------
+[[project.apps]]
+name = "main_app"
+deps = ["dummy_lib"]
+hardening = true
+build_info = true
+gui = false
+
+[[project.apps]]
+name = "demo_app"
+deps = ["dummy_lib"]
+gui = false
+
+[[project.apps]]
+name = "extreme_app"
+deps = ["dummy_lib"]
+hardening = true
+gui = false
+
+[[project.apps]]
+name = "gui_app"
+deps = ["dummy_lib"]
+gui = true
+qml = true
+
+# ---------------------------------------------------------------------------
+# [ci] — CI/CD configuration
+# ---------------------------------------------------------------------------
+[ci]
+provider = "github"
+workflows = [
+    "ci", "release", "gitleaks", "perf_regression",
+    "musl_nightly", "fuzz", "fuzz-afl", "security_scan",
+    "clang_tidy_fix", "cmake_format", "vsix-package",
+]
+reusable = true
+issue_templates = ["bug_report"]
+
+# ---------------------------------------------------------------------------
+# [deps] — Dependency manager configuration
+# ---------------------------------------------------------------------------
+[deps]
+managers = ["vcpkg", "conan"]
+
+[deps.vcpkg]
+features = ["mimalloc"]
+
+[deps.conan]
+requires = ["fmt/10.2.1", "spdlog/1.14.1"]
+
+# ---------------------------------------------------------------------------
+# [docker] — Docker build variants
+# ---------------------------------------------------------------------------
+[docker]
+variants = ["ubuntu", "alpine", "zig-musl"]
+
+# ---------------------------------------------------------------------------
+# [cmake_modules] — Selectively enable cmake/ modules
+# ---------------------------------------------------------------------------
+[cmake_modules]
+enabled = [
+    "CxxStandard", "ProjectConfigs", "ProjectOptions",
+    "BuildInfo", "Sanitizers", "Hardening", "FeatureFlags",
+    "LTO", "PGO", "Allocators", "CodeCoverage",
+    "StaticAnalyzers", "IWYU", "Benchmark",
+    "Qt", "OpenMP", "CUDA", "HIP", "SYCL", "Metal",
+    "EmbeddedUtils", "Reproducibility", "Fuzzing",
+    "BuildCache", "CxxModules",
+]
+
+[cmake_modules.toolchains]
+enabled = ["aarch64-linux-gnu", "x86_64-linux-musl", "arm-cortex-m0"]
+
+# ---------------------------------------------------------------------------
+# [vscode] — VS Code workspace generation
+# ---------------------------------------------------------------------------
+[vscode]
+generate = true
+
+# ---------------------------------------------------------------------------
+# [git] — Git config file generation
+# ---------------------------------------------------------------------------
+[git]
+generate_gitignore = true
+generate_gitattributes = true
+generate_editorconfig = true
+
+# ---------------------------------------------------------------------------
+# [docs] — Documentation generation
+# ---------------------------------------------------------------------------
+[docs]
+generate = true
+engine = "markdown"
+
+# ---------------------------------------------------------------------------
+# [extension] — VS Code extension generation
+# ---------------------------------------------------------------------------
+[extension]
+generate = true
+
+# ---------------------------------------------------------------------------
+# [generate] — Generation engine defaults
+# ---------------------------------------------------------------------------
+[generate]
+on_conflict = "ask"
+backup_dir = ".tool/backup"
+manifest_file = ".tool/generation_manifest.json"
