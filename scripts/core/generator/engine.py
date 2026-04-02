@@ -141,6 +141,7 @@ def build_context(config: dict[str, Any] | None = None) -> ProjectContext:
 # Returns {relative_path: content} for all files it wants to write.
 COMPONENT_REGISTRY: dict[str, tuple[str, str]] = {
     "cmake-dynamic": ("core.generator.cmake_dynamic", "generate_all"),
+    "cmake-static": ("core.generator.cmake_static", "generate_all"),
 }
 
 
