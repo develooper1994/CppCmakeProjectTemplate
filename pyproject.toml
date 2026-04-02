@@ -53,6 +53,8 @@ testpaths = [
     "scripts/core/generator/tests",
 ]
 norecursedirs = ["extension/templates", "build", ".venv", "__pycache__", "tui"]
+# Disable system-level plugins that break headless / CI environments
+addopts = "-p no:qt -p no:xvfb -p no:recording -p no:vcr"
 
 [tool.setuptools.packages.find]
 where = ["scripts"]
