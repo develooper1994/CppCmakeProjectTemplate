@@ -20,6 +20,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from core.utils.common import CLIResult, run_proc, PROJECT_ROOT, GlobalConfig
+from core.utils.command_utils import wrap_command
 from core.libpkg import (
     create_library,
     remove_library,
@@ -386,31 +387,23 @@ def _impl_cmd_lib_upgrade_std(args) -> None:
 
 
 def cmd_lib_upgrade_std(args):
-    return _wrap(_impl_cmd_lib_upgrade_std, args)
-
-
-def _wrap(fn, args) -> CLIResult:
-    try:
-        fn(args)
-        return CLIResult(success=True)
-    except SystemExit as e:
-        return CLIResult(success=(e.code == 0), code=e.code or 1)
+    return wrap_command(_impl_cmd_lib_upgrade_std, args)
 
 
 def cmd_list(args):
-    return _wrap(_impl_cmd_list, args)
+    return wrap_command(_impl_cmd_list, args)
 
 
 def cmd_tree(args):
-    return _wrap(_impl_cmd_tree, args)
+    return wrap_command(_impl_cmd_tree, args)
 
 
 def cmd_doctor(args):
-    return _wrap(_impl_cmd_doctor, args)
+    return wrap_command(_impl_cmd_doctor, args)
 
 
 def cmd_add(args):
-    return _wrap(_impl_cmd_add, args)
+    return wrap_command(_impl_cmd_add, args)
 
 
 def cmd_remove(args):
@@ -423,31 +416,31 @@ def cmd_remove(args):
         if resp.strip().lower() not in ("y", "yes"):
             print("Aborted.")
             return CLIResult(success=False, code=1, message="User aborted")
-    return _wrap(_impl_cmd_remove, args)
+    return wrap_command(_impl_cmd_remove, args)
 
 
 def cmd_rename(args):
-    return _wrap(_impl_cmd_rename, args)
+    return wrap_command(_impl_cmd_rename, args)
 
 
 def cmd_move(args):
-    return _wrap(_impl_cmd_move, args)
+    return wrap_command(_impl_cmd_move, args)
 
 
 def cmd_deps(args):
-    return _wrap(_impl_cmd_deps, args)
+    return wrap_command(_impl_cmd_deps, args)
 
 
 def cmd_info(args):
-    return _wrap(_impl_cmd_info, args)
+    return wrap_command(_impl_cmd_info, args)
 
 
 def cmd_test(args):
-    return _wrap(_impl_cmd_test, args)
+    return wrap_command(_impl_cmd_test, args)
 
 
 def cmd_export(args):
-    return _wrap(_impl_cmd_export, args)
+    return wrap_command(_impl_cmd_export, args)
 
 
 # ── Parser (mirrors previous build_parser) ─────────────────────────────────
