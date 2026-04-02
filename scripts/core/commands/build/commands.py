@@ -1,22 +1,10 @@
-#!/usr/bin/env python3
-"""
-core/commands/build.py — Full build implementation.
-
-This module contains the authoritative build implementation used by
-`tool build`. Implementations previously lived in `scripts/build.py`.
-"""
+"""Build command implementations and CLIResult wrappers."""
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import sys
-from pathlib import Path
-from typing import Optional
-
-# ── Path bootstrap ────────────────────────────────────────────────────────────
-_SCRIPTS = Path(__file__).resolve().parent.parent.parent  # scripts/
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
 
 from core.utils.common import (
     Logger,
@@ -24,159 +12,20 @@ from core.utils.common import (
     CLIResult,
     run_proc,
     run_capture,
-    list_presets,
     PROJECT_ROOT,
-    json_read_cached,
-    json_cache_clear,
+    get_project_version,
+    get_project_name,
 )
-from core.utils.common import get_project_version, get_project_name
-from core.libpkg.jinja_helpers import render_template_file
-import json
-
-DEFAULT_PRESET = "gcc-debug-static-x86_64"
-
-# Extension template configuration (kept small and safe)
-EXT_DIR = PROJECT_ROOT / "extension"
-TEMPLATE_DIR = EXT_DIR / "templates"
-
-EXT_INCLUDE = [
-    "CMakeLists.txt", "CMakePresets.json", "conanfile.py", "vcpkg.json",
-    "docker", "LICENSE", "README.md", "AGENTS.md", "GEMINI.md",
-    "MASTER_GENERATOR_PROMPT.md", "cmake", "apps", "libs", "tests", "scripts", "docs",
-]
-
-EXT_EXCLUDE = {
-    "build", "build_logs", "__pycache__", ".cache", "extension",
-}
+from ._helpers import (
+    _choose_preset,
+    _generate_clang_tidy,
+    _sync_templates,
+    _sync_version,
+    _sync_license,
+)
 
 
-def _is_excluded(rel: str) -> bool:
-    # Normalize to forward slashes
-    r = rel.replace("\\", "/")
-    if r in EXT_EXCLUDE:
-        return True
-    for e in EXT_EXCLUDE:
-        if r.startswith(e + "/"):
-            return True
-    return False
-
-
-def _sync_templates() -> int:
-    """Copy project files into extension templates directory, excluding dev files.
-    Returns number of files copied."""
-    # Incremental sync: avoid full removal/copy when files haven't changed.
-    TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
-    expected = set()
-    copied = 0
-
-    def _should_copy(src_path: Path, dst_path: Path) -> bool:
-        if not dst_path.exists():
-            return True
-        try:
-            s = src_path.stat()
-            d = dst_path.stat()
-            # If size and mtime match (to second), skip copy
-            if s.st_size == d.st_size and int(s.st_mtime) == int(d.st_mtime):
-                return False
-        except Exception:
-            return True
-        return True
-
-    for item in EXT_INCLUDE:
-        src = PROJECT_ROOT / item
-        if not src.exists():
-            continue
-        if src.is_file():
-            rel = item
-            if _is_excluded(rel):
-                continue
-            dst = TEMPLATE_DIR / rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            expected.add(dst.relative_to(TEMPLATE_DIR).as_posix())
-            if _should_copy(src, dst):
-                try:
-                    shutil.copy2(src, dst)
-                    copied += 1
-                except Exception:
-                    pass
-            continue
-        # directory
-        for f in src.rglob("*"):
-            if f.is_file():
-                rel = f.relative_to(PROJECT_ROOT).as_posix()
-                if _is_excluded(rel):
-                    continue
-                dst = TEMPLATE_DIR / rel
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                expected.add(dst.relative_to(TEMPLATE_DIR).as_posix())
-                if _should_copy(f, dst):
-                    try:
-                        shutil.copy2(f, dst)
-                        copied += 1
-                    except Exception:
-                        pass
-
-    # Remove stale files that are not part of expected set
-    try:
-        for f in TEMPLATE_DIR.rglob("*"):
-            if f.is_file():
-                rel = f.relative_to(TEMPLATE_DIR).as_posix()
-                if rel not in expected:
-                    try:
-                        f.unlink()
-                    except Exception:
-                        pass
-    except Exception:
-        pass
-
-    Logger.info(f"Synced {copied} template files into {TEMPLATE_DIR}")
-    return copied
-
-
-def _sync_version() -> None:
-    pkg = EXT_DIR / "package.json"
-    if not pkg.exists():
-        return
-    try:
-        data = json_read_cached(pkg, default={}) or {}
-    except Exception:
-        return
-    ver = get_project_version()
-    if data.get("version") != ver:
-        data["version"] = ver
-        pkg.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        try:
-            json_cache_clear(pkg)
-        except Exception:
-            pass
-        Logger.info(f"Synchronized extension version -> {ver}")
-
-
-def _sync_license() -> None:
-    src = PROJECT_ROOT / "LICENSE"
-    dst = EXT_DIR / "LICENSE"
-    if src.exists():
-        shutil.copy2(src, dst)
-
-
-def _choose_preset(preset: Optional[str]) -> str:
-    if preset:
-        return preset
-    presets = list_presets()
-    if presets:
-        return presets[0]
-    return DEFAULT_PRESET
-
-
-def _generate_clang_tidy(profile: str) -> None:
-    """Dynamically generate .clang-tidy based on build profile."""
-    try:
-        content = render_template_file("clang_tidy.jinja2", profile=profile)
-        (PROJECT_ROOT / ".clang-tidy").write_text(content, encoding="utf-8")
-        Logger.debug(f"Generated .clang-tidy for profile: {profile}")
-    except Exception as e:
-        Logger.warn(f"Failed to generate .clang-tidy: {e}")
-
+# ── Implementation functions ──────────────────────────────────────────────────
 
 def _impl_cmd_build(args) -> None:
     preset = _choose_preset(getattr(args, "preset", None))
@@ -321,7 +170,6 @@ def _impl_cmd_build(args) -> None:
             build_dir = PROJECT_ROOT / "build"
             build_dir.mkdir(parents=True, exist_ok=True)
             path = build_dir / "build_config.json"
-            import json
             path.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
             return path
 
@@ -454,8 +302,36 @@ def _impl_cmd_extension(args) -> None:
                     Logger.warn("npx vsce publish failed (continuing)")
 
 
-# ── Facade wrappers that return CLIResult ────────────────────────────────────
+def _impl_cmd_docker(args) -> None:
+    """Run the project build inside a Docker container."""
+    docker_bin = shutil.which("docker")
+    if not docker_bin:
+        Logger.error("docker not found in PATH.  Install Docker to use this subcommand.")
+        raise SystemExit(1)
 
+    image = getattr(args, "image", "ubuntu:24.04") or "ubuntu:24.04"
+    preset = getattr(args, "preset", None)
+    extra_args: list[str] = list(getattr(args, "extra_args", []) or [])
+
+    inner_cmd = ["python3", "scripts/tool.py", "build", "build"]
+    if preset:
+        inner_cmd += ["--preset", preset]
+    inner_cmd.extend(extra_args)
+
+    docker_cmd = [
+        docker_bin, "run", "--rm",
+        "-v", f"{PROJECT_ROOT}:/workspace",
+        "-w", "/workspace",
+        image,
+    ] + inner_cmd
+
+    Logger.info(f"[Docker] Image : {image}")
+    Logger.info(f"[Docker] Preset: {preset or '(auto)'}")
+    Logger.info(f"[Docker] Cmd   : {' '.join(inner_cmd)}")
+    run_proc(docker_cmd)
+
+
+# ── CLIResult wrapper functions ───────────────────────────────────────────────
 
 def cmd_build(args: argparse.Namespace) -> CLIResult:
     _generate_clang_tidy(getattr(args, "profile", "normal"))
@@ -523,152 +399,3 @@ def cmd_docker(args: argparse.Namespace) -> CLIResult:
         return CLIResult(success=True, message="Docker build complete.")
     except SystemExit as e:
         return CLIResult(success=(e.code == 0), code=e.code or 1, message="Docker build failed.")
-
-
-def _impl_cmd_docker(args) -> None:
-    """Run the project build inside a Docker container.
-
-    Mounts the workspace read-write at /workspace inside the container, then
-    calls `python3 scripts/tool.py build build [--preset <preset>] [extra]`.
-    The container is removed after the run (--rm).
-    """
-    docker_bin = shutil.which("docker")
-    if not docker_bin:
-        Logger.error("docker not found in PATH.  Install Docker to use this subcommand.")
-        raise SystemExit(1)
-
-    image = getattr(args, "image", "ubuntu:24.04") or "ubuntu:24.04"
-    preset = getattr(args, "preset", None)
-    extra_args: list[str] = list(getattr(args, "extra_args", []) or [])
-
-    inner_cmd = ["python3", "scripts/tool.py", "build", "build"]
-    if preset:
-        inner_cmd += ["--preset", preset]
-    inner_cmd.extend(extra_args)
-
-    docker_cmd = [
-        docker_bin, "run", "--rm",
-        "-v", f"{PROJECT_ROOT}:/workspace",
-        "-w", "/workspace",
-        image,
-    ] + inner_cmd
-
-    Logger.info(f"[Docker] Image : {image}")
-    Logger.info(f"[Docker] Preset: {preset or '(auto)'}")
-    Logger.info(f"[Docker] Cmd   : {' '.join(inner_cmd)}")
-    run_proc(docker_cmd)
-
-
-# ── Parser (mirrors previous build parser) ───────────────────────────────────
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="tool build",
-        description="Build system automation",
-    )
-    sub = parser.add_subparsers(dest="subcommand")
-
-    # build
-    p = sub.add_parser("build", help="Configure + compile")
-    p.add_argument("--preset", default=None)
-    p.add_argument("--profile",
-                   choices=["normal", "strict", "hardened", "extreme"],
-                   default="normal",
-                   help="Apply specific build profile (e.g. hardened)")
-    p.add_argument("--sanitizers", nargs="+",
-                   choices=["asan", "ubsan", "tsan", "all"],
-                   help="Enable granular sanitizers (multiple allowed, or 'all')")
-    p.add_argument("--lto", action="store_true", help="Enable Link-Time Optimization")
-    p.add_argument("--pgo", choices=["generate", "use"], default=None,
-                   help="Profile-Guided Optimization mode")
-    p.add_argument("--pgo-dir", default=None, metavar="DIR",
-                   help="PGO profile data directory (default: build/pgo-profiles)")
-    p.add_argument("--bolt", action="store_true",
-                   help="Enable LLVM BOLT post-link optimization targets (requires llvm-bolt)")
-    p.add_argument("--openmp", action="store_true", help="Enable OpenMP threading (-DENABLE_OPENMP=ON)")
-    p.add_argument("--openmp-simd", action="store_true", dest="openmp_simd",
-                   help="Enable OpenMP SIMD only — no libgomp runtime dep (-DENABLE_OPENMP_SIMD=ON)")
-    p.add_argument("--auto-parallel", action="store_true", dest="auto_parallel",
-                   help="Enable compiler auto-parallelization (-DENABLE_AUTO_PARALLEL=ON)")
-    p.add_argument("--qt", action="store_true", help="Enable Qt support (-DENABLE_QT=ON)")
-    p.add_argument("--qml", action="store_true", help="Enable Qt QML/Quick (-DENABLE_QT=ON -DENABLE_QML=ON)")
-    p.add_argument("--reproducible", action="store_true",
-                   help="Enable binary reproducibility (-DENABLE_REPRODUCIBLE=ON)")
-    p.add_argument("--allocator", choices=["default", "mimalloc", "jemalloc", "tcmalloc"],
-                   default="default",
-                   help="Optional allocator backend (default keeps system allocator)")
-    p.set_defaults(func=cmd_build)
-
-    # check
-    p = sub.add_parser("check", help="Build + test + extension sync")
-    p.add_argument("--preset", default=None)
-    p.add_argument("--profile",
-                   choices=["normal", "strict", "hardened", "extreme"],
-                   default="normal",
-                   help="Apply specific build profile (e.g. hardened)")
-    p.add_argument("--sanitizers", nargs="+",
-                   choices=["asan", "ubsan", "tsan", "all"],
-                   help="Enable granular sanitizers (multiple allowed, or 'all')")
-    p.add_argument("--lto", action="store_true", help="Enable Link-Time Optimization")
-    p.add_argument("--pgo", choices=["generate", "use"], default=None,
-                   help="Profile-Guided Optimization mode")
-    p.add_argument("--pgo-dir", default=None, metavar="DIR",
-                   help="PGO profile data directory")
-    p.add_argument("--bolt", action="store_true",
-                   help="Enable LLVM BOLT post-link optimization targets (requires llvm-bolt)")
-    p.add_argument("--openmp", action="store_true", help="Enable OpenMP threading")
-    p.add_argument("--openmp-simd", action="store_true", dest="openmp_simd",
-                   help="Enable OpenMP SIMD only")
-    p.add_argument("--auto-parallel", action="store_true", dest="auto_parallel",
-                   help="Enable compiler auto-parallelization")
-    p.add_argument("--qt", action="store_true", help="Enable Qt support")
-    p.add_argument("--qml", action="store_true", help="Enable Qt QML/Quick")
-    p.add_argument("--reproducible", action="store_true",
-                   help="Enable binary reproducibility (-DENABLE_REPRODUCIBLE=ON)")
-    p.add_argument("--allocator", choices=["default", "mimalloc", "jemalloc", "tcmalloc"],
-                   default="default",
-                   help="Optional allocator backend (default keeps system allocator)")
-    p.add_argument("--no-sync", action="store_true")
-    p.set_defaults(func=cmd_check)
-
-    # clean
-    p = sub.add_parser("clean", help="Remove build artifacts")
-    p.add_argument("targets", nargs="*")
-    p.add_argument("--all", action="store_true")
-    p.set_defaults(func=cmd_clean)
-
-    # deploy
-    p = sub.add_parser("deploy", help="Remote deploy via rsync")
-    p.add_argument("--host", required=True)
-    p.add_argument("--path", default="/tmp/cpp_project")
-    p.add_argument("--preset", default=None)
-    p.set_defaults(func=cmd_deploy)
-
-    # extension
-    p = sub.add_parser("extension", help="Build .vsix extension")
-    p.add_argument("--install", action="store_true")
-    p.add_argument("--publish", action="store_true")
-    p.set_defaults(func=cmd_extension)
-
-    # docker
-    p = sub.add_parser("docker", help="Build inside a Docker container")
-    p.add_argument("--preset", default=None, help="CMake preset to pass (default: auto-detected)")
-    p.add_argument("--image", default="ubuntu:24.04",
-                   help="Docker image to use (default: ubuntu:24.04)")
-    p.add_argument("--extra-args", nargs=argparse.REMAINDER, default=[],
-                   metavar="ARG", dest="extra_args",
-                   help="Extra arguments forwarded to 'tool build build' inside container")
-    p.set_defaults(func=cmd_docker)
-
-    return parser
-
-
-def main(argv: list[str]) -> None:
-    parser = build_parser()
-    # Default subcommand: "build"
-    args = parser.parse_args(argv if argv else ["build"])
-    if hasattr(args, "func"):
-        args.func(args).exit()
-    else:
-        parser.print_help()
