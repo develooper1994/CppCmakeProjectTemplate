@@ -316,6 +316,7 @@ class GenerateResult:
     skipped: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    removed: list[str] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
 
     @property
@@ -332,6 +333,8 @@ class GenerateResult:
             parts.append(f"{len(self.skipped)} skipped")
         if self.conflicts:
             parts.append(f"{len(self.conflicts)} conflicts")
+        if self.removed:
+            parts.append(f"{len(self.removed)} removed")
         if self.errors:
             parts.append(f"{len(self.errors)} errors")
         return ", ".join(parts) if parts else "nothing to do"
@@ -459,6 +462,28 @@ def generate(
                 if debug:
                     traceback.print_exc()
                 result.errors.append(f"{rel_path}:{exc}")
+
+    # Cleanup: remove files from disabled components
+    if not dry_run:
+        active_components = set(to_run)
+        for tracked_file in manifest.list_files():
+            entry = manifest.get_entry(tracked_file)
+            if entry is None:
+                continue
+            file_comp = entry.get("component", "")
+            if file_comp and file_comp not in active_components:
+                target_file = target_dir / tracked_file
+                if target_file.exists():
+                    disk_content = target_file.read_text(encoding="utf-8")
+                    if manifest.file_was_modified_by_user(tracked_file, disk_content):
+                        if verbose or debug:
+                            Logger.warn(f"  ⚠ skipping removal of user-modified: {tracked_file}")
+                        continue
+                    target_file.unlink()
+                    if verbose or debug:
+                        Logger.info(f"  🗑 removed: {tracked_file} (component '{file_comp}' disabled)")
+                    result.removed.append(tracked_file)
+                manifest.remove(tracked_file)
 
     if not dry_run:
         manifest.save()
