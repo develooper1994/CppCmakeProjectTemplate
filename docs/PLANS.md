@@ -289,26 +289,19 @@ scripts/core/generator/
 ├── engine.py            # Orchestrator: tool.toml → context → generators → files
 ├── manifest.py          # Hash tracking + staleness detection
 ├── merge.py             # Conflict resolution (ask/overwrite/skip/merge)
-├── cmake_dynamic.py     # f-string generators for Root CMakeLists, ProjectConfigs, FeatureFlags
-├── cmake_static/        # 22 modules + 6 headers + 15 toolchains as Python strings
-│   ├── infrastructure.py
-│   ├── analysis.py
-│   ├── gpu.py
-│   ├── tooling.py
-│   ├── exports.py
-│   ├── headers.py
-│   └── toolchains.py
-├── apps.py              # App scaffolding
-├── libs.py              # Lib scaffolding
-├── tests.py             # Unit + fuzz test scaffolding
-├── ci.py                # CI/CD workflows
-├── deps.py              # vcpkg.json, conanfile.py, hooks
-├── docker.py            # Dockerfile variants
-├── git_configs.py       # .gitignore, .gitattributes, .editorconfig
-├── ide_configs.py       # .vscode/, .cursor/, .clangd
-├── docs_gen.py          # README, LICENSE, VERSION, docs/*.md
-├── extension_gen.py     # VS Code extension files
-└── root_configs.py      # pyproject.toml, .clang-format, .cmake-format, etc.
+├── cmake_dynamic.py     # f-string generators for ProjectConfigs, FeatureFlags
+├── cmake_static/        # Static cmake modules (reads from cmake/ directory)
+│   └── __init__.py      # Reads 22 modules + 6 headers + 15 toolchains
+├── cmake_root.py        # Root CMakeLists.txt + aggregators (libs, apps, tests, unit, fuzz)
+├── cmake_targets.py     # Per-lib and per-app CMakeLists.txt + unit test CMakeLists
+├── sources.py           # C++ source scaffolding (headers, sources, test stubs, README)
+├── ci.py                # CI/CD workflow tracking (reads .github/ from disk)
+├── deps.py              # vcpkg.json + conanfile.py generation + hook config tracking
+├── configs.py           # Static config tracking (root configs, docker, vscode, extension)
+└── tests/
+    ├── __init__.py
+    ├── test_generator_e2e.py    # 10 E2E tests
+    └── test_generator_smoke.py  # 8 smoke tests
 ```
 
 ---

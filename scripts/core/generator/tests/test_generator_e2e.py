@@ -118,7 +118,7 @@ class TestGeneratorE2E:
         """All expected components should be in the registry."""
         expected = {
             "cmake-dynamic", "cmake-static", "cmake-root",
-            "cmake-targets", "ci", "deps", "configs",
+            "cmake-targets", "sources", "ci", "deps", "configs",
         }
         assert set(COMPONENT_REGISTRY.keys()) == expected
 
@@ -146,6 +146,31 @@ class TestGeneratorE2E:
             assert app_cmake.exists(), f"Missing: {app_cmake}"
             content = app_cmake.read_text()
             assert app["name"] in content
+
+    def test_source_files_generated(self, target_dir, ctx):
+        """C++ source files should be generated for all libs and apps."""
+        generate(target_dir, policy=ConflictPolicy.OVERWRITE)
+
+        for lib in ctx.libs:
+            name = lib["name"]
+            header = target_dir / "libs" / name / "include" / name / f"{name}.h"
+            assert header.exists(), f"Missing header: {header}"
+            assert "#pragma once" in header.read_text()
+
+            lib_type = lib.get("type", "normal")
+            if lib_type not in ("header-only", "interface"):
+                src = target_dir / "libs" / name / "src" / f"{name}.cpp"
+                assert src.exists(), f"Missing source: {src}"
+
+            readme = target_dir / "libs" / name / "README.md"
+            assert readme.exists(), f"Missing README: {readme}"
+
+        for app in ctx.apps:
+            main_cpp = target_dir / "apps" / app["name"] / "src" / "main.cpp"
+            assert main_cpp.exists(), f"Missing main.cpp: {main_cpp}"
+
+        assert (target_dir / "VERSION").exists()
+        assert (target_dir / "README.md").exists()
 
     def test_dry_run_no_files(self, target_dir):
         """Dry run should not create any files."""
