@@ -12,11 +12,15 @@ Usage:
     tool generate --diff                                  # show diff against existing
     tool generate --merge                                 # use merge conflict resolution
     tool generate --force                                 # overwrite without asking
+    tool generate --debug                                 # tracebacks + per-component timing
+    tool generate --verbose                               # extra progress messages
+    tool generate --json                                  # machine-readable JSON output
 """
 from __future__ import annotations
 
 import argparse
 import copy
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -157,6 +161,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--init-git", action="store_true", default=False, help="Always initialize git in the target directory after generation.")
     parser.add_argument("--no-init-git", action="store_true", default=False, help="Do not initialize git even for a new target directory.")
     parser.add_argument("--interactive", "-i", action="store_true", default=False, help="Start the interactive project creation wizard.")
+    parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output: full tracebacks and per-component timing.")
+    parser.add_argument("--verbose", "-v", action="store_true", default=False, help="Extra progress messages during generation.")
+    parser.add_argument("--json", dest="json_output", action="store_true", default=False, help="Emit machine-readable JSON output instead of human text.")
 
     args = parser.parse_args(argv)
 
@@ -225,12 +232,17 @@ def main(argv: list[str] | None = None) -> None:
             policy=policy or ConflictPolicy.OVERWRITE,
             dry_run=dry_run,
             config=cfg,
+            debug=args.debug,
+            verbose=args.verbose,
         )
-        for f in result.created:
-            Logger.success(f"  + {f}")
-        for f in result.errors:
-            Logger.error(f"  ✗ {f}")
-        Logger.info(f"Done: {result.summary()}")
+        if args.json_output:
+            _print_json(result)
+        else:
+            for f in result.created:
+                Logger.success(f"  + {f}")
+            for f in result.errors:
+                Logger.error(f"  ✗ {f}")
+            Logger.info(f"Done: {result.summary()}")
 
         if result.errors:
             sys.exit(1)
@@ -310,26 +322,31 @@ def main(argv: list[str] | None = None) -> None:
         policy=policy,
         dry_run=dry_run,
         config=cfg,
+        debug=args.debug,
+        verbose=args.verbose,
     )
 
     # Report results
-    if result.created:
-        for f in result.created:
-            Logger.success(f"  + {f}")
-    if result.written:
-        for f in result.written:
-            Logger.info(f"  ~ {f}")
-    if result.skipped:
-        for f in result.skipped:
-            Logger.debug(f"  . {f}")
-    if result.conflicts:
-        for f in result.conflicts:
-            Logger.warn(f"  ! {f}")
-    if result.errors:
-        for f in result.errors:
-            Logger.error(f"  ✗ {f}")
+    if args.json_output:
+        _print_json(result)
+    else:
+        if result.created:
+            for f in result.created:
+                Logger.success(f"  + {f}")
+        if result.written:
+            for f in result.written:
+                Logger.info(f"  ~ {f}")
+        if result.skipped:
+            for f in result.skipped:
+                Logger.debug(f"  . {f}")
+        if result.conflicts:
+            for f in result.conflicts:
+                Logger.warn(f"  ! {f}")
+        if result.errors:
+            for f in result.errors:
+                Logger.error(f"  ✗ {f}")
 
-    Logger.info(f"Done: {result.summary()}")
+        Logger.info(f"Done: {result.summary()}")
 
     if result.errors:
         sys.exit(1)
@@ -340,6 +357,21 @@ def main(argv: list[str] | None = None) -> None:
         skip_init=args.no_init_git,
         dry_run=dry_run,
     )
+
+
+def _print_json(result) -> None:
+    """Emit a machine-readable JSON summary of the generation run."""
+    data: dict[str, Any] = {
+        "created": result.created,
+        "written": result.written,
+        "skipped": result.skipped,
+        "conflicts": result.conflicts,
+        "errors": result.errors,
+        "summary": result.summary(),
+    }
+    if hasattr(result, "timings") and result.timings:
+        data["timings"] = result.timings
+    print(json.dumps(data, indent=2))
 
 
 def _show_diff(target_dir: Path, components: list[str] | None, config: dict[str, Any] | None = None) -> None:
