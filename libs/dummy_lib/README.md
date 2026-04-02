@@ -8,7 +8,7 @@ compile-time build metadata via `BuildInfo.h`.
 ## Usage
 
 ```cpp
-#include <dummy_lib/greet.h>
+#include <dummy_lib/dummy_lib.h>
 #include "BuildInfo.h"      // dummy_lib_info::project_version == "2.5.0"
 #include "ProjectInfo.h"    // convenience single-include
 

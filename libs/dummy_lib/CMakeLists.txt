@@ -31,11 +31,11 @@ target_generate_build_info(dummy_lib
 
 target_sources(dummy_lib
     PRIVATE
-        src/greet.cpp
+        src/dummy_lib.cpp
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
-        FILES include/dummy_lib/greet.h)
+        FILES include/dummy_lib/dummy_lib.h)
 
 # Generate export header for Windows/DLL support
 # Place it in the binary directory to keep source clean
@@ -90,12 +90,12 @@ install(TARGETS dummy_lib
 # Google Benchmark targets (built only when ENABLE_BENCHMARKS=ON)
 # ---------------------------------------------------------------------------
 if(ENABLE_BENCHMARKS AND TARGET benchmark::benchmark)
-    add_executable(bench_greet benchmarks/bench_greet.cpp)
-    target_link_libraries(bench_greet PRIVATE dummy_lib)
+    add_executable(bench_dummy_lib benchmarks/bench_dummy_lib.cpp)
+    target_link_libraries(bench_dummy_lib PRIVATE dummy_lib)
     if(COMMAND project_apply_allocator)
-        project_apply_allocator(bench_greet)
+        project_apply_allocator(bench_dummy_lib)
     endif()
-    target_apply_benchmark_options(bench_greet)
+    target_apply_benchmark_options(bench_dummy_lib)
 
-    message(STATUS "[dummy_lib] Benchmark target 'bench_greet' registered.")
+    message(STATUS "[dummy_lib] Benchmark target 'bench_dummy_lib' registered.")
 endif()

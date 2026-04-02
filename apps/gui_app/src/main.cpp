@@ -3,7 +3,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QLabel>
-#include "dummy_lib/greet.h"
+#include "dummy_lib/dummy_lib.h"
 #include "BuildInfo.h"
 
 #ifdef ENABLE_QML_SUPPORT

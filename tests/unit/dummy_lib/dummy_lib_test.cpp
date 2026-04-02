@@ -1,5 +1,5 @@
-// tests/unit/dummy_lib/greet_test.cpp
-#include "dummy_lib/greet.h"
+// tests/unit/dummy_lib/dummy_lib_test.cpp
+#include "dummy_lib/dummy_lib.h"
 
 #include <gtest/gtest.h>
 #include <string>
