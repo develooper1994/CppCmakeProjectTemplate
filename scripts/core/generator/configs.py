@@ -28,7 +28,6 @@ ROOT_CONFIGS = [
     ".gitignore",
     "pyproject.toml",
     "LICENSE",
-    "VERSION",
 ]
 
 

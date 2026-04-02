@@ -93,6 +93,14 @@ class TestSmokeScenarios:
         assert (tmp_path / "libs/mylib/CMakeLists.txt").exists()
         assert (tmp_path / "apps/myapp/CMakeLists.txt").exists()
         assert (tmp_path / "tests/unit/mylib/CMakeLists.txt").exists()
+        # Source files
+        assert (tmp_path / "libs/mylib/include/mylib/mylib.h").exists()
+        assert (tmp_path / "libs/mylib/src/mylib.cpp").exists()
+        assert (tmp_path / "libs/mylib/README.md").exists()
+        assert (tmp_path / "apps/myapp/src/main.cpp").exists()
+        assert (tmp_path / "tests/unit/mylib/mylib_test.cpp").exists()
+        assert (tmp_path / "VERSION").exists()
+        assert (tmp_path / "README.md").exists()
 
     def test_full_project(self, tmp_path):
         """Multiple libs with all features."""
@@ -134,6 +142,9 @@ class TestSmokeScenarios:
         content = (tmp_path / "libs/hdr_lib/CMakeLists.txt").read_text()
         assert "INTERFACE" in content
         assert "add_library(hdr_lib INTERFACE)" in content
+        # Header-only: header but no source
+        assert (tmp_path / "libs/hdr_lib/include/hdr_lib/hdr_lib.h").exists()
+        assert not (tmp_path / "libs/hdr_lib/src/hdr_lib.cpp").exists()
 
     def test_no_tests(self, tmp_path):
         """Project without tests framework."""
@@ -150,7 +161,7 @@ class TestSmokeScenarios:
         assert not (tmp_path / "tests/unit/simple/CMakeLists.txt").exists()
 
     def test_fuzz_project(self, tmp_path):
-        """Fuzz-enabled project generates fuzz CMakeLists."""
+        """Fuzz-enabled project generates fuzz CMakeLists and harness."""
         cfg = _make_config(
             **{
                 "project.libs": [{"name": "flib", "type": "normal", "deps": [], "fuzz": True}],
@@ -164,6 +175,10 @@ class TestSmokeScenarios:
         assert fuzz_cmake.exists()
         content = fuzz_cmake.read_text()
         assert "fuzz_flib" in content
+        # Fuzz harness source
+        fuzz_src = tmp_path / "tests/fuzz/fuzz_flib.cpp"
+        assert fuzz_src.exists()
+        assert "LLVMFuzzerTestOneInput" in fuzz_src.read_text()
 
     def test_empty_project(self, tmp_path):
         """No libs, no apps — should still generate root cmake."""
