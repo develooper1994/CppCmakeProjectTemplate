@@ -33,15 +33,15 @@
   "contributes": {
     "commands": [
       {
-        "command": "cpp-cmake-scaffolder.init",
+        "command": "cppcmake-project-template.init",
         "title": "CppTemplate: Create New Project"
       },
       {
-        "command": "cpp-cmake-scaffolder.toollib",
+        "command": "cppcmake-project-template.toollib",
         "title": "CppTemplate: Library Manager (toollib)"
       },
       {
-        "command": "cpp-cmake-scaffolder.toolsolution",
+        "command": "cppcmake-project-template.toolsolution",
         "title": "CppTemplate: Project Orchestrator (toolsolution)"
       }
     ]

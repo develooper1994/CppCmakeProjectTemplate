@@ -268,7 +268,7 @@ function activate(context) {
 
     // 1. Create new project via CLI
     const initCmd = vscode.commands.registerCommand(
-        'cpp-cmake-scaffolder.init',
+        'cppcmake-project-template.init',
         async () => {
             const picked = await vscode.window.showOpenDialog({
                 canSelectFiles: false, canSelectFolders: true, openLabel: 'Create Project',
@@ -292,13 +292,13 @@ function activate(context) {
 
     // 2. toollib — library management
     const toollibCmd = vscode.commands.registerCommand(
-        'cpp-cmake-scaffolder.toollib',
+        'cppcmake-project-template.toollib',
         toollibUI
     );
 
     // 3. toolsolution — project orchestrator
     const toolsolutionCmd = vscode.commands.registerCommand(
-        'cpp-cmake-scaffolder.toolsolution',
+        'cppcmake-project-template.toolsolution',
         toolsolutionUI
     );
 
