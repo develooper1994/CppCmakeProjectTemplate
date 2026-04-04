@@ -83,11 +83,14 @@ def main():
     remaining = raw_args[first_pos:]
 
     global_args, leftover = parser.parse_known_args(prefix)
-    # Unknown tokens found among the prefix (e.g. `--build`) should be
-    # forwarded to the remaining argument list so they can be interpreted
-    # as subcommand tokens.
-    if leftover:
-        remaining = leftover + remaining
+
+    # Build a combined token stream consisting of unknown prefix tokens
+    # followed by the remaining tokens. Search this combined list for the
+    # first token that maps to a known subcommand (optionally prefixed
+    # with dashes). If found, treat that token as the command and forward
+    # any tokens before it to the subcommand. This makes `tool --foo build`
+    # behave like `tool build --foo` (so the build subparser sees `--foo`).
+    combined = leftover + remaining
 
     # Dynamic Root Discovery
     try:
@@ -119,31 +122,32 @@ def main():
 
     all_commands = {**CORE_COMMANDS, **discover_plugins()}
 
-    # --help handling: print top-level help only when the help flag was
-    # provided at top-level (i.e. before any subcommand) or when the
-    # prefix did not include a token that maps to a subcommand. This keeps
-    # `tool build --help` showing the build help while `tool --help` shows
-    # the main help.
-    if global_args.help and not (remaining and remaining[0].lstrip("-") in all_commands):
-        print_main_help(parser)
-        sys.exit(0)
+    # Find the first token in the combined stream that maps to a known
+    # subcommand. If found, that token is the command and any tokens
+    # before it are forwarded as args to the subcommand parser.
+    command = None
+    cmd_args = []
+    for idx, tok in enumerate(combined):
+        name = tok.lstrip("-")
+        if name in all_commands:
+            command = name
+            cmd_args = combined[:idx] + combined[idx+1:]
+            break
 
-    # No arguments provided: show help instead of running a command
-    if not remaining:
-        print_main_help(parser)
-        sys.exit(0)
-
-    command = remaining[0]
-    cmd_args = remaining[1:]
-
-    # Allow `tool.py --build` or `tool.py -build` to map to the `build` subcommand
-    if command.startswith("-"):
-        stripped = command.lstrip("-")
-        all_commands = {**CORE_COMMANDS, **discover_plugins()}
-        if stripped in all_commands:
-            command = stripped
+    # If we didn't find a command in the combined stream, fall back to the
+    # conventional remaining-first behavior (e.g. `tool build ...`).
+    if command is None:
+        if remaining and remaining[0].lstrip("-") in all_commands:
+            command = remaining[0].lstrip("-")
+            cmd_args = remaining[1:]
         else:
-            Logger.error(f"Unknown command: '{command}'")
+            # No subcommand detected.
+            if global_args.help or not combined:
+                print_main_help(parser)
+                sys.exit(0)
+            # Show an unknown command error for the first token.
+            candidate = combined[0]
+            Logger.error(f"Unknown command: '{candidate}'")
             sys.exit(1)
 
     # Resolve and Execute

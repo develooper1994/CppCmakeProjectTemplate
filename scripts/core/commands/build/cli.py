@@ -132,6 +132,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str]) -> None:
     parser = build_parser()
+    # Support shorthand forms:
+    #  - `tool build extreme`           -> treat as `tool build build --profile extreme`
+    #  - `tool build build extreme`     -> treat as `tool build build --profile extreme`
+    #  - `tool build check extreme`     -> treat as `tool build check --profile extreme`
+    subcommands = {"build", "check", "clean", "deploy", "extension", "docker", "watch", "diagnose"}
+    profile_choices = {"normal", "strict", "hardened", "extreme"}
+
+    if argv:
+        # Case A: user supplied a bare profile as first token
+        if argv[0] in profile_choices:
+            argv = ["build", "--profile", argv[0]] + argv[1:]
+        # Case B: user supplied a known subcommand followed by a bare profile
+        elif argv[0] in subcommands and len(argv) > 1 and argv[1] in profile_choices and not argv[1].startswith("-"):
+            argv = [argv[0], "--profile", argv[1]] + argv[2:]
+
     # Default subcommand: "build"
     args = parser.parse_args(argv if argv else ["build"])
     if hasattr(args, "func"):
