@@ -1754,7 +1754,7 @@ def _gen_root_readme(ctx: ProjectContext) -> str:
     # Footer
     if has_docs:
         parts.append(
-            "Full documentation: [docs/README_FULL.md](docs/README_FULL.md) | "
+            "Full documentation: [docs/index.md](docs/index.md) | "
             "Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) | "
             "Capabilities: [docs/CAPABILITIES.md](docs/CAPABILITIES.md) | "
             "Embedded guide: [docs/EMBEDDED.md](docs/EMBEDDED.md)"
