@@ -106,18 +106,44 @@ class Logger:
             Logger._log("DEBUG", msg, Logger.BOLD)
 
 def find_project_root(start: Path) -> Path:
+    """
+    Locate the project root by searching for markers in parent directories.
+    Prioritizes tool.toml, falls back to scripts/cmake directory markers.
+    """
     p = start.resolve()
     if p.is_file():
         p = p.parent
+    
+    first_candidate = None
     while True:
-        if (p / "libs").is_dir() and (p / "scripts").is_dir():
+        # tool.toml is the strongest indicator of a project root
+        if (p / "tool.toml").exists():
             return p
+            
+        # fallback markers: if scripts and cmake exist together, it's likely a root
+        if (p / "scripts").is_dir() and (p / "cmake").is_dir():
+            if not first_candidate:
+                first_candidate = p
+        
         if p.parent == p:
-            raise RuntimeError("Project root not found.")
+            if first_candidate:
+                return first_candidate
+            raise RuntimeError(
+                "Project root not found. Ensure you are running from within a "
+                "project tree (missing tool.toml or scripts/ directory)."
+            )
         p = p.parent
 
 PROJECT_ROOT: Path = find_project_root(Path(__file__).resolve())
-LOG_FILE: Path = PROJECT_ROOT / "build_logs" / "tool.log"
+
+def get_project_root() -> Path:
+    """Return the current project root, adapting to CWD if necessary."""
+    try:
+        return find_project_root(Path.cwd())
+    except RuntimeError:
+        return PROJECT_ROOT
+
+LOG_FILE: Path = get_project_root() / "build_logs" / "tool.log"
 
 # If repository has a central VERSION file, use it as the authoritative
 # source of truth for the toolset version. This makes it easy to keep

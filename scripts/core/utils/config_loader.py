@@ -37,12 +37,19 @@ except ImportError:
     except ImportError:
         tomllib = None  # type: ignore[assignment]
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-TOOL_TOML = PROJECT_ROOT / "tool.toml"
+# --- DYNAMIC CONFIG DISCOVERY ---
+def get_project_root() -> Path:
+    """Return the currently active project root from common utilities."""
+    from core.utils import common
+    return common.PROJECT_ROOT
 
-# Module-level cache — loaded once per process
+def get_tool_toml_path() -> Path:
+    """Return the current tool.toml path based on project root."""
+    return get_project_root() / "tool.toml"
+
+# Module-level cache — reset when PROJECT_ROOT changes
 _config: dict[str, Any] = {}
-_loaded: bool = False
+_loaded_from: Path | None = None
 
 
 def load_tool_config(path: Path | None = None) -> dict[str, Any]:
@@ -53,11 +60,18 @@ def load_tool_config(path: Path | None = None) -> dict[str, Any]:
     returns an empty dict (never raises — callers should not crash if
     tool.toml is absent).
     """
-    global _config, _loaded
-    if _loaded:
+    global _config, _loaded_from
+    
+    cfg_path = path or get_tool_toml_path()
+    
+    # Invalidate cache if we are loading from a different path
+    if _loaded_from != cfg_path:
+        _config = {}
+        _loaded_from = None
+
+    if _config and _loaded_from == cfg_path:
         return _config
 
-    cfg_path = path or TOOL_TOML
     raw: dict[str, Any] = {}
 
     if cfg_path.exists():
@@ -85,7 +99,7 @@ def load_tool_config(path: Path | None = None) -> dict[str, Any]:
         raw[section][opt] = _coerce(val)
 
     _config = raw
-    _loaded = True
+    _loaded_from = cfg_path
     return _config
 
 
@@ -192,26 +206,27 @@ def _coerce(val: str) -> Any:
 
 def _ensure_tool_toml() -> Path:
     """Create a minimal tool.toml when the file does not exist yet."""
-    if not TOOL_TOML.exists():
-        TOOL_TOML.write_text(
+    cfg_path = get_tool_toml_path()
+    if not cfg_path.exists():
+        cfg_path.write_text(
             "# tool.toml — auto-generated minimal configuration\n\n"
             "[session]\n",
             encoding="utf-8",
         )
-    return TOOL_TOML
+    return cfg_path
 
 
 def _read_toml_text() -> str:
     """Return the raw text of tool.toml, creating the file if absent."""
-    _ensure_tool_toml()
-    return TOOL_TOML.read_text(encoding="utf-8")
+    return _ensure_tool_toml().read_text(encoding="utf-8")
 
 
 def _write_toml_text(text: str) -> None:
     """Write *text* back to tool.toml and invalidate the in-process read cache."""
-    global _loaded
-    TOOL_TOML.write_text(text, encoding="utf-8")
-    _loaded = False  # next load_tool_config() call re-reads from disk
+    global _loaded_from
+    cfg_path = _ensure_tool_toml()
+    cfg_path.write_text(text, encoding="utf-8")
+    _loaded_from = None  # force re-read
 
 
 def load_session() -> dict:
@@ -271,13 +286,14 @@ def backup_session() -> Path | None:
 
     Returns the backup path on success, or *None* when the file is absent.
     """
-    if not TOOL_TOML.exists():
+    cfg_path = get_tool_toml_path()
+    if not cfg_path.exists():
         return None
     try:
         import time as _time
         ts = int(_time.time())
-        bak = TOOL_TOML.with_suffix(f".{ts}.bak.toml")
-        bak.write_bytes(TOOL_TOML.read_bytes())
+        bak = cfg_path.with_suffix(f".{ts}.bak.toml")
+        bak.write_bytes(cfg_path.read_bytes())
         return bak
     except Exception:
         return None

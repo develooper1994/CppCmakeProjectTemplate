@@ -93,6 +93,19 @@ def main():
     # Detect which flags were provided on the CLI so we can give CLI precedence
     provided = {a.split('=')[0] for a in tool_args}
 
+    # Dynamic Project Root Discovery:
+    # If we are in a directory that looks like a project root (has tool.toml),
+    # override the initial PROJECT_ROOT to ensure we use the local config.
+    try:
+        from core.utils import common
+        local_root = find_project_root(Path.cwd())
+        if local_root != common.PROJECT_ROOT:
+            common.PROJECT_ROOT = local_root
+            # Also update session if root changed
+            session = load_session() or {}
+    except Exception:
+        pass
+
     GlobalConfig.VERBOSE = args.verbose if '--verbose' in provided else bool(session.get('verbose', args.verbose))
     GlobalConfig.JSON    = args.json    if '--json'    in provided else bool(session.get('json', args.json))
     GlobalConfig.YES     = args.yes     if '--yes'     in provided else bool(session.get('yes', args.yes))
