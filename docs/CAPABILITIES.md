@@ -53,7 +53,11 @@ This document lists all completed and production-ready features.
 ## Distribution & Template Engine
 
 - **Jinja2 Migration:** Integrated for `libpkg` and `sol` with fallback.
-- **Bootstrap (`tool setup`):** Checks dependencies, `--install` via apt/brew/dnf/pacman. Creates/populates Python venv.
+- **Bootstrap (`tool setup`):** Checks dependencies, `--install` via apt/brew/dnf/pacman/winget/choco. Creates/populates Python venv.
+- **Categorized Dependencies:** 7 categories (critical_build, compiler, installer_tools, python_runtime, python_dev, optional_tools, optional_platform) with per-category check, version validation, and `packages_any` groups (e.g., `tomllib` or `tomli`).
+- **Dependency Check Mode:** `tool setup --check` — full categorized report with ✅/❌/⚠️ status, version info, and `--category` filter for targeted checks.
+- **Environment Auto-Detection:** `tool setup --detect` — detects OS, architecture, package manager, all compilers with versions, and available build features (ccache, sanitizers, coverage, docker, etc.).
+- **Comprehensive Health Check:** `tool sol doctor` — checks all dependency categories, project structure (CMakeLists.txt, tool.toml, CMakePresets.json), and library health in a single command.
 - **Rollback & Recovery:** `Transaction` helper for atomic file operations.
 
 ## Test Strategy & CI
