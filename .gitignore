@@ -1,18 +1,14 @@
-# Prerequisites
-# Build output
+# Build and Output
+/build/
+/build-extreme/
+/build_logs/
 [Bb]in/
 [Oo]bj/
-Debug*/
-Release*/
-x64/Debug/
-x64/Release/
-/build/
-build-extreme/
-bin/
 out/
-CMakeUserPresets.json
+dist/
+*.vsix
 
-# CMake artifacts
+# CMake
 CMakeCache.txt
 CMakeFiles/
 CMakeScripts/
@@ -21,77 +17,37 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 Makefile
-!CMakeLists.txt
-!CMakePresets.json
+CMakeUserPresets.json
+_deps/
 
-# VS Code artifacts
+# IDEs
 .vs/
 .vscode/*
-*.vcxproj.user
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-*.VC.db
-*.VC.opendb
 !.vscode/settings.json
 !.vscode/extensions.json
 !.vscode/launch.json
 !.vscode/tasks.json
-
-# System artifacts
-.DS_Store
-Thumbs.db
-*.Zone.Identifier
-
-# Extension build outputs (generated, do not commit)
-*.vsix
-extension/templates/
-extension/LICENSE
-extension/node_modules/
-extension/package-lock.json
-scripts/extension/templates/
-scripts/extension/LICENSE
-scripts/extension/node_modules/
-scripts/extension/package-lock.json
-
-# Temporary log directory
-build_logs/
-
-# Generated artifacts (do not commit)
-*.bak
-*-fixes.patch
+*.swp
+*.swo
 
 # Python
 __pycache__/
-
-# PyPI / packaging
-dist/
-*.egg-info/
-
-# Generator state
-.tool/
-
-# Dependency lock files (local only)
-conan.lock
-
-# Session backups (tool.toml is the canonical session store)
-*.bak.toml
-.session.json
-
-# Extension generated files (copied from repo root during build)
-#extension/README.md
-#extension/LICENSE
-
-# Python virtual environments
+*.pyc
 .venv/
 venv/
-.venv_pkg/
-venv_pkg/
-env/
-ENV/
-.mypy/
-mypy/
-.ruff/
-ruff/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Generator & Tools
+.tool/
+conan.lock
 requirements-dev.lock.txt
+*.bak
+*.bak.toml
+
+# AI Agent Contexts (Generated)
+.cursorrules
+.clinerules
+.claude/
