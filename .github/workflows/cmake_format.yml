@@ -10,6 +10,9 @@ jobs:
   cmake-format:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Common CI setup
         uses: ./.github/actions/common-ci
         with:
