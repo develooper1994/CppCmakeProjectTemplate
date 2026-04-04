@@ -92,6 +92,12 @@ _SECTION_SCHEMAS: dict[str, dict[str, tuple[type | tuple, bool]]] = {
     "doc": {
         "serve_port":         (_INT, False),
         "serve_open_browser": (_BOOL, False),
+        "generate":           (_BOOL, False),
+        "engine":             (_STR, False),
+        "generate_api_docs":  (_BOOL, False),
+        "doxygen_dot":        (_BOOL, False),
+        "doxygen_extract_all":(_BOOL, False),
+        "mkdocs_theme":       (_STR, False),
     },
     "release": {
         "auto_push":      (_BOOL, False),
@@ -212,6 +218,8 @@ _LIB_KEYS: dict[str, tuple[type | tuple, bool]] = {
     "header_only":  (_BOOL, False),
     "interface":    (_BOOL, False),
     "modules":      (_BOOL, False),
+    "version":      (_STR, False),
+    "description":  (_STR, False),
 }
 
 # App entry schema
@@ -222,6 +230,7 @@ _APP_KEYS: dict[str, tuple[type | tuple, bool]] = {
     "build_info": (_BOOL, False),
     "gui":        (_BOOL, False),
     "qml":        (_BOOL, False),
+    "description":(_STR, False),
 }
 
 # Valid enum-like values

@@ -123,9 +123,9 @@ These were investigated and found to be working correctly:
 
 If you want to make fast progress, do these in order:
 
-1. [ ] Fix `config_schema.py` — add missing keys to `_DOC_KEYS`, `_LIB_KEYS`, `_APP_KEYS` (~15 min)
-2. [ ] Add `wasm32-emscripten.cmake` to `STATIC_TOOLCHAIN_FILES` (~2 min)
-3. [ ] Update AGENTS.md core commands list (~5 min)
+1. [x] Fix `config_schema.py` — add missing keys to `_DOC_KEYS`, `_LIB_KEYS`, `_APP_KEYS` (~15 min)
+2. [x] Add `wasm32-emscripten.cmake` to `STATIC_TOOLCHAIN_FILES` (~2 min)
+3. [x] Update AGENTS.md core commands list (~5 min)
 4. [ ] Update USAGE.md command table + section count (~30 min)
 5. [ ] Write tests for `nix.py` (smallest scope) (~30 min)
 6. [ ] Write tests for remaining 4 commands (~2-3 hours total)

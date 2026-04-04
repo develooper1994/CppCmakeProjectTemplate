@@ -70,6 +70,7 @@ STATIC_TOOLCHAIN_FILES: list[str] = [
     "toolchains/template-custom-gnu.cmake",
     "toolchains/x86_64-linux-musl-zig.cmake",
     "toolchains/x86_64-linux-musl.cmake",
+    "toolchains/wasm32-emscripten.cmake",
     "toolchains/x86_64-w64-mingw32.cmake",
 ]
 

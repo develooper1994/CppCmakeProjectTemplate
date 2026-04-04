@@ -24,7 +24,7 @@ This document outlines how AI agents should interact with the CppCmakeProjectTem
 ## Key Files & Directories
 
 - **Dispatcher:** `scripts/tool.py` is the main entry point.
-- **Core Logic:** `scripts/core/commands/` (build, lib, sol, generate, new, adopt, validate, completion, license)
+- **Core Logic:** `scripts/core/commands/` (build, lib, sol, generate, new, adopt, validate, completion, license, deps, doc, format, perf, presets, release, security, session, plugins, sbom, diagnostics, nix, migrate, templates)
 - **Generator Engine:** `scripts/core/generator/` (engine, wizard, profiles, merge, manifest)
 - **Core Utilities:** `scripts/core/utils/common.py`
 - **Plugins:** `scripts/plugins/` (dynamic commands)
