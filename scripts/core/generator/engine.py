@@ -298,6 +298,53 @@ PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Component dependency graph — determines generation order.
+# Each component lists the components it depends on (must run first).
+COMPONENT_DEPS: dict[str, tuple[str, ...]] = {
+    "cmake-dynamic": (),
+    "cmake-static": (),
+    "cmake-root": ("cmake-dynamic", "cmake-static", "cmake-targets"),
+    "cmake-targets": ("cmake-dynamic", "cmake-static"),
+    "sources": ("cmake-targets",),
+    "ci": ("cmake-root", "presets"),
+    "deps": (),
+    "configs": (),
+    "presets": (),
+    "docs": ("cmake-root",),
+    "agents": ("cmake-root",),
+}
+
+
+def _topo_sort(components: list[str]) -> list[str]:
+    """Topologically sort components based on COMPONENT_DEPS.
+
+    Components not in COMPONENT_DEPS are placed at the end.
+    Raises ValueError on circular dependencies.
+    """
+    component_set = set(components)
+    visited: set[str] = set()
+    in_stack: set[str] = set()
+    order: list[str] = []
+
+    def _visit(node: str) -> None:
+        if node in in_stack:
+            raise ValueError(f"Circular dependency detected involving: {node}")
+        if node in visited:
+            return
+        in_stack.add(node)
+        for dep in COMPONENT_DEPS.get(node, ()):
+            if dep in component_set:
+                _visit(dep)
+        in_stack.discard(node)
+        visited.add(node)
+        order.append(node)
+
+    for comp in components:
+        _visit(comp)
+
+    return order
+
+
 def get_profile_components(profile: str) -> list[str]:
     """Return the component list for a named generation profile."""
     normalized = str(profile or "full").strip().lower() or "full"
@@ -444,6 +491,9 @@ def generate(
     to_run = components if components else get_profile_components(ctx.profile)
     if not is_feature_enabled(ctx, "ci"):
         to_run = [name for name in to_run if name != "ci"]
+
+    # Topologically sort components by declared dependencies
+    to_run = _topo_sort(to_run)
 
     result = GenerateResult()
 

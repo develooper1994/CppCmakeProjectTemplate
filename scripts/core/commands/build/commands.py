@@ -520,3 +520,28 @@ def cmd_watch(args: argparse.Namespace) -> CLIResult:
         return CLIResult(success=True, message="Watch mode stopped.")
     except SystemExit as e:
         return CLIResult(success=(e.code == 0), code=e.code or 1, message="Watch failed.")
+
+
+def cmd_diagnose(args: argparse.Namespace) -> CLIResult:
+    """Analyse a build log and print human-friendly diagnostics."""
+    from .diagnostics import analyse_output, format_diagnostics
+
+    logfile = getattr(args, "logfile", None)
+    if logfile:
+        from pathlib import Path
+        p = Path(logfile)
+        if not p.exists():
+            return CLIResult(success=False, code=1, message=f"File not found: {logfile}")
+        text = p.read_text(encoding="utf-8", errors="replace")
+    else:
+        Logger.info("Reading build output from stdin (Ctrl+D to end)...")
+        text = sys.stdin.read()
+
+    diags = analyse_output(text)
+    if not diags:
+        Logger.info("No actionable diagnostics found.")
+        return CLIResult(success=True, message="No diagnostics.")
+
+    output = format_diagnostics(diags)
+    print(output)
+    return CLIResult(success=True, message=f"{len(diags)} diagnostic(s) found.")

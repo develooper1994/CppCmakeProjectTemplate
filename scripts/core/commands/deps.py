@@ -315,6 +315,103 @@ def _cmd_list(args) -> CLIResult:
 
 
 # ---------------------------------------------------------------------------
+# Dependency update checking
+# ---------------------------------------------------------------------------
+
+def _pip_outdated() -> list[dict]:
+    """Query pip for outdated packages listed in requirements-dev.txt."""
+    if not REQ_FILE.exists():
+        return []
+    pip = shutil.which("pip3") or shutil.which("pip")
+    if not pip:
+        Logger.warn("  pip not found — skipping pip update check")
+        return []
+    try:
+        r = subprocess.run(
+            [pip, "list", "--outdated", "--format=json"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if r.returncode != 0:
+            return []
+        all_outdated = json.loads(r.stdout) if r.stdout.strip() else []
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return []
+    # Filter to only packages in requirements-dev.txt
+    req_names: set[str] = set()
+    for line in REQ_FILE.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            # e.g. "pytest>=7.0" → "pytest"
+            import re
+            name = re.split(r"[><=!~;\[]", stripped, maxsplit=1)[0].strip().lower()
+            req_names.add(name)
+    return [
+        e for e in all_outdated
+        if e.get("name", "").lower() in req_names
+    ]
+
+
+def _cmd_update(args) -> CLIResult:
+    """Check for newer dependency versions across all managers."""
+    managers = getattr(args, "managers", ["vcpkg", "conan", "pip"])
+    results: dict[str, list] = {}
+    found = 0
+
+    # pip
+    if "pip" in managers:
+        Logger.info("[pip] Checking for outdated packages...")
+        outdated = _pip_outdated()
+        if outdated:
+            results["pip"] = outdated
+            for pkg in outdated:
+                Logger.info(
+                    f"  {pkg['name']}: {pkg.get('version', '?')} → {pkg.get('latest_version', '?')}"
+                )
+                found += 1
+        else:
+            Logger.info("  All pip packages up to date.")
+
+    # vcpkg — list current and note that versions are manifest-pinned
+    if "vcpkg" in managers:
+        Logger.info("[vcpkg] Dependency versions are managed via vcpkg.json manifest.")
+        if VCPKG_JSON.exists():
+            manifest = json.loads(VCPKG_JSON.read_text(encoding="utf-8"))
+            deps = manifest.get("dependencies", [])
+            vcpkg_info = []
+            for dep in deps:
+                name = dep if isinstance(dep, str) else dep.get("name", "?")
+                ver = dep.get("version>=", "*") if isinstance(dep, dict) else "*"
+                vcpkg_info.append({"name": name, "pinned": ver})
+                Logger.info(f"  {name} (pinned: {ver})")
+            results["vcpkg"] = vcpkg_info
+            Logger.info("  Tip: run 'vcpkg upgrade' or update vcpkg.json version constraints manually.")
+
+    # conan
+    if "conan" in managers:
+        Logger.info("[conan] Dependency versions from conanfile.py:")
+        if CONAN_FILE.exists():
+            conan_deps = []
+            for line in CONAN_FILE.read_text(encoding="utf-8").splitlines():
+                stripped = line.strip()
+                if stripped.startswith("self.requires("):
+                    dep = stripped.removeprefix("self.requires(").strip().strip(')"').strip("'")
+                    conan_deps.append(dep)
+                    Logger.info(f"  {dep}")
+            results["conan"] = conan_deps
+            conan_exe = shutil.which("conan")
+            if conan_exe:
+                Logger.info("  Tip: run 'conan search <pkg> -r conancenter' to check latest versions.")
+            else:
+                Logger.info("  Conan not installed — cannot check remote versions.")
+
+    if not results:
+        return CLIResult(success=True, message="No dependency manifests found to check.")
+
+    msg = f"{found} outdated pip package(s) found" if found else "No outdated packages detected"
+    return CLIResult(success=True, message=msg, data=results)
+
+
+# ---------------------------------------------------------------------------
 # Conan 2.0 profile generation
 # ---------------------------------------------------------------------------
 
@@ -522,6 +619,13 @@ def deps_parser() -> argparse.ArgumentParser:
     # list
     p = sub.add_parser("list", help="List dependencies from all manifests")
     p.set_defaults(func=_cmd_list)
+
+    # update
+    p = sub.add_parser("update", help="Check for newer dependency versions")
+    p.add_argument("--managers", nargs="+", default=["vcpkg", "conan", "pip"],
+                   choices=["vcpkg", "conan", "pip"],
+                   help="Which managers to check (default: all)")
+    p.set_defaults(func=_cmd_update)
 
     # conan-profile
     p = sub.add_parser("conan-profile", help="Generate Conan 2 profiles from tool.toml [presets] matrix")

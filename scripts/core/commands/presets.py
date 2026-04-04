@@ -264,6 +264,13 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
         if compiler not in ("gcc", "msvc"):
             return f"MinGW arch '{arch}' only supports gcc compiler"
 
+    # WASM / Emscripten: always static, gcc-base only (emcc wraps clang internally)
+    if "wasm" in arch or "emscripten" in arch:
+        if linkage == "dynamic":
+            return "WASM targets are always static"
+        if compiler not in ("gcc", "clang"):
+            return f"WASM arch '{arch}' uses Emscripten (clang-based); use gcc or clang preset base"
+
     # User-configured patterns  (tool.toml  skip_combinations)
     for pattern in skip_patterns:
         # Normalise pattern segments to match our naming

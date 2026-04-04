@@ -11,6 +11,7 @@ from .commands import (
     cmd_extension,
     cmd_docker,
     cmd_watch,
+    cmd_diagnose,
 )
 
 
@@ -119,6 +120,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--interval", type=float, default=2.0,
                    help="Poll interval in seconds (default: 2.0)")
     p.set_defaults(func=cmd_watch)
+
+    # diagnose
+    p = sub.add_parser("diagnose", help="Analyse build log and suggest fixes")
+    p.add_argument("logfile", nargs="?", default=None,
+                   help="Path to build log file (default: read from stdin)")
+    p.set_defaults(func=cmd_diagnose)
 
     return parser
 

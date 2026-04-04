@@ -288,3 +288,36 @@ Every file outside `scripts/` is now fully reproducible from `tool.toml`:
 - **Parameterized preset:** `sources.py` now uses `ctx.presets.get("default_preset", ...)` instead of hardcoded `gcc-debug-static-x86_64`.
 - **Specific exception types:** Replaced 5 bare `except Exception` with targeted types across `release.py`, `deps.py`, `security.py`.
 - **CI observability:** `ci.py` now logs a warning when `.github/workflows/` directory is not found.
+
+## Cross-Platform & ROADMAP Phase _(Completed)_
+
+### Cross-Platform Support
+- **macOS / AppleClang presets:** `macos-base` and `macos-appleclang-base` hidden presets. AppleClang compiler support restricted to x86_64/arm64/aarch64.
+- **MSVC presets:** Full MSVC compiler support with Windows-native arch mapping and `/MT`/`/MD` selection.
+- **Multi-platform code coverage:** `CodeCoverage.cmake` now supports MSVC (OpenCppCoverage), LLVM (llvm-profdata + llvm-cov), and GCC (lcov + genhtml).
+- **Cross-platform profiling:** macOS: `leaks` for memory analysis, `gtime` or `/usr/bin/time -l` for CPU stats, `xcrun xctrace` hints. Windows: VS Diagnostic Tools / WPA guidance.
+- **Setup plugin:** `winget` and `choco` package manager detection on Windows with full install-command mapping.
+
+### AI Agent Integration
+- **AGENTS.md generator component:** New `agents` component in COMPONENT_REGISTRY generates `AGENTS.md`, `.github/copilot-instructions.md`, `.cursorrules`, and `.clinerules` from `tool.toml` metadata.
+- **Profile-aware:** Included in all 5 profiles (full, minimal, library, app, embedded).
+
+### Build Automation
+- **Watch Mode (`tool build watch`):** Polling-based auto-rebuild on source changes in `libs/`, `apps/`, `cmake/`. Configurable interval, detects modified/deleted files.
+- **Error Diagnostics (`tool build diagnose`):** Parses compiler/CMake error output and provides human-friendly suggestions (Rust-style). Supports stdin or log file input.
+- **Error Diagnostics CLI (`tool diagnostics`):** Standalone command with `--log`, `--check` for quick build + diagnose.
+
+### Dependency Management
+- **SBOM Generation (`tool sbom`):** Software Bill of Materials in SPDX 2.3 and CycloneDX 1.5 JSON formats. Auto-detects dependencies from vcpkg.json, conanfile.py, requirements-dev.txt.
+- **Dependency Update Check (`tool deps update`):** Checks for newer pip packages, lists vcpkg/Conan version pins with upgrade tips. Per-manager filtering via `--managers`.
+
+### WebAssembly
+- **Emscripten toolchain:** `cmake/toolchains/wasm32-emscripten.cmake` for WASM builds. Delegates to Emscripten's own CMake toolchain with project defaults. Skip rules for WASM arches in preset generator.
+
+### Generator Architecture
+- **Component Dependency Graph:** Components declare dependencies via `COMPONENT_DEPS` dict. Generation order is topologically sorted, with circular dependency detection.
+- **Nix Flake Generation:** `flake.nix` generated via configs component when `nix` feature is enabled. Also available as standalone `tool nix generate`.
+
+### Project Management
+- **Migration Wizard (`tool migrate`):** Detects current project state via manifest, identifies drift, offers incremental upgrades with dry-run support.
+- **Templates Gallery (`tool templates`):** Curated starter templates (minimal, library, networking, game-engine, embedded-firmware) selectable via `tool templates list` / `create`.

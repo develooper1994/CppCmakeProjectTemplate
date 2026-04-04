@@ -279,6 +279,108 @@ def _is_full_profile(ctx: ProjectContext) -> bool:
     return str(getattr(ctx, "profile", "full") or "full").strip().lower() == "full"
 
 
+def _gen_flake_nix(ctx: ProjectContext) -> str:
+    """Generate a Nix flake for reproducible development environments."""
+    name = ctx.name or "CppProject"
+    description = ctx.description or f"{name} — C++ project"
+    cxx_std = ctx.cxx_standard or "17"
+
+    return f'''{{
+  description = "{description}";
+
+  inputs = {{
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  }};
+
+  outputs = {{ self, nixpkgs, flake-utils }}:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${{system}};
+      in {{
+        devShells.default = pkgs.mkShell {{
+          name = "{name}-dev";
+
+          packages = with pkgs; [
+            # Build tools
+            cmake
+            ninja
+            gnumake
+            pkg-config
+
+            # Compilers
+            gcc
+            clang
+
+            # C++ tooling
+            clang-tools          # clang-tidy, clang-format
+            ccache
+            gdb
+            valgrind
+
+            # Testing
+            gtest
+
+            # Python (for tool.py)
+            python3
+            python3Packages.pip
+            python3Packages.pytest
+
+            # Documentation
+            doxygen
+          ];
+
+          shellHook = \'\'
+            echo "🔧 {name} dev environment (Nix)"
+            echo "   C++ standard: {cxx_std}"
+            echo "   Run: python3 scripts/tool.py build"
+          \'\';
+
+          # Environment variables
+          CMAKE_GENERATOR = "Ninja";
+        }};
+
+        packages.default = pkgs.stdenv.mkDerivation {{
+          pname = "{name}";
+          version = "{ctx.version or "0.0.0"}";
+          src = ./.;
+
+          nativeBuildInputs = with pkgs; [ cmake ninja pkg-config ];
+          buildInputs = with pkgs; [ gtest ];
+
+          cmakeFlags = [
+            "-DCMAKE_CXX_STANDARD={cxx_std}"
+          ];
+
+          meta = with pkgs.lib; {{
+            description = "{description}";
+            license = licenses.{_nix_license(ctx.license)};
+          }};
+        }};
+      }});
+}}
+'''
+
+
+def _nix_license(license_id: str) -> str:
+    """Map SPDX license identifier to Nix license attribute name."""
+    mapping = {
+        "MIT": "mit",
+        "Apache-2.0": "asl20",
+        "GPL-2.0": "gpl2Only",
+        "GPL-3.0": "gpl3Only",
+        "LGPL-2.1": "lgpl21",
+        "LGPL-3.0": "lgpl3",
+        "BSD-2-Clause": "bsd2",
+        "BSD-3-Clause": "bsd3",
+        "MPL-2.0": "mpl20",
+        "Unlicense": "unlicense",
+        "ISC": "isc",
+        "Zlib": "zlib",
+    }
+    return mapping.get(license_id, "mit")
+
+
 def _gen_devcontainer(ctx: ProjectContext) -> str:
     """Generate .devcontainer/devcontainer.json."""
     import json
@@ -365,5 +467,9 @@ def generate_all(ctx: ProjectContext, target_dir: Path) -> dict[str, str]:
     # DevContainer
     if is_feature_enabled(ctx, "devcontainer", default=_is_full_profile(ctx)):
         files[".devcontainer/devcontainer.json"] = _gen_devcontainer(ctx)
+
+    # Nix Flake
+    if is_feature_enabled(ctx, "nix", default=False):
+        files["flake.nix"] = _gen_flake_nix(ctx)
 
     return files

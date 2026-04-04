@@ -41,6 +41,10 @@ CORE_COMMANDS = {
     "adopt":      "core.commands.adopt",
     "plugins":    "core.commands.plugins",
     "sbom":       "core.commands.sbom",
+    "diagnostics": "core.commands.diagnostics",
+    "nix":        "core.commands.nix",
+    "migrate":    "core.commands.migrate",
+    "templates":  "core.commands.templates",
     "tui":        "tui",  # scripts/tui.py
 }
 
@@ -201,6 +205,16 @@ Core Commands:
                Subcommands: preset, ci, doctor, target, upgrade-std
   tui          Terminal UI — interactive wrapper for all tool commands
   plugins      List and inspect available plugins/
+  sbom         Generate Software Bill of Materials (SPDX/CycloneDX)
+               Flags: --format spdx|cyclonedx, --output FILE
+  diagnostics  Human-friendly build error diagnostics
+               Flags: --log FILE, --check
+  nix          Generate Nix flake.nix for reproducible dev environments
+               Subcommands: generate [--output DIR] [--dry-run]
+  migrate      Migration wizard for template version upgrades
+               Flags: --check, --dry-run, --force
+  templates    Project templates gallery — curated starters
+               Subcommands: list, create <name> --template <tpl>
 
 Plugins (scripts/plugins/):
   setup        Check/install project dependencies
@@ -228,6 +242,12 @@ Examples:
   tool tui
   tool setup --install
   tool init --name MyProject
+  tool sbom --format cyclonedx --output sbom.json
+  tool diagnostics --check
+  tool nix generate
+  tool migrate --check
+  tool templates list
+  tool templates create MyProject --template library
 """)
 
 if __name__ == "__main__":
