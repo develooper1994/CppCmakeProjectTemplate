@@ -23,20 +23,44 @@ def _gen_vcpkg_json(ctx: ProjectContext) -> str:
     """Generate vcpkg.json from tool.toml [deps.vcpkg]."""
     vcpkg = ctx.deps.get("vcpkg", {})
     features = vcpkg.get("features", [])
+    baseline = vcpkg.get("builtin_baseline", "")
+    test_deps = vcpkg.get("test_dependencies", [])
 
     manifest: dict[str, Any] = {
         "name": ctx.name.lower().replace("_", "-"),
         "version-string": ctx.version,
-        "dependencies": [],
     }
+
+    if baseline:
+        manifest["builtin-baseline"] = baseline
+
+    # Dependencies (test dependencies like gtest)
+    deps_list: list[Any] = []
+    for dep in test_deps:
+        if dep == "gtest":
+            deps_list.append({"name": "gtest", "version>=": "1.14.0"})
+        else:
+            deps_list.append(dep)
+    manifest["dependencies"] = deps_list
 
     if features:
         manifest["features"] = {}
         for feat in features:
-            manifest["features"][feat] = {
-                "description": f"Enable {feat} support",
-                "dependencies": [feat],
-            }
+            if feat == "mimalloc":
+                manifest["features"][feat] = {
+                    "description": "Use mimalloc as the global allocator backend",
+                    "dependencies": ["mimalloc"],
+                }
+            elif feat == "jemalloc":
+                manifest["features"][feat] = {
+                    "description": "Use jemalloc as the global allocator backend",
+                    "dependencies": ["jemalloc"],
+                }
+            else:
+                manifest["features"][feat] = {
+                    "description": f"Enable {feat} support",
+                    "dependencies": [feat],
+                }
 
     return json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
 
@@ -45,34 +69,70 @@ def _gen_conanfile(ctx: ProjectContext) -> str:
     """Generate conanfile.py from tool.toml [deps.conan]."""
     conan = ctx.deps.get("conan", {})
     requires = conan.get("requires", [])
+    test_reqs = conan.get("test_requires", [])
+    alloc_versions = conan.get("allocator_versions", {})
     name = ctx.name
-    version = ctx.version
 
-    req_lines = ""
+    # Determine class name
+    class_name = name.replace("-", "").replace("_", "") + "Recipe"
+
+    lines: list[str] = []
+    lines.append("from conan import ConanFile")
+    lines.append("from conan.tools.cmake import cmake_layout")
+    lines.append("")
+    lines.append("")
+    lines.append(f"class {class_name}(ConanFile):")
+    lines.append('    settings = "os", "compiler", "build_type", "arch"')
+    lines.append('    generators = "CMakeDeps", "CMakeToolchain"')
+
+    # Allocator options (if Allocators module is enabled)
+    enabled_modules = set(ctx.cmake_modules.get("enabled", []))
+    has_allocators = "Allocators" in enabled_modules
+
+    if has_allocators:
+        lines.append("")
+        lines.append("    options = {")
+        lines.append('        "allocator": ["default", "mimalloc", "jemalloc", "tcmalloc"],')
+        lines.append("    }")
+        lines.append("    default_options = {")
+        lines.append('        "allocator": "default",')
+        lines.append("    }")
+
+    # Static requires (if any)
     if requires:
         req_items = ", ".join(f'"{r}"' for r in requires)
-        req_lines = f"    requires = ({req_items},)"
+        lines.append(f"    requires = ({req_items},)")
 
-    return f'''\
-from conan import ConanFile
-from conan.tools.cmake import CMake, cmake_layout
+    # Dynamic requirements method (allocator-based)
+    if has_allocators:
+        mim_ver = alloc_versions.get("mimalloc", "2.1.7")
+        je_ver = alloc_versions.get("jemalloc", "5.3.0")
+        tc_ver = alloc_versions.get("tcmalloc", "2.15")
+        lines.append("")
+        lines.append("    def requirements(self):")
+        lines.append("        alloc = str(self.options.allocator)")
+        lines.append('        if alloc == "mimalloc":')
+        lines.append(f'            self.requires("mimalloc/{mim_ver}")')
+        lines.append('        elif alloc == "jemalloc":')
+        lines.append(f'            self.requires("jemalloc/{je_ver}")')
+        lines.append('        elif alloc == "tcmalloc":')
+        lines.append(f'            self.requires("gperftools/{tc_ver}")')
 
+    # Build requirements (test dependencies)
+    if test_reqs:
+        lines.append("")
+        lines.append("    def build_requirements(self):")
+        lines.append("        # test_requires: gtest is only required for test builds and")
+        lines.append("        # will not be propagated to downstream consumers.")
+        for tr in test_reqs:
+            lines.append(f'        self.test_requires("{tr}")')
 
-class {name.replace("-", "").replace("_", "")}Recipe(ConanFile):
-    name = "{name.lower()}"
-    version = "{version}"
-    settings = "os", "compiler", "build_type", "arch"
-    generators = "CMakeDeps", "CMakeToolchain"
-{req_lines}
+    lines.append("")
+    lines.append("    def layout(self):")
+    lines.append("        cmake_layout(self)")
+    lines.append("")
 
-    def layout(self):
-        cmake_layout(self)
-
-    def build(self):
-        cmake = CMake(self)
-        cmake.configure()
-        cmake.build()
-'''
+    return "\n".join(lines)
 
 
 def _find_project_root() -> Path:

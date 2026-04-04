@@ -322,11 +322,13 @@ default_preset = "gcc-debug-static-x86_64"
 # ---------------------------------------------------------------------------
 [project]
 name = "CppCmakeProjectTemplate"
-version = "1.0.0"
-description = "A professional C++ CMake project template with full automation"
-author = ""
-contact = ""
+version = "1.2.0"
+description = "Professional C++ CMake Project Template"
+author = "develooper1994"
+contact = "https://github.com/develooper1994"
 license = "MIT"
+pyproject_name = "cppcmake-tool"
+homepage = "https://github.com/develooper1994/CppCmakeProjectTemplate"
 cxx_standard = "17"
 cmake_minimum = "3.25"
 
@@ -342,6 +344,7 @@ auto_generate = true
 name = "dummy_lib"
 type = "normal"
 template = "normal"
+version = "2.5.0"
 cxx_standard = "17"
 deps = []
 export = true
@@ -354,6 +357,7 @@ type = "normal"
 template = "normal"
 deps = []
 fuzz = true
+build_info = true
 
 [[project.libs]]
 name = "secure_ops"
@@ -361,6 +365,7 @@ type = "normal"
 template = "hasher"
 deps = []
 fuzz = true
+build_info = true
 
 # ---------------------------------------------------------------------------
 # [[project.apps]] — Application declarations
@@ -379,7 +384,7 @@ gui = false
 
 [[project.apps]]
 name = "extreme_app"
-deps = ["dummy_lib"]
+deps = ["secure_ops"]
 hardening = true
 gui = false
 
@@ -409,10 +414,14 @@ issue_templates = ["bug_report"]
 managers = ["vcpkg", "conan"]
 
 [deps.vcpkg]
-features = ["mimalloc"]
+features = ["mimalloc", "jemalloc"]
+builtin_baseline = "c8696863d371ab7f46e213d8f5ca923c4aef2a7"
+test_dependencies = ["gtest"]
 
 [deps.conan]
-requires = ["fmt/10.2.1", "spdlog/1.14.1"]
+requires = []
+test_requires = ["gtest/1.15.0"]
+allocator_versions = { mimalloc = "2.1.7", jemalloc = "5.3.0", tcmalloc = "2.15" }
 
 # ---------------------------------------------------------------------------
 # [docker] — Docker build variants

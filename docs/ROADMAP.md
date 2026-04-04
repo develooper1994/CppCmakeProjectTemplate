@@ -12,13 +12,6 @@ For completed capabilities, see [CAPABILITIES.md](CAPABILITIES.md).
 
 ---
 
-## 💡 Ideas — Generator Completion
-
-- **C++ Template Library:** Templatize custom C++ code (secure_ops, fuzzable patterns) so new projects get domain-relevant stubs rather than generic boilerplate.
-- **CI Workflow Generation:** Move CI configs from static tracking (hash-only) to full generation from `tool.toml [ci]` section.
-- ~~**Docs Generation:** Generate `docs/*.md` from `tool.toml` metadata — auto-create README, QUICK_START, etc. Configurable engine (Doxygen, MkDocs, Sphinx).~~ → Done (see CAPABILITIES.md)
-- **Benchmark Component:** Add a generator component for benchmark scaffolding (Google Benchmark / Catch2 Benchmark). Currently benchmarks have no generator equivalent.
-
 ## 💡 Ideas — New Capabilities
 
 - **Migration Wizard:** `tool migrate` to upgrade existing projects from older template versions. Read manifest, detect drift, offer incremental updates.
@@ -41,9 +34,7 @@ For completed capabilities, see [CAPABILITIES.md](CAPABILITIES.md).
 
 ## 💡 Ideas — Architecture & Philosophy
 
-- **Minimal Seed Mode:** Reduce the repo to only `scripts/` + `tool.toml` + `.gitignore`. First `tool generate` bootstraps everything. CI clones → generates → builds. Template users never see generated files in git.
-- **Component Dependency Graph:** Let generator components declare dependencies on each other. Auto-order generation, skip components whose inputs haven't changed.
-- **Incremental Generation:** Only regenerate files whose inputs (tool.toml sections, templates) changed since last run. Track input hashes alongside output hashes in manifest.
+- **Component Dependency Graph:** Let generator components declare dependencies on each other. Auto-order generation based on declared dependencies.
 
 ## 💡 Ideas — Radical
 

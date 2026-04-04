@@ -261,3 +261,142 @@ class TestWizard:
         assert (tmp_path / "CMakeLists.txt").exists()
         assert (tmp_path / "libs/core_lib/CMakeLists.txt").exists()
         assert (tmp_path / "apps/main_app/CMakeLists.txt").exists()
+
+
+class TestMinimalSeedMode:
+    """Prove that tool.toml + generator bootstraps a complete project."""
+
+    def _seed_config(self) -> dict:
+        """Return a minimal seed config for bootstrapping."""
+        return {
+            "project": {
+                "name": "SeedProject",
+                "version": "0.1.0",
+                "description": "Seeded from tool.toml",
+                "author": "seed-test",
+                "contact": "seed@test.com",
+                "license": "MIT",
+                "cxx_standard": "17",
+                "cmake_minimum": "3.25",
+                "libs": [
+                    {"name": "core", "type": "normal", "deps": [], "export": True},
+                    {"name": "utils", "type": "normal", "deps": ["core"]},
+                ],
+                "apps": [
+                    {"name": "main_app", "deps": ["core", "utils"], "gui": False},
+                ],
+                "tests": {"framework": "gtest", "fuzz": False, "auto_generate": True},
+            },
+            "cmake_modules": {
+                "enabled": [
+                    "CxxStandard", "ProjectConfigs", "ProjectOptions",
+                    "BuildInfo", "Sanitizers", "Hardening", "FeatureFlags",
+                    "LTO", "BuildCache",
+                ],
+            },
+            "ci": {},
+            "deps": {},
+            "docker": {},
+            "vscode": {},
+            "git": {},
+            "docs": {},
+            "extension": {},
+            "generate": {"on_conflict": "overwrite"},
+            "build": {},
+            "presets": {},
+            "security": {},
+            "hooks": {},
+            "embedded": {},
+            "gpu": {},
+        }
+
+    def test_seed_generates_complete_project(self, tmp_path):
+        """A seed config should bootstrap a complete project tree."""
+        cfg = self._seed_config()
+        result = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        assert len(result.errors) == 0
+        assert result.total > 0
+
+        # Root CMakeLists.txt
+        root_cmake = tmp_path / "CMakeLists.txt"
+        assert root_cmake.exists()
+        root_content = root_cmake.read_text()
+        assert "SeedProject" in root_content
+        assert "cmake_minimum_required" in root_content
+
+        # Libraries
+        for lib_name in ("core", "utils"):
+            lib_dir = tmp_path / "libs" / lib_name
+            assert (lib_dir / "CMakeLists.txt").exists()
+            assert (lib_dir / "include" / lib_name / f"{lib_name}.h").exists()
+            assert (lib_dir / "src" / f"{lib_name}.cpp").exists()
+            assert (lib_dir / "README.md").exists()
+
+        # App
+        app_dir = tmp_path / "apps" / "main_app"
+        assert (app_dir / "CMakeLists.txt").exists()
+        assert (app_dir / "src" / "main.cpp").exists()
+
+        # Tests
+        for lib_name in ("core", "utils"):
+            test_file = (
+                tmp_path / "tests" / "unit" / lib_name / f"{lib_name}_test.cpp"
+            )
+            assert test_file.exists()
+
+        # CMakePresets.json
+        assert (tmp_path / "CMakePresets.json").exists()
+
+    def test_seed_dependency_wiring(self, tmp_path):
+        """Generated project should reflect dependency relationships."""
+        cfg = self._seed_config()
+        generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+
+        # utils depends on core
+        utils_cmake = (tmp_path / "libs" / "utils" / "CMakeLists.txt").read_text()
+        assert "core" in utils_cmake
+
+        # main_app depends on core + utils
+        app_cmake = (tmp_path / "apps" / "main_app" / "CMakeLists.txt").read_text()
+        assert "core" in app_cmake
+        assert "utils" in app_cmake
+
+    def test_seed_idempotent(self, tmp_path):
+        """Generating twice from the same seed should produce identical output."""
+        cfg = self._seed_config()
+        r1 = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        r2 = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        assert len(r2.errors) == 0
+        # All files should be skipped (nothing changed)
+        assert len(r2.created) == 0
+        assert len(r2.written) == 0
+        assert r2.total == r1.total
+
+    def test_seed_incremental_skip(self, tmp_path):
+        """Incremental mode with unchanged seed should skip everything."""
+        cfg = self._seed_config()
+        r1 = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        r2 = generate(
+            tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg,
+            incremental=True,
+        )
+        assert len(r2.errors) == 0
+        assert len(r2.created) == 0
+        assert len(r2.written) == 0
+        assert r2.total == r1.total
+
+    def test_seed_profile_minimal(self, tmp_path):
+        """Minimal profile should generate fewer components."""
+        cfg = self._seed_config()
+        cfg["generate"]["profile"] = "minimal"
+        r_minimal = generate(tmp_path, policy=ConflictPolicy.OVERWRITE, config=cfg)
+        assert len(r_minimal.errors) == 0
+
+        # Second run with full profile in separate dir
+        tmp_full = tmp_path.parent / "full_project"
+        cfg_full = self._seed_config()
+        r_full = generate(tmp_full, policy=ConflictPolicy.OVERWRITE, config=cfg_full)
+        assert len(r_full.errors) == 0
+
+        # Minimal should produce fewer files than full
+        assert r_minimal.total < r_full.total

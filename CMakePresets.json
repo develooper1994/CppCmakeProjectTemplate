@@ -7,8 +7,7 @@
   },
   "vendor": {
     "tool-presets-generator": {
-      "generated": "2026-04-01T12:34:57Z",
-      "note": "AUTO-GENERATED \u2014 DO NOT EDIT MANUALLY. Edit tool.toml [presets] and re-run `tool presets generate`."
+      "note": "AUTO-GENERATED \u2014 DO NOT EDIT MANUALLY. Edit tool.toml [presets] and re-run `tool generate`."
     }
   },
   "configurePresets": [

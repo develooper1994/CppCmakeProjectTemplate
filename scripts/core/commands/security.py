@@ -166,7 +166,7 @@ def _impl_cmd_scan(args) -> None:
         for p in (PROJECT_ROOT / "build" / "build_logs").glob("security_scan_*.log"):
             try:
                 combined.append(p.read_text(encoding='utf-8'))
-            except Exception:
+            except (OSError, UnicodeDecodeError):
                 pass
         combined_path = PROJECT_ROOT / "build" / "build_logs" / "security_scan_combined.log"
         combined_path.write_text("\n\n".join(combined) + "\n", encoding='utf-8')
@@ -185,8 +185,8 @@ def _impl_cmd_scan(args) -> None:
                     raise SystemExit(rc if rc else 1)
     except SystemExit:
         raise
-    except Exception:
-        Logger.warn("Policy evaluation step failed; continuing without policy enforcement.")
+    except (OSError, ValueError, RuntimeError) as exc:
+        Logger.warn(f"Policy evaluation step failed: {exc}; continuing without policy enforcement.")
 
 def cmd_scan(args: argparse.Namespace) -> CLIResult:
     if GlobalConfig.DRY_RUN:

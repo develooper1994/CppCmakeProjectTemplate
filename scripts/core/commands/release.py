@@ -17,7 +17,7 @@ if str(_SCRIPTS) not in sys.path:
 
 try:
     from core.release_impl import main as _release_main
-except Exception:
+except (ImportError, ModuleNotFoundError):
     _release_main = None
 
 

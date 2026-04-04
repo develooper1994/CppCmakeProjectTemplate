@@ -361,7 +361,7 @@ def _detect_compiler_version(compiler: str) -> str:
             m = re.search(r"(\d+)\.\d+\.\d+", line)
             if m:
                 return m.group(1)
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         pass
     return "0"
 

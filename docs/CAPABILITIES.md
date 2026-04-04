@@ -198,6 +198,24 @@ SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
 | Faz 5: Deps + Hooks | vcpkg.json, conanfile.py, pre-commit, gitleaks config | ✅ |
 | Faz 6: Docker/Docs/Configs | Dockerfiles, docs/, .vscode/, .gitignore, .clang-*, extension/ | ✅ |
 | Faz 7: Unified Command | `tool generate` CLI (--target-dir, --component, --merge) | ✅ |
+| Faz 8: Sources & Zero Diff | All 10 components (ci, cmake-dynamic, cmake-root, cmake-static, cmake-targets, configs, deps, docs, presets, sources) generate with **zero diff** against the actual project | ✅ |
+
+### Generator Component Coverage (10/10 Zero Diff)
+
+Every file outside `scripts/` is now fully reproducible from `tool.toml`:
+
+- **sources:** C++ headers, sources, unit tests, benchmarks, fuzz harnesses, app mains, READMEs, VERSION — with 4 library templates (`exported`, `fuzzable`, `hasher`, `default`) and 4 app patterns (`main_app`, `demo_app`, `extreme_app`, `gui_app`)
+- **cmake-root / cmake-targets:** Root CMakeLists.txt, per-lib/app/test CMakeLists.txt
+- **cmake-static / cmake-dynamic:** 22 static + 2 dynamic cmake modules, toolchains, headers
+- **ci:** GitHub Actions workflows, issue templates
+- **deps:** vcpkg.json, conanfile.py
+- **configs:** .vscode/, .gitignore, .clang-format, .clang-tidy, devcontainer.json, pre-commit
+- **docs:** mkdocs.yml, docs/ pages, root README.md
+- **presets:** CMakePresets.json with full preset matrix
+
+**C++ Template Libraries:** Template-specific C++ code generation — `exported` (get_greeting, export macro, BuildInfo, 544-line compute benchmark), `fuzzable` (process_input → Result, fuzz harness), `hasher` (process_input → uint64_t fingerprinting). New projects get domain-relevant stubs rather than generic boilerplate.
+
+**Benchmark Generation:** Full benchmark scaffolding generated from `tool.toml` — Sieve, Monte Carlo π, Matrix multiply (naive+tiled), Newton-Raphson √, Fibonacci, Sudoku solver, Mandelbrot, 1D/2D Convolution, library greeting baseline.
 | Faz 8: Migration + E2E | 17 E2E tests (fresh gen, idempotency, conflict, manifest) | ✅ |
 | Faz 9: Smoke Test | 14 smoke tests (minimal, full, header-only, profiles, etc.) | ✅ |
 
@@ -242,3 +260,31 @@ SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
 - **Comprehensive `build clean --all`:** Removes all build/generated artifacts — `build/`, `build-extreme/`, `build_logs/`, `dist/`, `*.egg-info`, `__pycache__` (recursive), `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `.tool/`, `extension/templates/`, `extension/node_modules/`, `*.vsix`, `conan.lock`. Summary logging of what was removed.
 - **Extension refactor:** VS Code extension `init` command now uses `cppcmake-tool new` CLI instead of copying template files. Removed `_sync_templates()`, `copyDir()`, and all template-copy infrastructure. Extension uses the same Python CLI that the terminal uses.
 - **`.gitignore` gaps fixed:** Added missing entries: `build-extreme/`, `dist/`, `*.egg-info/`, `.tool/`, `conan.lock`.
+
+## Generator Improvements — Phase 9 _(Completed)_
+
+### Incremental Generation
+- **Component-level input hashing:** Each generator component's inputs (full config + module source code) are hashed and stored in the manifest.
+- **Automatic skip:** When `incremental=True` (or `generate.incremental = true` in tool.toml), components whose inputs haven't changed since the last run are skipped entirely.
+- **Deterministic hashing:** Uses SHA-256 of canonical JSON config + generator source code for reliable change detection.
+- **5 dedicated tests** validating skip behavior, config-change detection, manifest persistence, and config-flag activation.
+
+### Minimal Seed Mode Proof
+- **End-to-end proof:** A minimal `tool.toml` config can bootstrap a complete, self-consistent project with libraries, apps, tests, and CMake presets.
+- **Dependency wiring verified:** Generated CMakeLists.txt files correctly reflect inter-library and app-to-lib dependencies.
+- **Idempotent + incremental:** Seed mode projects can be regenerated idempotently, and incremental mode skips all components when unchanged.
+- **Profile-aware:** Minimal profile generates fewer files than full profile.
+- **5 dedicated E2E tests** covering complete project structure, dependency wiring, idempotency, incremental skip, and profile comparison.
+
+### Cross-Reference Validation (`tool validate`)
+- **Lib-to-lib dependency validation:** `_cross_validate()` now checks that library deps reference declared libraries (previously only app deps were checked).
+- **Template name validation:** Validates `template` field against known set: `{default, exported, fuzzable, hasher, normal}`.
+- **Circular dependency detection:** New `_detect_circular_deps()` function using DFS graph coloring (WHITE/GRAY/BLACK) with cycle path reporting.
+
+### Edge Case Test Suite
+- **27 new edge case tests** in `test_generator_edge_cases.py` covering: corrupted/missing/wrong-version manifest recovery, hash consistency, file modification detection, invalid/valid template names, undeclared lib deps, circular deps (self-loop, 2-lib, 3-lib), valid DAGs, app dep validation, duplicate lib names, benchmarks without fuzz, underscore names, interface libraries, with+without same feature, invalid profiles, scale test (20 libraries), chained dependency wiring, SKIP/OVERWRITE conflict policies, partial conflicts.
+
+### Quick Fixes
+- **Parameterized preset:** `sources.py` now uses `ctx.presets.get("default_preset", ...)` instead of hardcoded `gcc-debug-static-x86_64`.
+- **Specific exception types:** Replaced 5 bare `except Exception` with targeted types across `release.py`, `deps.py`, `security.py`.
+- **CI observability:** `ci.py` now logs a warning when `.github/workflows/` directory is not found.

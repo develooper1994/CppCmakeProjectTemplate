@@ -211,6 +211,9 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
             return f"MSVC preset not generated for non-Windows arch '{arch}'"
     if compiler == "msvc" and any(v in name for v in ("sycl", "SYCL")):
         return "SYCL (-fsycl) is not supported by MSVC"
+    if compiler == "appleclang":
+        if arch not in ("x86_64", "x64", "arm64", "aarch64"):
+            return f"AppleClang preset not generated for non-Apple arch '{arch}'"
     if compiler == "cuda" and any(v in name for v in ("sycl", "SYCL")):
         return "SYCL and CUDA use different GPU compute models"
     if "metal" in name.lower() and not any(p in arch for p in ("macos", "darwin", "apple")):
@@ -315,6 +318,26 @@ def _base_presets(cfg: dict[str, Any]) -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "macos-base",
+            "hidden": True,
+            "inherits": "base",
+            "generator": generator,
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin",
+            },
+        },
+        {
+            "name": "macos-appleclang-base",
+            "hidden": True,
+            "inherits": "macos-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cc",
+                "CMAKE_CXX_COMPILER": "c++",
+            },
+        },
+        {
             "name": "win-base",
             "hidden": True,
             "inherits": "base",
@@ -408,6 +431,8 @@ def _make_configure_preset(
         cache_vars["ENABLE_CUDA"] = "ON"
         cache_vars["CMAKE_CUDA_ARCHITECTURES"] = cfg["cuda_architectures"]
         base = "linux-cuda-base"
+    elif compiler == "appleclang":
+        base = "macos-appleclang-base"
     elif compiler == "gcc":
         base = "linux-gcc-base"
     elif compiler == "clang":
