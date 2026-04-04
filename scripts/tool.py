@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """
-tool.py — Central dispatcher for the CppCmakeProjectTemplate toolset.
-
-Routes commands to:
-- Core Modules:  scripts/core/commands/
-- Plugin Modules: scripts/plugins/
+tool.py — Modern C++ Project Orchestrator CLI.
+Professional Proxy for CppCmakeProjectTemplate.
 """
 
 import sys
@@ -12,15 +9,17 @@ import argparse
 import importlib
 import pkgutil
 from pathlib import Path
+from typing import Any, Dict
 
-# Setup paths
+# Setup paths to ensure internal modules are discoverable
 SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core.utils.common import Logger, GlobalConfig, load_session
+from core.utils.config_loader import load_tool_config, apply_to_global_config
 
-# Core command to sub-package mapping
+# Core command mapping
 CORE_COMMANDS = {
     "build":    "core.commands.build",
     "deps":     "core.commands.deps",
@@ -45,223 +44,104 @@ CORE_COMMANDS = {
     "nix":        "core.commands.nix",
     "migrate":    "core.commands.migrate",
     "templates":  "core.commands.templates",
-    "tui":        "tui",  # scripts/tui.py
+    "tui":        "tui",
 }
 
-def discover_plugins():
-    """Scan scripts/plugins/ for module files."""
+def discover_plugins() -> Dict[str, str]:
+    """Scan scripts/plugins/ for additional commands."""
     plugins = {}
     plugin_dir = SCRIPTS_DIR / "plugins"
     if plugin_dir.exists():
-        for finder, name, ispkg in pkgutil.iter_modules([str(plugin_dir)]):
+        for _, name, _ in pkgutil.iter_modules([str(plugin_dir)]):
             plugins[name] = f"plugins.{name}"
     return plugins
 
 def main():
-    parser = argparse.ArgumentParser(prog="tool", add_help=False)
-    parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--json",    action="store_true")
-    parser.add_argument("--yes",     action="store_true")
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--install", action="store_true", help="Provision/install required tools/deps for scripts")
-    parser.add_argument("--recreate", action="store_true", help="When used with --install, recreate virtualenvs")
-    parser.add_argument("--skip-ci", action="store_true", help="Skip CI-only steps (for local debug runs)")
-    parser.add_argument("--ci-mode", choices=["smoke", "full", "nightly"], default=None,
-                        help="CI run mode: smoke (fast), full (default), nightly (extended)")
-    parser.add_argument("--report-artifact", default=None, metavar="PATH",
-                        help="Path to write CI report artifact")
-    parser.add_argument("--retain-days", type=int, default=None, metavar="N",
-                        help="Artifact retention policy in days (for CI metadata)")
-    parser.add_argument("--help",    action="store_true")
-    parser.add_argument("--version", action="store_true")
+    # 1. Global Parser — Only for global flags that affect all commands
+    parser = argparse.ArgumentParser(
+        prog="tool",
+        description="Unified CLI for C++ Project Management",
+        add_help=False
+    )
+    
+    # Global Flags
+    globals = parser.add_argument_group("Global Options")
+    globals.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    globals.add_argument("--json",    "-j", action="store_true", help="Output results in JSON format")
+    globals.add_argument("--yes",     "-y", action="store_true", help="Auto-confirm all prompts")
+    globals.add_argument("--dry-run", "-d", action="store_true", help="Preview changes without applying")
+    globals.add_argument("--version",       action="store_true", help="Show tool version")
+    globals.add_argument("--help",    "-h", action="store_true", help="Show this help message")
 
-    # Separate globals from command
-    tool_args = []
-    cmd_and_beyond = []
-    for i, arg in enumerate(sys.argv[1:]):
-        if not arg.startswith("-"):
-            cmd_and_beyond = sys.argv[i+1:]
-            break
-        tool_args.append(arg)
-    # Load session (fallback values) and parse tool globals
-    session = load_session() or {}
-    args = parser.parse_args(tool_args)
-    if args.help:
-        print_main_help()
-        sys.exit(0)
+    # Capture global flags and separate the command
+    global_args, remaining = parser.parse_known_args()
 
-    # Detect which flags were provided on the CLI so we can give CLI precedence
-    provided = {a.split('=')[0] for a in tool_args}
-
-    # Dynamic Project Root Discovery:
-    # If we are in a directory that looks like a project root (has tool.toml),
-    # override the initial PROJECT_ROOT to ensure we use the local config.
+    # Dynamic Root Discovery
     try:
-        from core.utils import common
+        from core.utils.common import find_project_root
         local_root = find_project_root(Path.cwd())
-        if local_root != common.PROJECT_ROOT:
-            common.PROJECT_ROOT = local_root
-            # Also update session if root changed
-            session = load_session() or {}
+        from core.utils import common
+        common.PROJECT_ROOT = local_root
     except Exception:
         pass
 
-    GlobalConfig.VERBOSE = args.verbose if '--verbose' in provided else bool(session.get('verbose', args.verbose))
-    GlobalConfig.JSON    = args.json    if '--json'    in provided else bool(session.get('json', args.json))
-    GlobalConfig.YES     = args.yes     if '--yes'     in provided else bool(session.get('yes', args.yes))
-    GlobalConfig.DRY_RUN = args.dry_run if '--dry-run' in provided else bool(session.get('dry_run', args.dry_run))
-    GlobalConfig.INSTALL = args.install if '--install' in provided else bool(session.get('install', args.install))
-    GlobalConfig.INSTALL_RECREATE = args.recreate if '--recreate' in provided else bool(session.get('install_recreate', args.recreate))
-    GlobalConfig.SKIP_CI = getattr(args, 'skip_ci', False)
-    GlobalConfig.CI_MODE = getattr(args, 'ci_mode', None)
-    GlobalConfig.REPORT_ARTIFACT = getattr(args, 'report_artifact', None)
-    GlobalConfig.RETAIN_DAYS = getattr(args, 'retain_days', None)
+    # Global State Initialization
+    session = load_session() or {}
+    GlobalConfig.VERBOSE = global_args.verbose or bool(session.get('verbose', False))
+    GlobalConfig.JSON    = global_args.json    or bool(session.get('json', False))
+    GlobalConfig.YES     = global_args.yes     or bool(session.get('yes', False))
+    GlobalConfig.DRY_RUN = global_args.dry_run or bool(session.get('dry_run', False))
+    
+    apply_to_global_config()
 
-    # Apply tool.toml defaults (CLI values set above take precedence)
-    try:
-        from core.utils.config_loader import apply_to_global_config
-        apply_to_global_config()
-    except Exception:
-        pass  # tool.toml is optional — never block execution
+    if global_args.version:
+        print(f"Toolset v{GlobalConfig.VERSION}")
+        sys.exit(0)
 
-    # If no command was provided on CLI, fall back to session default_command when present
-    if not cmd_and_beyond:
-        if args.version:
-            print(f"Toolset v{GlobalConfig.VERSION}")
-            sys.exit(0)
+    if global_args.help and not remaining:
+        parser.print_help()
+        print("\nAvailable Commands:")
+        all_cmds = {**CORE_COMMANDS, **discover_plugins()}
+        for cmd in sorted(all_cmds.keys()):
+            print(f"  {cmd:<12} (run 'tool {cmd} --help' for details)")
+        sys.exit(0)
+
+    # Command Selection
+    if not remaining:
         default_cmd = session.get('default_command')
         if default_cmd:
-            # default_command stored as a string like: "build check"
-            cmd_and_beyond = default_cmd.split()
+            remaining = default_cmd.split()
         else:
-            print_main_help()
+            parser.print_help()
             sys.exit(0)
 
-    command = cmd_and_beyond[0]
-    remaining = cmd_and_beyond[1:]
+    command = remaining[0]
+    cmd_args = remaining[1:]
 
-    # 1. Look in CORE
-    module_name = CORE_COMMANDS.get(command)
+    # Resolve and Execute
+    all_commands = {**CORE_COMMANDS, **discover_plugins()}
+    module_path = all_commands.get(command)
 
-    # 2. Look in PLUGINS
-    if not module_name:
-        plugins = discover_plugins()
-        module_name = plugins.get(command)
-
-    if not module_name:
-        Logger.error(f"Unknown command: {command}")
+    if not module_path:
+        Logger.error(f"Unknown command: '{command}'")
         sys.exit(1)
 
-    # Lazy import and execute
     try:
-        Logger.debug(f"Dispatcher: {command} -> {module_name}")
-        module = importlib.import_module(module_name)
+        module = importlib.import_module(module_path)
         if hasattr(module, "main"):
-            module.main(remaining)
+            # Sub-commands get only their specific arguments
+            module.main(cmd_args)
         else:
-            Logger.error(f"Module {module_name} missing main()")
+            Logger.error(f"Module '{module_path}' is missing a main() function.")
             sys.exit(1)
     except SystemExit as e:
         sys.exit(e.code)
     except Exception as e:
-        Logger.error(f"Unexpected error: {e}")
+        Logger.error(f"Execution failed: {e}")
         if GlobalConfig.VERBOSE:
             import traceback
             traceback.print_exc()
         sys.exit(1)
-
-def print_main_help():
-    print("""CppCmakeProjectTemplate Unified CLI
-
-Usage: tool [globals] <command> [args...]
-
-Global Options:
-  --verbose              Enable debug logging
-  --json                 Output results in JSON
-  --yes                  Auto-confirm (non-interactive)
-  --dry-run              Preview only
-  --skip-ci              Skip CI-only steps (local debug)
-  --ci-mode <mode>       CI run mode: smoke | full | nightly
-  --report-artifact PATH Write CI report to path
-  --retain-days N        Artifact retention days (CI metadata)
-  --version              Show version
-  --help                 Show this help
-
-Core Commands:
-  build        Configure, compile, test, extension (.vsix)
-               Flags: --preset, --profile, --lto, --pgo, --sanitizers
-  deps         Dependency management (lock, verify, list, conan-profile)
-               Subcommands: lock, verify, list, conan-profile generate
-  doc          Documentation utilities
-               Subcommands: serve [--port N] [--open], list, build
-  format       Code formatting and clang-tidy
-               Subcommands: check, tidy-fix [--dry-run] [--apply], iwyu
-  generate     Generate project files from tool.toml
-               Flags: --target-dir, --component, --merge, --force, --diff, --list,
-                      --profile, --with, --without, --explain, --init-git, --interactive
-  license      Recommend and apply a project license
-               Subcommands: recommend, list
-  lib          Library CRUD (add/remove/rename/move/deps/export/info/test)
-               Subcommands: add, remove, rename, move, list, tree, info, deps, export, doctor
-  new          Create a new project (interactive wizard)
-               Usage: tool new [ProjectName] [--non-interactive] [--target-dir PATH]
-  perf         Performance analysis and optimization
-               Subcommands: size, build-time, track, check-budget, bench, valgrind, graph
-  presets      Generate and manage CMakePresets.json
-               Subcommands: generate, list, validate
-  release      Version management and release tagging
-               Subcommands: bump, set, set-revision, tag, publish, unpublish
-  security     Security scanning (CVE, cppcheck, clang-tidy security checks)
-               Flags: --format json|text, --fail-on-severity, --suppressions
-  session      Persistent session state (preset, last command)
-  sol          Project orchestration (presets, toolchains, CI, doctor)
-               Subcommands: preset, ci, doctor, target, upgrade-std
-  tui          Terminal UI — interactive wrapper for all tool commands
-  plugins      List and inspect available plugins/
-  sbom         Generate Software Bill of Materials (SPDX/CycloneDX)
-               Flags: --format spdx|cyclonedx, --output FILE
-  diagnostics  Human-friendly build error diagnostics
-               Flags: --log FILE, --check
-  nix          Generate Nix flake.nix for reproducible dev environments
-               Subcommands: generate [--output DIR] [--dry-run]
-  migrate      Migration wizard for template version upgrades
-               Flags: --check, --dry-run, --force
-  templates    Project templates gallery — curated starters
-               Subcommands: list, create <name> --template <tpl>
-
-Plugins (scripts/plugins/):
-  setup        Check/install project dependencies
-  init         Rename project after clone
-  hooks        Install git pre-commit hooks (pre-commit, gitleaks)
-  hello        Example plugin
-
-Examples:
-  tool new MyProject                  # Interactive wizard → ./MyProject
-  tool new MyProject --non-interactive # Quick project with defaults
-  tool build check --no-sync          # Build + test (skip dependency sync)
-  tool build --lto --profile hardened # Release build with LTO + hardening
-  tool generate --profile minimal --without ci --without vscode --explain
-  tool license recommend --patent-grant --apply
-  tool lib add my_lib --template singleton
-  tool lib deps my_lib --add-url https://github.com/fmtlib/fmt@10.2.1
-  tool perf track && tool perf check-budget
-  tool perf bench --compare
-  tool perf valgrind --binary build/gcc-debug-static-x86_64/apps/main_app/main_app
-  tool perf graph --render --format svg
-  tool doc serve --open
-  tool doc list
-  tool security --format json --fail-on-severity HIGH
-  tool sol ci --preset-filter gcc
-  tool tui
-  tool setup --install
-  tool init --name MyProject
-  tool sbom --format cyclonedx --output sbom.json
-  tool diagnostics --check
-  tool nix generate
-  tool migrate --check
-  tool templates list
-  tool templates create MyProject --template library
-""")
 
 if __name__ == "__main__":
     main()
