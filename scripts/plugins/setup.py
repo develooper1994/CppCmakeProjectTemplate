@@ -58,23 +58,74 @@ _BREW_MAP: dict[str, str] = {
     "ninja-build": "ninja",
     "git":         "git",
     "python3":     "python",
+}
+
+# Map from package name to winget ID (Windows)
+_WINGET_MAP: dict[str, str] = {
+    "cmake":       "Kitware.CMake",
+    "ninja-build": "Ninja-build.Ninja",
+    "git":         "Git.Git",
+    "python3":     "Python.Python.3.12",
     "lcov":        "lcov",
-    "doxygen":     "doxygen",
+    "doxygen":     "DimitriVanHeesch.Doxygen",
+    "clang":       "LLVM.LLVM",
+    "clang-tidy":  "LLVM.LLVM",
+    "cppcheck":    "Cppcheck.Cppcheck",
+    "ccache":      "ccache.ccache",
+    "gitleaks":    "Gitleaks.Gitleaks",
+}
+
+# Map from package name to Chocolatey package (Windows)
+_CHOCO_MAP: dict[str, str] = {
+    "cmake":       "cmake",
+    "ninja-build": "ninja",
+    "git":         "git",
+    "python3":     "python",
+    "doxygen":     "doxygen.install",
     "clang":       "llvm",
     "clang-tidy":  "llvm",
     "cppcheck":    "cppcheck",
-    "valgrind":    "valgrind",
     "ccache":      "ccache",
-    "gitleaks":    "gitleaks",
+}
+
+# Map from package name to winget package ID (Windows)
+_WINGET_MAP: dict[str, str] = {
+    "cmake":       "Kitware.CMake",
+    "ninja-build": "Ninja-build.Ninja",
+    "git":         "Git.Git",
+    "python3":     "Python.Python.3.12",
+    "doxygen":     "DimitriVanHeesch.Doxygen",
+    "clang":       "LLVM.LLVM",
+    "clang-tidy":  "LLVM.LLVM",
+    "ccache":      "ccache.ccache",
+    "cppcheck":    "Cppcheck.Cppcheck",
+}
+
+# Map from package name to Chocolatey package (Windows)
+_CHOCO_MAP: dict[str, str] = {
+    "cmake":       "cmake",
+    "ninja-build": "ninja",
+    "git":         "git",
+    "python3":     "python",
+    "doxygen":     "doxygen.install",
+    "clang":       "llvm",
+    "clang-tidy":  "llvm",
+    "ccache":      "ccache",
+    "cppcheck":    "cppcheck",
 }
 
 
 def _detect_package_manager() -> str:
-    """Return 'apt', 'brew', 'dnf', 'pacman', or 'unknown'."""
+    """Return 'apt', 'brew', 'dnf', 'pacman', 'winget', 'choco', or 'unknown'."""
     sys_name = platform.system().lower()
     if sys_name == "darwin":
         if shutil.which("brew"):
             return "brew"
+    if sys_name == "windows":
+        if shutil.which("winget"):
+            return "winget"
+        if shutil.which("choco"):
+            return "choco"
     for pm in ("apt-get", "dnf", "pacman"):
         if shutil.which(pm):
             return pm.split("-")[0]  # 'apt-get' -> 'apt'
@@ -92,6 +143,16 @@ def _build_install_cmd(pkg_manager: str, packages: list[str]) -> list[str] | Non
         return ["sudo", "dnf", "install", "-y"] + packages
     if pkg_manager == "pacman":
         return ["sudo", "pacman", "-S", "--noconfirm"] + packages
+    if pkg_manager == "winget":
+        winget_pkgs = [_WINGET_MAP.get(p, p) for p in packages if p in _WINGET_MAP]
+        if not winget_pkgs:
+            return None
+        return ["winget", "install", "--accept-source-agreements", "--accept-package-agreements"] + winget_pkgs
+    if pkg_manager == "choco":
+        choco_pkgs = [_CHOCO_MAP.get(p, p) for p in packages if p in _CHOCO_MAP]
+        if not choco_pkgs:
+            return None
+        return ["choco", "install", "-y"] + list(dict.fromkeys(choco_pkgs))
     return None
 
 

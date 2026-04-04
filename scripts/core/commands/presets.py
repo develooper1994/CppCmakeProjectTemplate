@@ -172,16 +172,48 @@ def _fallback_parse(toml_path: Path, section: str) -> dict[str, Any]:
 
 def _load_config() -> dict[str, Any]:
     cfg = _load_toml_section(TOOL_TOML, "presets")
-    # Provide safe defaults for every key
+
+    import platform
+
+    # Platform-aware compiler defaults
+    sys_name = platform.system().lower()
+    if "compilers" not in cfg:
+        if sys_name == "windows":
+            compilers = ["msvc", "clang"]
+        elif sys_name == "darwin":
+            compilers = ["appleclang", "gcc", "clang"]
+        else:
+            compilers = ["gcc", "clang"]
+    else:
+        compilers = cfg["compilers"]
+
+    # Platform-aware architecture defaults
+    if "arches" not in cfg:
+        machine = platform.machine().lower()
+        if machine in ("arm64", "aarch64"):
+            arches = ["arm64"]
+        else:
+            arches = ["x86_64"]
+    else:
+        arches = cfg["arches"]
+
+    # Platform-aware default preset
+    if "default_preset" not in cfg:
+        default_compiler = compilers[0] if compilers else "gcc"
+        default_arch = arches[0] if arches else "x86_64"
+        default_preset = f"{default_compiler}-debug-static-{default_arch}"
+    else:
+        default_preset = cfg["default_preset"]
+
     defaults: dict[str, Any] = {
-        "compilers":           ["gcc", "clang"],
+        "compilers":           compilers,
         "build_types":         ["debug", "release", "relwithdebinfo"],
         "linkages":            ["static", "dynamic"],
-        "arches":              ["x86_64"],
+        "arches":              arches,
         "allocators":          ["default"],
         "cmake_minimum_major": 3,
         "cmake_minimum_minor": 25,
-        "default_preset":      "gcc-debug-static-x86_64",
+        "default_preset":      default_preset,
         "cuda_architectures":  "native",
         "generator":           "Ninja",
         "skip_combinations":   [],
