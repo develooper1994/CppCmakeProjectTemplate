@@ -9,6 +9,7 @@
 ## Overall Health
 
 The project is fundamentally sound:
+
 - **No dead imports** — all `import` statements resolve correctly
 - **No stub commands** — all 23 registered CLI commands have working implementations
 - **No broken CI references** — all script paths in `.github/workflows/` are valid
