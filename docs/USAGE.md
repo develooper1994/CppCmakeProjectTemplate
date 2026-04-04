@@ -24,6 +24,13 @@ Complete command reference for `python3 scripts/tool.py`.
 | `deps` | Dependency manager operations |
 | `doc` | Documentation build, serve, and generation |
 | `session` | Session state save/load |
+| `sbom` | Generate Software Bill of Materials (SPDX/CycloneDX) |
+| `diagnostics` | Human-friendly build error diagnostics |
+| `migrate` | Migration wizard for template upgrades |
+| `nix` | Generate Nix flake for reproducible dev environments |
+| `templates` | Project templates gallery — curated starters |
+| `presets` | CMake preset generation and management |
+| `plugins` | Plugin system (dynamic command extensions) |
 
 Global flags: `--json` (machine-readable output), `--yes` (non-interactive), `--dry-run` (preview).
 
@@ -258,7 +265,7 @@ python3 scripts/tool.py sol doctor                 # health check
 
 ## Configuration
 
-All settings live in `tool.toml` with 9 sections: `tool`, `build`, `perf`, `security`, `lib`, `doc`, `release`, `hooks`, `embedded`.
+All settings live in `tool.toml` with 20+ sections including: `tool`, `build`, `perf`, `security`, `lib`, `doc`, `release`, `hooks`, `presets`, `autotuner`, `gpu`, `embedded`, `session`, `project`, `ci`, `deps`, `docker`, `cmake_modules`, `vscode`, `git`, `docs`, `extension`, `generate`.
 
 CLI args override `tool.toml`. Runtime state persists in `[session]`.
 
@@ -267,3 +274,85 @@ python3 scripts/tool.py session save
 python3 scripts/tool.py session load
 python3 scripts/tool.py session set key value
 ```
+
+---
+
+## SBOM (Software Bill of Materials)
+
+```bash
+python3 scripts/tool.py sbom                       # SPDX JSON to stdout
+python3 scripts/tool.py sbom --format cyclonedx     # CycloneDX JSON
+python3 scripts/tool.py sbom --output sbom.json     # write to file
+```
+
+Detects dependencies from `vcpkg.json`, `conanfile.py`, and `requirements-dev.txt`.
+
+---
+
+## Build Diagnostics
+
+```bash
+python3 scripts/tool.py diagnostics                 # parse build log for known errors
+python3 scripts/tool.py diagnostics --log build.log  # analyze specific log file
+python3 scripts/tool.py diagnostics --check          # run build and diagnose errors
+```
+
+Provides Rust-style error explanations with suggested fixes for common CMake,
+compiler, and linker errors.
+
+---
+
+## Migration
+
+```bash
+python3 scripts/tool.py migrate                     # interactive upgrade
+python3 scripts/tool.py migrate --check             # check for available upgrades
+python3 scripts/tool.py migrate --dry-run           # preview changes
+python3 scripts/tool.py migrate --force             # force regeneration
+```
+
+Detects drift between generated files and their current state. Supports
+incremental upgrades with automatic backup of modified files.
+
+---
+
+## Nix Integration
+
+```bash
+python3 scripts/tool.py nix generate                # generate flake.nix + .envrc
+python3 scripts/tool.py nix generate --dry-run      # preview without writing
+python3 scripts/tool.py nix generate --output DIR   # custom output directory
+```
+
+Generates a Nix flake for reproducible development environments with
+hermetic toolchain pinning. Also generates `.envrc` for direnv integration.
+
+---
+
+## Project Templates
+
+```bash
+python3 scripts/tool.py templates list              # list available templates
+python3 scripts/tool.py templates create MyApp      # create from default (minimal)
+python3 scripts/tool.py templates create MyApp --template application
+python3 scripts/tool.py templates create MyApp --template embedded --dry-run
+```
+
+Available templates: `minimal`, `library`, `application`, `embedded`,
+`networking`, `header-only`, `game-engine`.
+
+---
+
+## Plugins
+
+```bash
+python3 scripts/tool.py hello                       # example plugin
+python3 scripts/tool.py hooks install               # install git hooks
+python3 scripts/tool.py init                        # initialize project
+python3 scripts/tool.py publish                     # publish VS Code extension
+python3 scripts/tool.py setup --install             # install dependencies
+python3 scripts/tool.py verify                      # full verification
+```
+
+Plugins are dynamically discovered from `scripts/plugins/`. Each plugin
+provides `PLUGIN_META` and a `main()` entry point.

@@ -1,7 +1,7 @@
 # CppCmakeProjectTemplate — Remaining Work (Gap Analysis)
 
 > Generated from a comprehensive gap analysis of the entire codebase.
-> 152 tests passing. All 23 CLI commands functional. All 6 plugins well-formed.
+> 232 tests passing. All 23 CLI commands functional. All 6 plugins well-formed.
 > Use this document to pick up where you left off.
 
 ---
@@ -19,74 +19,36 @@ The project is fundamentally sound:
 
 ---
 
-## MEDIUM Priority — Should Fix
+## ✅ Completed — MEDIUM Priority
 
-### 1. `config_schema.py` — False Validation Warnings
+### ~~1. `config_schema.py` — False Validation Warnings~~ ✅
 
-**File:** `scripts/core/utils/config_schema.py`
+Fixed: Added 4 missing `[doc]` keys, `version`/`description` to `_LIB_KEYS`, `description` to `_APP_KEYS`.
 
-The schema validator (`tool validate`) produces false "unknown key" warnings for legitimate keys:
+### ~~2. Generator Missing WASM Toolchain Tracking~~ ✅
 
-| Section | Missing Keys | Impact |
-|---------|-------------|--------|
-| `[doc]` | `generate_api_docs`, `doxygen_dot`, `doxygen_extract_all`, `mkdocs_theme` | 4 false warnings |
-| `[[project.libs]]` | `version`, `description` | Warns on `dummy_lib` version field and template-generated libs |
-| `[[project.apps]]` | `description` | Warns on template-generated apps |
+Fixed: Added `"wasm32-emscripten.cmake"` to `STATIC_TOOLCHAIN_FILES`.
 
-**Fix:** Add the missing keys to `_DOC_KEYS`, `_LIB_KEYS`, and `_APP_KEYS` in `config_schema.py`. Small effort (~10 lines each).
+### ~~3. USAGE.md — Incomplete Command Table~~ ✅
 
-### 2. Generator Missing WASM Toolchain Tracking
+Fixed: Added 7 missing commands to overview table, updated section count to "20+", added 6 detailed new sections (SBOM, Diagnostics, Migration, Nix, Templates, Plugins).
 
-**File:** `scripts/core/generator/cmake_static/__init__.py`
+### ~~4. Missing Tests for New Commands~~ ✅
 
-The file `cmake/toolchains/wasm32-emscripten.cmake` exists on disk but is **not listed** in `STATIC_TOOLCHAIN_FILES`. This means `tool generate` will not reproduce it — the file would be lost if you deleted and regenerated the project.
-
-**Fix:** Add `"wasm32-emscripten.cmake"` to `STATIC_TOOLCHAIN_FILES`. One line.
-
-### 3. USAGE.md — Incomplete Command Table
-
-**File:** `docs/USAGE.md`
-
-The command overview table lists only 16 commands. Missing from the table and/or body:
-
-- `sbom` — SPDX/CycloneDX bill-of-materials generation
-- `diagnostics` — Build error pattern matching
-- `nix` — Nix flake generation
-- `migrate` — Manifest-based drift detection & upgrade
-- `templates` — Built-in project templates
-- `presets` — CMake preset management
-- `plugins` — Plugin system
-- `tui` — Terminal UI launcher
-
-Also, the "9 sections" claim for `tool.toml` configuration is stale — actual count is 16+ sections.
-
-**Fix:** Add the missing commands to the table and update the section count. Small effort.
-
-### 4. Missing Tests for New Commands
-
-These commands are fully implemented but have **zero test coverage**:
-
-| Command | What It Does | Test Effort |
-|---------|-------------|-------------|
-| `sbom.py` | SPDX + CycloneDX JSON generation, multi-source detection | medium |
-| `diagnostics.py` | 9 error patterns, `--log` and `--check` modes | medium |
-| `migrate.py` | Drift detection, manifest-based incremental upgrade | medium |
-| `templates.py` | 7 built-in templates, `list` + `create` subcommands, config merge | medium |
-| `nix.py` | Generates `flake.nix` + `.envrc` from tool.toml | small |
-
-**Recommendation:** Write unit tests mocking filesystem/subprocess calls. Each command is self-contained, so tests can be independent. ~20-30 tests total.
+Added 80 new tests across 5 files:
+- `test_nix.py` — 13 tests (flake content + CLI)
+- `test_sbom.py` — 17 tests (dependency detection, SPDX, CycloneDX, CLI)
+- `test_diagnostics.py` — 17 tests (10 regex patterns, dedup, formatting, CLI)
+- `test_migrate.py` — 17 tests (manifest, drift detection, upgrade, CLI)
+- `test_templates.py` — 16 tests (data structure, list, create, CLI)
 
 ---
 
-## LOW Priority — Nice to Have
+## ✅ Completed — LOW Priority
 
-### 5. AGENTS.md Core Commands List Incomplete
+### ~~5. AGENTS.md Core Commands List Incomplete~~ ✅
 
-**File:** `AGENTS.md` (line ~27)
-
-The "Core Logic" line says `(build, lib, sol, generate, new, adopt, validate, completion, license)` but the actual `scripts/core/commands/` directory has 23 modules. Missing from the list: `deps`, `doc`, `format`, `perf`, `presets`, `release`, `security`, `session`, `plugins`, `sbom`, `diagnostics`, `nix`, `migrate`, `templates`.
-
-**Fix:** Update the list. Trivial.
+Fixed: Updated the list to include all 23 command modules.
 
 ### 6. Missing Tests for Ancillary Features
 
