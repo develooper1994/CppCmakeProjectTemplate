@@ -57,13 +57,13 @@ def discover_plugins() -> Dict[str, str]:
     return plugins
 
 def main():
-    # 1. Global Parser — Only for global flags that affect all commands
+    # 1. Global Parser
     parser = argparse.ArgumentParser(
         prog="tool",
         description="Unified CLI for C++ Project Management",
         add_help=False
     )
-    
+
     # Global Flags
     globals = parser.add_argument_group("Global Options")
     globals.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
@@ -71,16 +71,29 @@ def main():
     globals.add_argument("--yes",     "-y", action="store_true", help="Auto-confirm all prompts")
     globals.add_argument("--dry-run", "-d", action="store_true", help="Preview changes without applying")
     globals.add_argument("--version",       action="store_true", help="Show tool version")
+    globals.add_argument("--about",         action="store_true", help="About this project")
     globals.add_argument("--help",    "-h", action="store_true", help="Show this help message")
 
-    # Capture global flags and separate the command
-    global_args, remaining = parser.parse_known_args()
+    # Capture global flags — only consider options appearing before the
+    # first positional token (the subcommand).  This keeps `tool build --help`
+    # from being treated as a top-level `--help` request.
+    raw_args = sys.argv[1:]
+    first_pos = next((i for i, t in enumerate(raw_args) if not t.startswith("-")), len(raw_args))
+    prefix = raw_args[:first_pos]
+    remaining = raw_args[first_pos:]
+
+    global_args, leftover = parser.parse_known_args(prefix)
+    # Unknown tokens found among the prefix (e.g. `--build`) should be
+    # forwarded to the remaining argument list so they can be interpreted
+    # as subcommand tokens.
+    if leftover:
+        remaining = leftover + remaining
 
     # Dynamic Root Discovery
     try:
+        from core.utils import common
         from core.utils.common import find_project_root
         local_root = find_project_root(Path.cwd())
-        from core.utils import common
         common.PROJECT_ROOT = local_root
     except Exception:
         pass
@@ -91,32 +104,47 @@ def main():
     GlobalConfig.JSON    = global_args.json    or bool(session.get('json', False))
     GlobalConfig.YES     = global_args.yes     or bool(session.get('yes', False))
     GlobalConfig.DRY_RUN = global_args.dry_run or bool(session.get('dry_run', False))
-    
+
     apply_to_global_config()
 
+    # --version
     if global_args.version:
         print(f"Toolset v{GlobalConfig.VERSION}")
         sys.exit(0)
 
-    if global_args.help and not remaining:
-        parser.print_help()
-        print("\nAvailable Commands:")
-        all_cmds = {**CORE_COMMANDS, **discover_plugins()}
-        for cmd in sorted(all_cmds.keys()):
-            print(f"  {cmd:<12} (run 'tool {cmd} --help' for details)")
+    # --about
+    if global_args.about:
+        print_about()
         sys.exit(0)
 
-    # Command Selection
+    all_commands = {**CORE_COMMANDS, **discover_plugins()}
+
+    # --help handling: print top-level help only when the help flag was
+    # provided at top-level (i.e. before any subcommand) or when the
+    # prefix did not include a token that maps to a subcommand. This keeps
+    # `tool build --help` showing the build help while `tool --help` shows
+    # the main help.
+    if global_args.help and not (remaining and remaining[0].lstrip("-") in all_commands):
+        print_main_help(parser)
+        sys.exit(0)
+
+    # No arguments provided: show help instead of running a command
     if not remaining:
-        default_cmd = session.get('default_command')
-        if default_cmd:
-            remaining = default_cmd.split()
-        else:
-            parser.print_help()
-            sys.exit(0)
+        print_main_help(parser)
+        sys.exit(0)
 
     command = remaining[0]
     cmd_args = remaining[1:]
+
+    # Allow `tool.py --build` or `tool.py -build` to map to the `build` subcommand
+    if command.startswith("-"):
+        stripped = command.lstrip("-")
+        all_commands = {**CORE_COMMANDS, **discover_plugins()}
+        if stripped in all_commands:
+            command = stripped
+        else:
+            Logger.error(f"Unknown command: '{command}'")
+            sys.exit(1)
 
     # Resolve and Execute
     all_commands = {**CORE_COMMANDS, **discover_plugins()}
@@ -129,7 +157,19 @@ def main():
     try:
         module = importlib.import_module(module_path)
         if hasattr(module, "main"):
-            # Sub-commands get only their specific arguments
+            # If the user supplied a help flag in the prefix together with a
+            # `--<command>` token (e.g. `tool --build --help`), move the help
+            # token into the subcommand args so the subcommand shows its help
+            # instead of the top-level help being used.
+            try:
+                prefix_help = any(t in ("-h", "--help") for t in prefix)
+            except Exception:
+                prefix_help = False
+            if global_args.help and prefix_help and (command in all_commands):
+                if not any(a in ("-h", "--help") for a in cmd_args):
+                    cmd_args = ["--help"] + cmd_args
+
+            # Sub-commands get only their specific arguments (like --help or build)
             module.main(cmd_args)
         else:
             Logger.error(f"Module '{module_path}' is missing a main() function.")
@@ -142,6 +182,29 @@ def main():
             import traceback
             traceback.print_exc()
         sys.exit(1)
+
+def print_main_help(parser):
+    parser.print_help()
+    print("\nAvailable Commands:")
+    all_cmds = {**CORE_COMMANDS, **discover_plugins()}
+    for cmd in sorted(all_cmds.keys()):
+        print(f"  {cmd:<12} (run 'tool {cmd} --help' for details)")
+
+def print_about():
+    print("""
+CppCmakeProjectTemplate — Professional C++ Scaffolding & Tooling
+================================================================
+
+A generative, declarative C++ project orchestrator that bridges the gap
+between high-level configuration (tool.toml) and low-level CMake build systems.
+
+Vision: Only 'scripts/' and 'tool.toml' are hand-maintained.
+        Everything else is an artifact.
+
+Author: develooper1994
+License: MIT
+Repository: https://github.com/develooper1994/CppCmakeProjectTemplate
+""")
 
 if __name__ == "__main__":
     main()

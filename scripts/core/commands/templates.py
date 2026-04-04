@@ -33,9 +33,9 @@ TEMPLATES: dict[str, dict] = {
         "config": {
             "project": {
                 "libs": [{"name": "core", "type": "normal", "description": "Core library"}],
-                "apps": [{"name": "main", "description": "Main application", "libs": ["core"]}],
+                "apps": [{"name": "main", "description": "Main application", "deps": ["core"]}],
             },
-            "features": {"unit_tests": True, "fuzz_tests": False, "ci": False, "docs": False},
+            "generate": {"profile": "minimal"},
         },
     },
     "library": {
@@ -48,7 +48,7 @@ TEMPLATES: dict[str, dict] = {
                 ],
                 "apps": [],
             },
-            "features": {"unit_tests": True, "fuzz_tests": True, "ci": True, "docs": True},
+            "generate": {"profile": "library"},
         },
     },
     "application": {
@@ -61,10 +61,10 @@ TEMPLATES: dict[str, dict] = {
                     {"name": "utils", "type": "normal", "description": "Utility functions"},
                 ],
                 "apps": [
-                    {"name": "app", "description": "Main application", "libs": ["core", "utils"]},
+                    {"name": "app", "description": "Main application", "deps": ["core", "utils"]},
                 ],
             },
-            "features": {"unit_tests": True, "fuzz_tests": True, "ci": True, "docs": True},
+            "generate": {"profile": "app"},
         },
     },
     "embedded": {
@@ -77,7 +77,7 @@ TEMPLATES: dict[str, dict] = {
                     {"name": "drivers", "type": "normal", "description": "Device drivers"},
                 ],
                 "apps": [
-                    {"name": "firmware", "description": "Firmware binary", "libs": ["hal", "drivers"]},
+                    {"name": "firmware", "description": "Firmware binary", "deps": ["hal", "drivers"]},
                 ],
             },
             "presets": {
@@ -85,7 +85,7 @@ TEMPLATES: dict[str, dict] = {
                 "arches": ["arm-none-eabi"],
                 "linkages": ["static"],
             },
-            "features": {"unit_tests": True, "fuzz_tests": False, "ci": True, "docs": False},
+            "generate": {"profile": "embedded"},
         },
     },
     "networking": {
@@ -98,11 +98,11 @@ TEMPLATES: dict[str, dict] = {
                     {"name": "protocol", "type": "normal", "description": "Protocol implementation"},
                 ],
                 "apps": [
-                    {"name": "server", "description": "Example server", "libs": ["net_core", "protocol"]},
-                    {"name": "client", "description": "Example client", "libs": ["net_core", "protocol"]},
+                    {"name": "server", "description": "Example server", "deps": ["net_core", "protocol"]},
+                    {"name": "client", "description": "Example client", "deps": ["net_core", "protocol"]},
                 ],
             },
-            "features": {"unit_tests": True, "fuzz_tests": True, "ci": True, "docs": True},
+            "generate": {"profile": "full"},
         },
     },
     "header-only": {
@@ -115,7 +115,7 @@ TEMPLATES: dict[str, dict] = {
                 ],
                 "apps": [],
             },
-            "features": {"unit_tests": True, "fuzz_tests": False, "ci": True, "docs": True},
+            "generate": {"profile": "library"},
         },
     },
     "game-engine": {
@@ -131,12 +131,12 @@ TEMPLATES: dict[str, dict] = {
                 ],
                 "apps": [
                     {"name": "editor", "description": "Level editor",
-                     "libs": ["engine_core", "renderer", "ecs", "assets"]},
+                     "deps": ["engine_core", "renderer", "ecs", "assets"]},
                     {"name": "runtime", "description": "Game runtime",
-                     "libs": ["engine_core", "renderer", "ecs", "assets"]},
+                     "deps": ["engine_core", "renderer", "ecs", "assets"]},
                 ],
             },
-            "features": {"unit_tests": True, "fuzz_tests": False, "ci": True, "docs": True},
+            "generate": {"profile": "full"},
         },
     },
 }
@@ -173,11 +173,12 @@ def _create_from_template(
     from copy import deepcopy
     config = deepcopy(tpl["config"])
     config.setdefault("project", {})["name"] = project_name
-    config["project"].setdefault("profile", tpl["profile"])
+
+    # CORRECT: Profile belongs in [generate], not [project]
+    config.setdefault("generate", {})["profile"] = tpl["profile"]
 
     if dry_run:
         Logger.info("[DRY-RUN] Would generate:")
-        import json
         print(json.dumps(config, indent=2))
         return
 
@@ -210,7 +211,7 @@ def main(argv: list[str]) -> None:
 
     # create
     create = sub.add_parser("create", help="Create project from template")
-    create.add_argument("name", help="Project name")
+    create.add_argument("name", nargs="?", default=None, help="Project name")
     create.add_argument("--template", "-t", default="minimal",
                         choices=list(TEMPLATES.keys()),
                         help="Template to use (default: minimal)")
@@ -224,5 +225,14 @@ def main(argv: list[str]) -> None:
     if args.subcommand == "list" or not args.subcommand:
         _list_templates()
     elif args.subcommand == "create":
-        target = Path(args.target_dir) if args.target_dir else Path(args.name)
-        _create_from_template(args.name, args.template, target, args.dry_run)
+        # If name is not provided but target-dir is, use target-dir's name
+        name = args.name
+        target = Path(args.target_dir) if args.target_dir else (Path(name) if name else Path.cwd())
+        if not name:
+            name = target.name
+
+        if not name or name == ".":
+            Logger.error("Project name required (either as argument or inferred from target-dir)")
+            sys.exit(1)
+
+        _create_from_template(name, args.template, target, args.dry_run)
