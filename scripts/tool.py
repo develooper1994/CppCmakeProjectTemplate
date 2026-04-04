@@ -70,7 +70,7 @@ def main():
     globals.add_argument("--json",    "-j", action="store_true", help="Output results in JSON format")
     globals.add_argument("--yes",     "-y", action="store_true", help="Auto-confirm all prompts")
     globals.add_argument("--dry-run", "-d", action="store_true", help="Preview changes without applying")
-    globals.add_argument("--version",       action="store_true", help="Show tool version")
+    globals.add_argument("--version", "-V", action="store_true", help="Show tool version")
     globals.add_argument("--about",         action="store_true", help="About this project")
     globals.add_argument("--help",    "-h", action="store_true", help="Show this help message")
 
@@ -172,6 +172,35 @@ def main():
             if global_args.help and prefix_help and (command in all_commands):
                 if not any(a in ("-h", "--help") for a in cmd_args):
                     cmd_args = ["--help"] + cmd_args
+
+            # Normalize known global flags that may appear after the command
+            # (e.g. `tool build -v`) so they update GlobalConfig and are
+            # removed before invoking the subcommand parser.
+            _post_flag_map = {
+                "-v": "VERBOSE", "--verbose": "VERBOSE",
+                "-j": "JSON",    "--json": "JSON",
+                "-y": "YES",     "--yes": "YES",
+                "-d": "DRY_RUN", "--dry-run": "DRY_RUN",
+            }
+            normalized = []
+            i = 0
+            while i < len(cmd_args):
+                tok = cmd_args[i]
+                if tok in _post_flag_map:
+                    setattr(GlobalConfig, _post_flag_map[tok], True)
+                    i += 1
+                    continue
+                if tok in ("--version", "-V"):
+                    print(f"Toolset v{GlobalConfig.VERSION}")
+                    sys.exit(0)
+                if tok == "--about":
+                    print_about()
+                    sys.exit(0)
+                normalized.append(tok)
+                i += 1
+            cmd_args = normalized
+            # Re-apply global config so downstream code observes updated flags
+            apply_to_global_config()
 
             # Sub-commands get only their specific arguments (like --help or build)
             module.main(cmd_args)

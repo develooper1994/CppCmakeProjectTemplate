@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import argparse
+from typing import Sequence
+
+from core.utils.common import Logger
 
 from .commands import (
     cmd_build,
@@ -20,13 +23,27 @@ def build_parser() -> argparse.ArgumentParser:
         prog="tool build",
         description="Build system automation",
     )
+    # Expose a quick way to list available build profiles
+    parser.add_argument(
+        "--list-profiles",
+        action="store_true",
+        default=False,
+        help="List available build profiles.",
+    )
     sub = parser.add_subparsers(dest="subcommand")
 
     # build
+
     p = sub.add_parser("build", help="Configure + compile")
     p.add_argument("--preset", default=None)
+    p.add_argument(
+        "--list-profiles",
+        action="store_true",
+        default=False,
+        help="List available build profiles.",
+    )
     p.add_argument("--profile",
-                   choices=["normal", "strict", "hardened", "extreme"],
+                   choices=("normal", "strict", "hardened", "extreme"),
                    default="normal",
                    help="Apply specific build profile (e.g. hardened)")
     p.add_argument("--sanitizers", nargs="+",
@@ -55,9 +72,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     # check
     p = sub.add_parser("check", help="Build + test + extension sync")
+    p.add_argument(
+        "--list-profiles",
+        action="store_true",
+        default=False,
+        help="List available build profiles.",
+    )
     p.add_argument("--preset", default=None)
     p.add_argument("--profile",
-                   choices=["normal", "strict", "hardened", "extreme"],
+                   choices=("normal", "strict", "hardened", "extreme"),
                    default="normal",
                    help="Apply specific build profile (e.g. hardened)")
     p.add_argument("--sanitizers", nargs="+",
@@ -90,6 +113,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("targets", nargs="*")
     p.add_argument("--all", action="store_true")
     p.set_defaults(func=cmd_clean)
+
+    # Allow listing profiles after the subcommand as well
+    # so `tool build build --list-profiles` works.
+    # (We add the same option to the build/check subparsers above.)
 
     # deploy
     p = sub.add_parser("deploy", help="Remote deploy via rsync")
@@ -149,6 +176,12 @@ def main(argv: list[str]) -> None:
 
     # Default subcommand: "build"
     args = parser.parse_args(argv if argv else ["build"])
+    # If the user asked to list profiles, show them and exit.
+    if getattr(args, "list_profiles", False):
+        Logger.info("Available build profiles:")
+        for name in ("normal", "strict", "hardened", "extreme"):
+            Logger.info(f"  {name}")
+        return
     if hasattr(args, "func"):
         args.func(args).exit()
     else:
