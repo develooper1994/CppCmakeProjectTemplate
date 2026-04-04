@@ -40,6 +40,7 @@ CORE_COMMANDS = {
     "completion": "core.commands.completion",
     "adopt":      "core.commands.adopt",
     "plugins":    "core.commands.plugins",
+    "sbom":       "core.commands.sbom",
     "tui":        "tui",  # scripts/tui.py
 }
 

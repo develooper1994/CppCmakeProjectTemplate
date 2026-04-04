@@ -10,6 +10,7 @@ from .commands import (
     cmd_deploy,
     cmd_extension,
     cmd_docker,
+    cmd_watch,
 )
 
 
@@ -111,6 +112,13 @@ def build_parser() -> argparse.ArgumentParser:
                    metavar="ARG", dest="extra_args",
                    help="Extra arguments forwarded to 'tool build build' inside container")
     p.set_defaults(func=cmd_docker)
+
+    # watch
+    p = sub.add_parser("watch", help="Auto-rebuild on source changes")
+    p.add_argument("--preset", default=None, help="CMake preset to use")
+    p.add_argument("--interval", type=float, default=2.0,
+                   help="Poll interval in seconds (default: 2.0)")
+    p.set_defaults(func=cmd_watch)
 
     return parser
 

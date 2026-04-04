@@ -6,6 +6,7 @@ Subcommands:
   lock   — generate lock files for all detected dependency managers
   verify — check that lock files are present and up-to-date
   list   — list dependencies from all manifests
+  update — check for newer dependency versions
 """
 from __future__ import annotations
 
