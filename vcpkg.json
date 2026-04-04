@@ -1,6 +1,6 @@
 {
   "name": "cppcmakeprojecttemplate",
-  "version-string": "1.2.0",
+  "version-string": "1.3.0",
   "builtin-baseline": "c8696863d371ab7f46e213d8f5ca923c4aef2a7",
   "dependencies": [
     {

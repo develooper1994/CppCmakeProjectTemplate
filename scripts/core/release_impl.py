@@ -9,7 +9,7 @@ then applies sane replacements to other files.
 
 Usage examples:
   python3 scripts/release.py bump minor --dry-run
-  python3 scripts/release.py set 1.2.0+0
+    python3 scripts/release.py set 1.3.0+0
   python3 scripts/release.py set-revision 42
   python3 scripts/release.py tag --push
 

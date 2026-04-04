@@ -3,7 +3,7 @@
   "publisher": "develooper1994",
   "displayName": "CppCmake Project Template",
   "description": "Professional C++ CMake Project Generator: Sanitizers, Cross-Platform Presets, Embedded Ready.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "icon": "icons/icon.png",
   "license": "MIT",
   "repository": {
