@@ -33,7 +33,11 @@ class GenerationManifest:
 
     def __init__(self, manifest_path: Path):
         self._path = manifest_path
-        self._data: dict[str, Any] = {"version": self.VERSION, "files": {}}
+        self._data: dict[str, Any] = {
+            "version": self.VERSION,
+            "files": {},
+            "component_hashes": {},
+        }
         self._load()
 
     def _load(self) -> None:
@@ -42,6 +46,8 @@ class GenerationManifest:
                 raw = json.loads(self._path.read_text(encoding="utf-8"))
                 if isinstance(raw, dict) and raw.get("version") == self.VERSION:
                     self._data = raw
+                    # Ensure component_hashes key exists for older manifests
+                    self._data.setdefault("component_hashes", {})
             except (json.JSONDecodeError, OSError):
                 pass
 
@@ -97,3 +103,18 @@ class GenerationManifest:
 
     def remove(self, rel_path: str) -> None:
         self._data["files"].pop(rel_path, None)
+
+    # -- Component-level input hashing for incremental generation ----------
+
+    def get_component_hash(self, component: str) -> str | None:
+        """Return the stored input hash for a component, or None."""
+        return self._data["component_hashes"].get(component)
+
+    def set_component_hash(self, component: str, input_hash: str) -> None:
+        """Store the input hash for a component."""
+        self._data["component_hashes"][component] = input_hash
+
+    def is_component_unchanged(self, component: str, input_hash: str) -> bool:
+        """True if the component's stored input hash matches *input_hash*."""
+        stored = self.get_component_hash(component)
+        return stored is not None and stored == input_hash

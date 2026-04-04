@@ -16,7 +16,7 @@ endif()
 
 project(CppCmakeProjectTemplate
     VERSION ${PROJECT_BASE_VERSION}
-    DESCRIPTION "Professional Modern C++ / CMake Project Template"
+    DESCRIPTION "Professional C++ CMake Project Template"
     LANGUAGES CXX)
 
 # -----------------------------------------------------------------------------
@@ -56,6 +56,11 @@ include(CUDA)
 include(HIP)
 include(SYCL)
 include(Metal)
+include(Reproducibility)
+include(Fuzzing)
+include(CxxModules)
+include(IWYU)
+
 generate_feature_flags()
 
 # INTERFACE library — attach once, all targets inherit FeatureFlags.h

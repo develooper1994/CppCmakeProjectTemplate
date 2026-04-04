@@ -35,9 +35,12 @@ def _gen_root_cmake(ctx: ProjectContext) -> str:
     includes = ""
     for m in priority_modules:
         if m in enabled:
-            includes += f"include({m})\n"
+            if m == "CxxStandard":
+                includes += f"include({m})     # Auto-detect C++ standard — must come first\n"
+            else:
+                includes += f"include({m})\n"
 
-    includes += "\n# Modules\ninclude(FetchContent)\n"
+    includes += "\n# -----------------------------------------------------------------------------\n# Include Modules\n# -----------------------------------------------------------------------------\ninclude(FetchContent)\n"
     for m in ["ProjectOptions", "BuildInfo", "CodeCoverage", "Sanitizers",
               "Hardening", "StaticAnalyzers", "EmbeddedUtils", "FeatureFlags",
               "LTO", "PGO", "BuildCache", "Benchmark", "Allocators",
@@ -59,10 +62,13 @@ cmake_minimum_required(VERSION {cmake_min})
 # -----------------------------------------------------------------------------
 # Project Information
 # -----------------------------------------------------------------------------
+# Read base version from repository `VERSION` file if present. The file may
+# contain a build metadata suffix (e.g. 1.2.3+45); we only use the three-part
+# base version for CMake's `project(... VERSION 1.1.0)` invocation.
 file(READ "${{CMAKE_SOURCE_DIR}}/VERSION" _cmake_version_content OPTIONAL)
 if(DEFINED _cmake_version_content)
     string(STRIP "${{_cmake_version_content}}" _cmake_version_content)
-    string(REGEX MATCH "^[0-9]+\\\\.[0-9]+\\\\.[0-9]+" PROJECT_BASE_VERSION "${{_cmake_version_content}}")
+    string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PROJECT_BASE_VERSION "${{_cmake_version_content}}")
 endif()
 if(NOT PROJECT_BASE_VERSION)
     set(PROJECT_BASE_VERSION "0.0.0")
@@ -77,17 +83,17 @@ project({name}
 # Prevent In-Source Builds
 # -----------------------------------------------------------------------------
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
-    message(FATAL_ERROR "In-source builds are prohibited. Please use a build directory.")
+    message(FATAL_ERROR "In-source builds are prohibited. Please use a build directory (e.g., build/).")
 endif()
 
 # -----------------------------------------------------------------------------
-# Project Configuration & Options
+# Project Configuration & Options (Centralized)
 # -----------------------------------------------------------------------------
 list(APPEND CMAKE_MODULE_PATH "${{PROJECT_SOURCE_DIR}}/cmake")
 {includes}
 generate_feature_flags()
 
-# INTERFACE library — all targets inherit FeatureFlags.h
+# INTERFACE library — attach once, all targets inherit FeatureFlags.h
 add_library(project_feature_flags INTERFACE)
 target_include_directories(project_feature_flags INTERFACE
     $<BUILD_INTERFACE:${{FEATURE_FLAGS_INCLUDE_DIR}}>
@@ -162,7 +168,7 @@ def _gen_tests_root_cmake(ctx: ProjectContext) -> str:
 
     parts = [
         "# tests/CMakeLists.txt",
-        "# Supports: GoogleTest (default), Catch2, Boost.Test, QTest\n",
+        "# Supports: GoogleTest (default), Catch2, Boost.Test, QTest (when ENABLE_QT=ON)\n",
         "include(FetchContent)\n",
     ]
 
@@ -175,11 +181,16 @@ if(ENABLE_GTEST)
         URL_HASH SHA256=7b42b4d6ed48810c5362c265a17faebe90dc2373c885e5216439d37927f02926
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         SYSTEM)
+    # gtest_force_shared_crt is already set in ProjectConfigs.cmake for MSVC
     FetchContent_MakeAvailable(googletest)
     message(STATUS "Test framework: GoogleTest")
+    # Disable static analyzers for googletest targets added via FetchContent
+    # They are third-party sources and should not be checked by the project's
+    # clang-tidy/cppcheck configuration which treats warnings as errors.
     foreach(_gtest_target IN ITEMS gmock gmock_main gtest gtest_main)
         if(TARGET ${_gtest_target})
             set_target_properties(${_gtest_target} PROPERTIES CXX_CLANG_TIDY "")
+            # Per-target CXX_CPPCHECK is supported on newer CMake versions; clear if present.
             set_target_properties(${_gtest_target} PROPERTIES CXX_CPPCHECK "")
         endif()
     endforeach()
@@ -211,7 +222,7 @@ endif()
 """)
 
     parts.append("""\
-# ── QTest ────────────────────────────────────────────────────────────────────
+# ── QTest (automatic when Qt is ON) ─────────────────────────────────────────
 if(ENABLE_QT AND Qt6_FOUND)
     message(STATUS "Test framework: QTest (Qt6)")
 elseif(ENABLE_QT AND Qt5_FOUND)

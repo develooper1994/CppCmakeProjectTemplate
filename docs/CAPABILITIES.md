@@ -53,7 +53,11 @@ This document lists all completed and production-ready features.
 ## Distribution & Template Engine
 
 - **Jinja2 Migration:** Integrated for `libpkg` and `sol` with fallback.
-- **Bootstrap (`tool setup`):** Checks dependencies, `--install` via apt/brew/dnf/pacman. Creates/populates Python venv.
+- **Bootstrap (`tool setup`):** Checks dependencies, `--install` via apt/brew/dnf/pacman/winget/choco. Creates/populates Python venv.
+- **Categorized Dependencies:** 7 categories (critical_build, compiler, installer_tools, python_runtime, python_dev, optional_tools, optional_platform) with per-category check, version validation, and `packages_any` groups (e.g., `tomllib` or `tomli`).
+- **Dependency Check Mode:** `tool setup --check` — full categorized report with ✅/❌/⚠️ status, version info, and `--category` filter for targeted checks.
+- **Environment Auto-Detection:** `tool setup --detect` — detects OS, architecture, package manager, all compilers with versions, and available build features (ccache, sanitizers, coverage, docker, etc.).
+- **Comprehensive Health Check:** `tool sol doctor` — checks all dependency categories, project structure (CMakeLists.txt, tool.toml, CMakePresets.json), and library health in a single command.
 - **Rollback & Recovery:** `Transaction` helper for atomic file operations.
 
 ## Test Strategy & CI
@@ -198,6 +202,24 @@ SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
 | Faz 5: Deps + Hooks | vcpkg.json, conanfile.py, pre-commit, gitleaks config | ✅ |
 | Faz 6: Docker/Docs/Configs | Dockerfiles, docs/, .vscode/, .gitignore, .clang-*, extension/ | ✅ |
 | Faz 7: Unified Command | `tool generate` CLI (--target-dir, --component, --merge) | ✅ |
+| Faz 8: Sources & Zero Diff | All 10 components (ci, cmake-dynamic, cmake-root, cmake-static, cmake-targets, configs, deps, docs, presets, sources) generate with **zero diff** against the actual project | ✅ |
+
+### Generator Component Coverage (10/10 Zero Diff)
+
+Every file outside `scripts/` is now fully reproducible from `tool.toml`:
+
+- **sources:** C++ headers, sources, unit tests, benchmarks, fuzz harnesses, app mains, READMEs, VERSION — with 4 library templates (`exported`, `fuzzable`, `hasher`, `default`) and 4 app patterns (`main_app`, `demo_app`, `extreme_app`, `gui_app`)
+- **cmake-root / cmake-targets:** Root CMakeLists.txt, per-lib/app/test CMakeLists.txt
+- **cmake-static / cmake-dynamic:** 22 static + 2 dynamic cmake modules, toolchains, headers
+- **ci:** GitHub Actions workflows, issue templates
+- **deps:** vcpkg.json, conanfile.py
+- **configs:** .vscode/, .gitignore, .clang-format, .clang-tidy, devcontainer.json, pre-commit
+- **docs:** mkdocs.yml, docs/ pages, root README.md
+- **presets:** CMakePresets.json with full preset matrix
+
+**C++ Template Libraries:** Template-specific C++ code generation — `exported` (get_greeting, export macro, BuildInfo, 544-line compute benchmark), `fuzzable` (process_input → Result, fuzz harness), `hasher` (process_input → uint64_t fingerprinting). New projects get domain-relevant stubs rather than generic boilerplate.
+
+**Benchmark Generation:** Full benchmark scaffolding generated from `tool.toml` — Sieve, Monte Carlo π, Matrix multiply (naive+tiled), Newton-Raphson √, Fibonacci, Sudoku solver, Mandelbrot, 1D/2D Convolution, library greeting baseline.
 | Faz 8: Migration + E2E | 17 E2E tests (fresh gen, idempotency, conflict, manifest) | ✅ |
 | Faz 9: Smoke Test | 14 smoke tests (minimal, full, header-only, profiles, etc.) | ✅ |
 
@@ -242,3 +264,76 @@ SOLID-based restructuring of `scripts/` (~10,500 lines across 53 files).
 - **Comprehensive `build clean --all`:** Removes all build/generated artifacts — `build/`, `build-extreme/`, `build_logs/`, `dist/`, `*.egg-info`, `__pycache__` (recursive), `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `.tool/`, `extension/templates/`, `extension/node_modules/`, `*.vsix`, `conan.lock`. Summary logging of what was removed.
 - **Extension refactor:** VS Code extension `init` command now uses `cppcmake-tool new` CLI instead of copying template files. Removed `_sync_templates()`, `copyDir()`, and all template-copy infrastructure. Extension uses the same Python CLI that the terminal uses.
 - **`.gitignore` gaps fixed:** Added missing entries: `build-extreme/`, `dist/`, `*.egg-info/`, `.tool/`, `conan.lock`.
+
+## Generator Improvements — Phase 9 _(Completed)_
+
+### Incremental Generation
+
+- **Component-level input hashing:** Each generator component's inputs (full config + module source code) are hashed and stored in the manifest.
+- **Automatic skip:** When `incremental=True` (or `generate.incremental = true` in tool.toml), components whose inputs haven't changed since the last run are skipped entirely.
+- **Deterministic hashing:** Uses SHA-256 of canonical JSON config + generator source code for reliable change detection.
+- **5 dedicated tests** validating skip behavior, config-change detection, manifest persistence, and config-flag activation.
+
+### Minimal Seed Mode Proof
+
+- **End-to-end proof:** A minimal `tool.toml` config can bootstrap a complete, self-consistent project with libraries, apps, tests, and CMake presets.
+- **Dependency wiring verified:** Generated CMakeLists.txt files correctly reflect inter-library and app-to-lib dependencies.
+- **Idempotent + incremental:** Seed mode projects can be regenerated idempotently, and incremental mode skips all components when unchanged.
+- **Profile-aware:** Minimal profile generates fewer files than full profile.
+- **5 dedicated E2E tests** covering complete project structure, dependency wiring, idempotency, incremental skip, and profile comparison.
+
+### Cross-Reference Validation (`tool validate`)
+
+- **Lib-to-lib dependency validation:** `_cross_validate()` now checks that library deps reference declared libraries (previously only app deps were checked).
+- **Template name validation:** Validates `template` field against known set: `{default, exported, fuzzable, hasher, normal}`.
+- **Circular dependency detection:** New `_detect_circular_deps()` function using DFS graph coloring (WHITE/GRAY/BLACK) with cycle path reporting.
+
+### Edge Case Test Suite
+
+- **27 new edge case tests** in `test_generator_edge_cases.py` covering: corrupted/missing/wrong-version manifest recovery, hash consistency, file modification detection, invalid/valid template names, undeclared lib deps, circular deps (self-loop, 2-lib, 3-lib), valid DAGs, app dep validation, duplicate lib names, benchmarks without fuzz, underscore names, interface libraries, with+without same feature, invalid profiles, scale test (20 libraries), chained dependency wiring, SKIP/OVERWRITE conflict policies, partial conflicts.
+
+### Quick Fixes
+
+- **Parameterized preset:** `sources.py` now uses `ctx.presets.get("default_preset", ...)` instead of hardcoded `gcc-debug-static-x86_64`.
+- **Specific exception types:** Replaced 5 bare `except Exception` with targeted types across `release.py`, `deps.py`, `security.py`.
+- **CI observability:** `ci.py` now logs a warning when `.github/workflows/` directory is not found.
+
+## Cross-Platform & ROADMAP Phase _(Completed)_
+
+### Cross-Platform Support
+
+- **macOS / AppleClang presets:** `macos-base` and `macos-appleclang-base` hidden presets. AppleClang compiler support restricted to x86_64/arm64/aarch64.
+- **MSVC presets:** Full MSVC compiler support with Windows-native arch mapping and `/MT`/`/MD` selection.
+- **Multi-platform code coverage:** `CodeCoverage.cmake` now supports MSVC (OpenCppCoverage), LLVM (llvm-profdata + llvm-cov), and GCC (lcov + genhtml).
+- **Cross-platform profiling:** macOS: `leaks` for memory analysis, `gtime` or `/usr/bin/time -l` for CPU stats, `xcrun xctrace` hints. Windows: VS Diagnostic Tools / WPA guidance.
+- **Setup plugin:** `winget` and `choco` package manager detection on Windows with full install-command mapping.
+
+### AI Agent Integration
+
+- **AGENTS.md generator component:** New `agents` component in COMPONENT_REGISTRY generates `AGENTS.md`, `.github/copilot-instructions.md`, `.cursorrules`, and `.clinerules` from `tool.toml` metadata.
+- **Profile-aware:** Included in all 5 profiles (full, minimal, library, app, embedded).
+
+### Build Automation
+
+- **Watch Mode (`tool build watch`):** Polling-based auto-rebuild on source changes in `libs/`, `apps/`, `cmake/`. Configurable interval, detects modified/deleted files.
+- **Error Diagnostics (`tool build diagnose`):** Parses compiler/CMake error output and provides human-friendly suggestions (Rust-style). Supports stdin or log file input.
+- **Error Diagnostics CLI (`tool diagnostics`):** Standalone command with `--log`, `--check` for quick build + diagnose.
+
+### Dependency Management
+
+- **SBOM Generation (`tool sbom`):** Software Bill of Materials in SPDX 2.3 and CycloneDX 1.5 JSON formats. Auto-detects dependencies from vcpkg.json, conanfile.py, requirements-dev.txt.
+- **Dependency Update Check (`tool deps update`):** Checks for newer pip packages, lists vcpkg/Conan version pins with upgrade tips. Per-manager filtering via `--managers`.
+
+### WebAssembly
+
+- **Emscripten toolchain:** `cmake/toolchains/wasm32-emscripten.cmake` for WASM builds. Delegates to Emscripten's own CMake toolchain with project defaults. Skip rules for WASM arches in preset generator.
+
+### Generator Architecture
+
+- **Component Dependency Graph:** Components declare dependencies via `COMPONENT_DEPS` dict. Generation order is topologically sorted, with circular dependency detection.
+- **Nix Flake Generation:** `flake.nix` generated via configs component when `nix` feature is enabled. Also available as standalone `tool nix generate`.
+
+### Project Management
+
+- **Migration Wizard (`tool migrate`):** Detects current project state via manifest, identifies drift, offers incremental upgrades with dry-run support.
+- **Templates Gallery (`tool templates`):** Curated starter templates (minimal, library, networking, game-engine, embedded-firmware) selectable via `tool templates list` / `create`.

@@ -437,3 +437,111 @@ def cmd_docker(args: argparse.Namespace) -> CLIResult:
         return CLIResult(success=True, message="Docker build complete.")
     except SystemExit as e:
         return CLIResult(success=(e.code == 0), code=e.code or 1, message="Docker build failed.")
+
+
+# ── Watch mode ────────────────────────────────────────────────────────────────
+
+def _impl_cmd_watch(args) -> None:
+    """Watch source directories and auto-rebuild on changes."""
+    import platform
+    import time
+
+    preset = _choose_preset(getattr(args, "preset", None))
+    interval = getattr(args, "interval", 2)
+
+    watch_dirs = [
+        PROJECT_ROOT / "libs",
+        PROJECT_ROOT / "apps",
+        PROJECT_ROOT / "cmake",
+    ]
+    extensions = {".cpp", ".hpp", ".h", ".cxx", ".cc", ".cmake", ".txt"}
+
+    def _snapshot() -> dict[str, float]:
+        """Get modification times for all watched source files."""
+        snap = {}
+        for d in watch_dirs:
+            if not d.exists():
+                continue
+            for f in d.rglob("*"):
+                if f.is_file() and f.suffix in extensions:
+                    try:
+                        snap[str(f)] = f.stat().st_mtime
+                    except OSError:
+                        pass
+        return snap
+
+    Logger.info(f"👀 Watch mode active (preset: {preset}, interval: {interval}s)")
+    Logger.info(f"   Watching: {', '.join(str(d.relative_to(PROJECT_ROOT)) for d in watch_dirs if d.exists())}")
+    Logger.info("   Press Ctrl+C to stop.\n")
+
+    prev = _snapshot()
+    try:
+        while True:
+            time.sleep(interval)
+            curr = _snapshot()
+            changed = []
+            for path, mtime in curr.items():
+                if path not in prev or prev[path] != mtime:
+                    changed.append(path)
+            for path in prev:
+                if path not in curr:
+                    changed.append(path)  # deleted
+
+            if changed:
+                Logger.info(f"🔄 {len(changed)} file(s) changed:")
+                for c in changed[:5]:
+                    from pathlib import Path as _P
+                    Logger.info(f"   {_P(c).relative_to(PROJECT_ROOT)}")
+                if len(changed) > 5:
+                    Logger.info(f"   ... and {len(changed) - 5} more")
+
+                Logger.info(f"   Rebuilding with preset: {preset}")
+                rc = run_proc(
+                    ["cmake", "--build", "--preset", preset],
+                    check=False,
+                )
+                if rc == 0:
+                    Logger.success("✅ Build succeeded")
+                else:
+                    Logger.error(f"❌ Build failed (exit code {rc})")
+                prev = _snapshot()  # re-snapshot after build
+            else:
+                prev = curr
+    except KeyboardInterrupt:
+        Logger.info("\n👋 Watch mode stopped.")
+
+
+def cmd_watch(args: argparse.Namespace) -> CLIResult:
+    if GlobalConfig.DRY_RUN:
+        Logger.info("[DRY-RUN] Would start watch mode")
+        return CLIResult(success=True, message="[DRY-RUN] watch skipped")
+    try:
+        _impl_cmd_watch(args)
+        return CLIResult(success=True, message="Watch mode stopped.")
+    except SystemExit as e:
+        return CLIResult(success=(e.code == 0), code=e.code or 1, message="Watch failed.")
+
+
+def cmd_diagnose(args: argparse.Namespace) -> CLIResult:
+    """Analyse a build log and print human-friendly diagnostics."""
+    from .diagnostics import analyse_output, format_diagnostics
+
+    logfile = getattr(args, "logfile", None)
+    if logfile:
+        from pathlib import Path
+        p = Path(logfile)
+        if not p.exists():
+            return CLIResult(success=False, code=1, message=f"File not found: {logfile}")
+        text = p.read_text(encoding="utf-8", errors="replace")
+    else:
+        Logger.info("Reading build output from stdin (Ctrl+D to end)...")
+        text = sys.stdin.read()
+
+    diags = analyse_output(text)
+    if not diags:
+        Logger.info("No actionable diagnostics found.")
+        return CLIResult(success=True, message="No diagnostics.")
+
+    output = format_diagnostics(diags)
+    print(output)
+    return CLIResult(success=True, message=f"{len(diags)} diagnostic(s) found.")

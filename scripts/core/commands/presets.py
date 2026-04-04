@@ -172,16 +172,48 @@ def _fallback_parse(toml_path: Path, section: str) -> dict[str, Any]:
 
 def _load_config() -> dict[str, Any]:
     cfg = _load_toml_section(TOOL_TOML, "presets")
-    # Provide safe defaults for every key
+
+    import platform
+
+    # Platform-aware compiler defaults
+    sys_name = platform.system().lower()
+    if "compilers" not in cfg:
+        if sys_name == "windows":
+            compilers = ["msvc", "clang"]
+        elif sys_name == "darwin":
+            compilers = ["appleclang", "gcc", "clang"]
+        else:
+            compilers = ["gcc", "clang"]
+    else:
+        compilers = cfg["compilers"]
+
+    # Platform-aware architecture defaults
+    if "arches" not in cfg:
+        machine = platform.machine().lower()
+        if machine in ("arm64", "aarch64"):
+            arches = ["arm64"]
+        else:
+            arches = ["x86_64"]
+    else:
+        arches = cfg["arches"]
+
+    # Platform-aware default preset
+    if "default_preset" not in cfg:
+        default_compiler = compilers[0] if compilers else "gcc"
+        default_arch = arches[0] if arches else "x86_64"
+        default_preset = f"{default_compiler}-debug-static-{default_arch}"
+    else:
+        default_preset = cfg["default_preset"]
+
     defaults: dict[str, Any] = {
-        "compilers":           ["gcc", "clang"],
+        "compilers":           compilers,
         "build_types":         ["debug", "release", "relwithdebinfo"],
         "linkages":            ["static", "dynamic"],
-        "arches":              ["x86_64"],
+        "arches":              arches,
         "allocators":          ["default"],
         "cmake_minimum_major": 3,
         "cmake_minimum_minor": 25,
-        "default_preset":      "gcc-debug-static-x86_64",
+        "default_preset":      default_preset,
         "cuda_architectures":  "native",
         "generator":           "Ninja",
         "skip_combinations":   [],
@@ -211,6 +243,9 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
             return f"MSVC preset not generated for non-Windows arch '{arch}'"
     if compiler == "msvc" and any(v in name for v in ("sycl", "SYCL")):
         return "SYCL (-fsycl) is not supported by MSVC"
+    if compiler == "appleclang":
+        if arch not in ("x86_64", "x64", "arm64", "aarch64"):
+            return f"AppleClang preset not generated for non-Apple arch '{arch}'"
     if compiler == "cuda" and any(v in name for v in ("sycl", "SYCL")):
         return "SYCL and CUDA use different GPU compute models"
     if "metal" in name.lower() and not any(p in arch for p in ("macos", "darwin", "apple")):
@@ -228,6 +263,13 @@ def _should_skip(compiler: str, build_type: str, linkage: str, arch: str,
     if "mingw" in arch:
         if compiler not in ("gcc", "msvc"):
             return f"MinGW arch '{arch}' only supports gcc compiler"
+
+    # WASM / Emscripten: always static, gcc-base only (emcc wraps clang internally)
+    if "wasm" in arch or "emscripten" in arch:
+        if linkage == "dynamic":
+            return "WASM targets are always static"
+        if compiler not in ("gcc", "clang"):
+            return f"WASM arch '{arch}' uses Emscripten (clang-based); use gcc or clang preset base"
 
     # User-configured patterns  (tool.toml  skip_combinations)
     for pattern in skip_patterns:
@@ -312,6 +354,26 @@ def _base_presets(cfg: dict[str, Any]) -> list[dict[str, Any]]:
                 "CMAKE_CXX_COMPILER": "g++",
                 "ENABLE_CUDA": "ON",
                 "CMAKE_CUDA_ARCHITECTURES": cfg["cuda_architectures"],
+            },
+        },
+        {
+            "name": "macos-base",
+            "hidden": True,
+            "inherits": "base",
+            "generator": generator,
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin",
+            },
+        },
+        {
+            "name": "macos-appleclang-base",
+            "hidden": True,
+            "inherits": "macos-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cc",
+                "CMAKE_CXX_COMPILER": "c++",
             },
         },
         {
@@ -408,6 +470,8 @@ def _make_configure_preset(
         cache_vars["ENABLE_CUDA"] = "ON"
         cache_vars["CMAKE_CUDA_ARCHITECTURES"] = cfg["cuda_architectures"]
         base = "linux-cuda-base"
+    elif compiler == "appleclang":
+        base = "macos-appleclang-base"
     elif compiler == "gcc":
         base = "linux-gcc-base"
     elif compiler == "clang":

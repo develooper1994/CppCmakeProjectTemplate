@@ -1,32 +1,57 @@
-add_library(secure_ops STATIC
-  src/secure_ops.cpp)
+# libs/secure_ops/CMakeLists.txt
 
-include(GenerateExportHeader)
-generate_export_header(secure_ops
-  BASE_NAME SECURE_OPS
-  EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/secure_ops/secure_ops_export.h")
-
-target_include_directories(secure_ops PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
-  $<INSTALL_INTERFACE:include>)
-
-option(ENABLE_FUZZING "Enable fuzz targets for this library" OFF)
-option(ENABLE_AFL "Enable AFL fuzzing for this library (uses afl-clang-fast++)" OFF)
-
-if(ENABLE_FUZZING)
-  # libFuzzer target
-  add_executable(fuzz_secure_ops ${CMAKE_SOURCE_DIR}/tests/fuzz/fuzz_secure_ops.cpp)
-  target_compile_definitions(fuzz_secure_ops PRIVATE FUZZ_LIBFUZZER=1)
-  target_include_directories(fuzz_secure_ops PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  target_link_libraries(fuzz_secure_ops PRIVATE secure_ops)
-  set_target_properties(fuzz_secure_ops PROPERTIES EXCLUDE_FROM_ALL TRUE)
-
-  if(ENABLE_AFL)
-    add_executable(fuzz_secure_ops_afl ${CMAKE_SOURCE_DIR}/tests/fuzz/fuzz_secure_ops.cpp)
-    target_compile_definitions(fuzz_secure_ops_afl PRIVATE FUZZ_AFL=1)
-    target_include_directories(fuzz_secure_ops_afl PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-    target_link_libraries(fuzz_secure_ops_afl PRIVATE secure_ops)
-    set_target_properties(fuzz_secure_ops_afl PROPERTIES EXCLUDE_FROM_ALL TRUE)
-  endif()
+# --- Stand-alone Build Support ---
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    cmake_minimum_required(VERSION 3.25)
+    project(secure_ops LANGUAGES CXX)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
+    include(ProjectConfigs OPTIONAL)
+    include(ProjectOptions OPTIONAL)
+    include(Sanitizers OPTIONAL)
+    include(Fuzzing OPTIONAL)
 endif()
+
+add_library(secure_ops)
+
+target_generate_build_info(secure_ops
+    NAMESPACE secure_ops_info)
+
+target_sources(secure_ops
+    PRIVATE
+        src/secure_ops.cpp
+    PUBLIC
+        FILE_SET HEADERS
+        BASE_DIRS include
+        FILES include/secure_ops/secure_ops.h)
+
+target_include_directories(secure_ops
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+        $<INSTALL_INTERFACE:include>)
+
+set_target_properties(secure_ops PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN 1)
+
+if(ENABLE_COVERAGE)
+    enable_code_coverage(secure_ops)
+endif()
+
+if(COMMAND enable_sanitizers)
+    enable_sanitizers(secure_ops)
+endif()
+
+if(COMMAND enable_hardening)
+    enable_hardening(secure_ops)
+endif()
+
+if(COMMAND set_project_warnings)
+    set_project_warnings(secure_ops)
+endif()
+
+install(TARGETS secure_ops
+    EXPORT secure_ops_Targets
+    FILE_SET HEADERS)
+
+apply_project_analyzers(secure_ops)

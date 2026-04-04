@@ -433,6 +433,71 @@ def _cross_validate(cfg: dict[str, Any], errors: list[str], warnings: list[str])
             else:
                 seen_apps[name] = i
 
+        # Check lib deps reference declared libs
+        for i, lib in enumerate(libs):
+            if not isinstance(lib, dict):
+                continue
+            for dep in lib.get("deps", []):
+                if dep not in lib_names:
+                    errors.append(
+                        f"[[project.libs]][{i}] ({lib.get('name', '?')}): "
+                        f"dep '{dep}' references undeclared library — "
+                        f"known libs: {', '.join(sorted(lib_names)) or '(none)'}"
+                    )
+
+        # Validate template names
+        _VALID_TEMPLATES = {"exported", "fuzzable", "hasher", "default", "normal"}
+        for i, lib in enumerate(libs):
+            if not isinstance(lib, dict):
+                continue
+            tmpl = lib.get("template", "")
+            if tmpl and tmpl not in _VALID_TEMPLATES:
+                errors.append(
+                    f"[[project.libs]][{i}] ({lib.get('name', '?')}): "
+                    f"invalid template '{tmpl}' — "
+                    f"expected one of: {', '.join(sorted(_VALID_TEMPLATES))}"
+                )
+
+        # Detect circular dependencies among libs
+        _detect_circular_deps(libs, lib_names, errors)
+
+
+def _detect_circular_deps(
+    libs: list[Any], lib_names: set[str], errors: list[str]
+) -> None:
+    """Detect circular dependencies among library declarations."""
+    adj: dict[str, list[str]] = {}
+    for lib in libs:
+        if not isinstance(lib, dict) or "name" not in lib:
+            continue
+        name = lib["name"]
+        adj[name] = [d for d in lib.get("deps", []) if d in lib_names]
+
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color: dict[str, int] = {n: WHITE for n in adj}
+
+    def dfs(node: str, path: list[str]) -> bool:
+        color[node] = GRAY
+        path.append(node)
+        for dep in adj.get(node, []):
+            if color.get(dep) == GRAY:
+                cycle_start = path.index(dep)
+                cycle = path[cycle_start:] + [dep]
+                errors.append(
+                    f"circular dependency detected: {' → '.join(cycle)}"
+                )
+                return True
+            if color.get(dep) == WHITE:
+                if dfs(dep, path):
+                    return True
+        path.pop()
+        color[node] = BLACK
+        return False
+
+    for lib_name in adj:
+        if color[lib_name] == WHITE:
+            dfs(lib_name, [])
+
 
 def _type_name(t: type | tuple) -> str:
     if isinstance(t, tuple):

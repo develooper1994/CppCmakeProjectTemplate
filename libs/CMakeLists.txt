@@ -1,5 +1,5 @@
 # libs/CMakeLists.txt
-# This file is programmatically managed. Do not edit manually if you want to use 'tool sol init-skeleton'.
+# Generated — do not edit manually.
 
 add_subdirectory(dummy_lib)
 add_subdirectory(fuzzable)

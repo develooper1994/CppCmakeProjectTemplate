@@ -1,15 +1,31 @@
-add_executable(extreme_app
-  src/main.cpp)
+# apps/extreme_app/CMakeLists.txt
 
-target_include_directories(extreme_app PRIVATE
-  ${CMAKE_SOURCE_DIR}/libs/secure_ops/include)
+add_executable(extreme_app src/main.cpp)
 
-target_link_libraries(extreme_app PRIVATE secure_ops)
+target_link_libraries(extreme_app
+    PRIVATE
+        secure_ops
+        project_feature_flags)
 
 if(COMMAND project_apply_allocator)
-  project_apply_allocator(extreme_app)
+    project_apply_allocator(extreme_app)
 endif()
 
-# Ensure extreme-app is built with project hardening in CI; it should be
-# written to avoid exceptions/RTTI so it passes `extreme` profile.
-set_target_properties(extreme_app PROPERTIES EXCLUDE_FROM_ALL FALSE)
+if(COMMAND set_project_warnings)
+    set_project_warnings(extreme_app)
+endif()
+
+if(COMMAND enable_hardening)
+    enable_hardening(extreme_app)
+endif()
+
+if(COMMAND enable_sanitizers)
+    enable_sanitizers(extreme_app)
+endif()
+
+if(COMMAND add_embedded_binary_outputs)
+    add_embedded_binary_outputs(extreme_app)
+endif()
+
+install(TARGETS extreme_app
+    EXPORT extreme_app_Targets)

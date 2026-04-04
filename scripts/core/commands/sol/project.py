@@ -231,18 +231,49 @@ def _impl_cmd_init_skeleton(args) -> None:
 # ── Doctor ────────────────────────────────────────────────────────────────────
 
 def _impl_cmd_doctor(args) -> None:
-    print("toolsolution doctor: running basic sanity checks")
+    """Comprehensive health check: system tools, compilers, Python packages, project structure."""
+    print("toolsolution doctor: running comprehensive health check\n")
+    errors = 0
+
+    # ── 1. Categorized dependency check (from setup plugin) ─────────────
     try:
-        run_proc(["cmake", "--version"])
-    except SystemExit:
-        print("cmake missing or not working")
-        raise
+        from plugins.setup import check_all_dependencies, print_dependency_report
+        results = check_all_dependencies(verbose=True)
+        dep_errors = print_dependency_report(results)
+        errors += dep_errors
+    except ImportError:
+        # Fallback: basic cmake check
+        print("⚠️  Cannot import setup plugin — running basic check only")
+        try:
+            run_proc(["cmake", "--version"])
+        except SystemExit:
+            print("❌ cmake missing or not working")
+            errors += 1
+
+    # ── 2. Project structure check ──────────────────────────────────────
+    print("\n── Project Structure ──")
+    for required in ["CMakeLists.txt", "tool.toml", "CMakePresets.json"]:
+        p = PROJECT_ROOT / required
+        if p.exists():
+            print(f"  ✅ {required}")
+        else:
+            print(f"  ❌ {required} (missing)")
+            errors += 1
+
+    # ── 3. Library health (delegate to lib doctor) ──────────────────────
+    print("\n── Library Health ──")
     try:
         run_proc([sys.executable, str(PROJECT_ROOT / "scripts" / "tool.py"), "lib", "doctor"])
     except SystemExit:
-        print("lib doctor reported problems")
-        raise
-    print("toolsolution doctor: OK")
+        print("  ⚠️  lib doctor reported problems")
+
+    # ── 4. Summary ──────────────────────────────────────────────────────
+    print()
+    if errors:
+        Logger.error(f"Doctor found {errors} issue(s). Fix them before building.")
+        raise SystemExit(1)
+    else:
+        Logger.success("toolsolution doctor: all checks passed ✅")
 
 
 # ── CMake version ─────────────────────────────────────────────────────────────

@@ -1,0 +1,29 @@
+{
+  "name": "CppCmakeProjectTemplate",
+  "image": "mcr.microsoft.com/devcontainers/cpp:1-ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/cmake:1": {
+      "version": "3.25"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "twxs.cmake",
+        "ms-vscode.cpptools-extension-pack",
+        "GitHub.copilot"
+      ],
+      "settings": {
+        "cmake.configureOnOpen": true,
+        "cmake.buildDirectory": "${workspaceFolder}/build/${buildKitVendor}-${buildType}"
+      }
+    }
+  },
+  "postCreateCommand": "python3 scripts/tool.py setup --install || true",
+  "remoteUser": "vscode"
+}

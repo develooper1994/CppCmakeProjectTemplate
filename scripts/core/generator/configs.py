@@ -163,64 +163,222 @@ means.
 
 def _gen_pyproject(ctx: ProjectContext) -> str:
     slug = _slugify(ctx.name)
+    # Use explicit pyproject_name from tool.toml if set, else derive from slug
+    pyproject_name = getattr(ctx, "pyproject_name", "") or f"{slug}-tool"
     authors = f'authors = [\n  {{ name = "{ctx.author}" }}\n]\n' if ctx.author else "authors = []\n"
-    return f"""[tool.ruff]
+    license_id = str(ctx.license or "MIT").strip() or "MIT"
+    homepage = getattr(ctx, "homepage", "") or ""
+
+    # URLs section
+    urls_section = ""
+    if homepage:
+        urls_section = f'''
+[project.urls]
+Homepage = "{homepage}"
+Repository = "{homepage}"
+Documentation = "{homepage}/tree/main/docs"
+Issues = "{homepage}/issues"
+'''
+
+    return f'''[tool.ruff]
 line-length = 88
-target-version = \"py311\"
-ignore = [\"E402\"]
+target-version = "py311"
+# Ignore imports-not-at-top pattern used by scripts that modify sys.path at runtime
+ignore = ["E402"]
+
+# Exclude common build / virtualenv / cache directories
 exclude = [
-  \"build\",
-  \"build/**\",
-  \".venv\",
-  \".venv/**\",
-  \"build_logs\",
-  \"build_logs/**\",
-  \"extension/templates\",
-  \"extension/*.vsix\",
-  \"__pycache__\",
-  \"**/__pycache__\",
+  "build",
+  "build/**",
+  ".venv",
+  ".venv/**",
+  "build_logs",
+  "build_logs/**",
+  "extension/*.vsix",
+  "__pycache__",
+  "**/__pycache__",
 ]
 
 [tool.ruff.per-file-ignores]
-\"scripts/tui/*\" = [\"E402\"]
+# Allow some TUI files or generated code to keep imports flexible
+"scripts/tui/*" = ["E402"]
 
 [build-system]
-requires = [\"setuptools>=61.0\", \"wheel\"]
-build-backend = \"setuptools.build_meta\"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = \"{slug}-tool\"
-version = \"{ctx.version}\"
-description = \"CLI and quality configuration for {ctx.name}\"
-readme = \"README.md\"
-requires-python = \">=3.10\"
-{authors}dependencies = [
-  \"Jinja2>=3.1\",
-  \"rich>=13.0\",
+name = "{pyproject_name}"
+version = "{ctx.version}"
+description = "Professional C++ CMake project scaffolding and automation CLI"
+readme = "README.md"
+license = "{license_id}"
+requires-python = ">=3.10"
+{authors}keywords = ["cpp", "cmake", "scaffolding", "project-template", "build-automation", "code-generator"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C++",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+  "Jinja2>=3.1",
+  "rich>=13.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1",
+    "build>=1.0",
+    "twine>=4.0",
+]
+tui = [
+    "textual>=0.40",
+]
+{urls_section}
 [project.scripts]
-tool = \"scripts.tool:main\"
+{pyproject_name} = "tool:main"
 
 [tool.pytest.ini_options]
+pythonpath = ["scripts"]
 testpaths = [
-    \"scripts/tests\",
-    \"scripts/core/commands/tests\",
-    \"scripts/core/libpkg/tests\",
-    \"scripts/core/utils/tests\",
+    "scripts/tests",
+    "scripts/core/commands/tests",
+    "scripts/core/libpkg/tests",
+    "scripts/core/utils/tests",
+    "scripts/core/generator/tests",
 ]
-norecursedirs = [\"extension/templates\", \"build\", \".venv\", \"__pycache__\", \"tui\"]
+norecursedirs = ["extension/templates", "build", ".venv", "__pycache__", "tui"]
+# Disable system-level plugins that break headless / CI environments
+addopts = "-p no:qt -p no:xvfb -p no:recording -p no:vcr"
+
+[tool.setuptools]
+py-modules = ["tool", "tui"]
 
 [tool.setuptools.packages.find]
-where = [\"scripts\"]
+where = ["scripts"]
+exclude = ["tests", "tests.*", "*.tests", "*.tests.*"]
 
 [tool.setuptools.package-dir]
-\"\" = \"scripts\"
-"""
+"" = "scripts"
+
+[tool.setuptools.package-data]
+"core.libpkg" = ["templates/*.jinja2"]
+'''
 
 
 def _is_full_profile(ctx: ProjectContext) -> bool:
     return str(getattr(ctx, "profile", "full") or "full").strip().lower() == "full"
+
+
+def _gen_flake_nix(ctx: ProjectContext) -> str:
+    """Generate a Nix flake for reproducible development environments."""
+    name = ctx.name or "CppProject"
+    description = ctx.description or f"{name} — C++ project"
+    cxx_std = ctx.cxx_standard or "17"
+
+    return f'''{{
+  description = "{description}";
+
+  inputs = {{
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  }};
+
+  outputs = {{ self, nixpkgs, flake-utils }}:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${{system}};
+      in {{
+        devShells.default = pkgs.mkShell {{
+          name = "{name}-dev";
+
+          packages = with pkgs; [
+            # Build tools
+            cmake
+            ninja
+            gnumake
+            pkg-config
+
+            # Compilers
+            gcc
+            clang
+
+            # C++ tooling
+            clang-tools          # clang-tidy, clang-format
+            ccache
+            gdb
+            valgrind
+
+            # Testing
+            gtest
+
+            # Python (for tool.py)
+            python3
+            python3Packages.pip
+            python3Packages.pytest
+
+            # Documentation
+            doxygen
+          ];
+
+          shellHook = \'\'
+            echo "🔧 {name} dev environment (Nix)"
+            echo "   C++ standard: {cxx_std}"
+            echo "   Run: python3 scripts/tool.py build"
+          \'\';
+
+          # Environment variables
+          CMAKE_GENERATOR = "Ninja";
+        }};
+
+        packages.default = pkgs.stdenv.mkDerivation {{
+          pname = "{name}";
+          version = "{ctx.version or "0.0.0"}";
+          src = ./.;
+
+          nativeBuildInputs = with pkgs; [ cmake ninja pkg-config ];
+          buildInputs = with pkgs; [ gtest ];
+
+          cmakeFlags = [
+            "-DCMAKE_CXX_STANDARD={cxx_std}"
+          ];
+
+          meta = with pkgs.lib; {{
+            description = "{description}";
+            license = licenses.{_nix_license(ctx.license)};
+          }};
+        }};
+      }});
+}}
+'''
+
+
+def _nix_license(license_id: str) -> str:
+    """Map SPDX license identifier to Nix license attribute name."""
+    mapping = {
+        "MIT": "mit",
+        "Apache-2.0": "asl20",
+        "GPL-2.0": "gpl2Only",
+        "GPL-3.0": "gpl3Only",
+        "LGPL-2.1": "lgpl21",
+        "LGPL-3.0": "lgpl3",
+        "BSD-2-Clause": "bsd2",
+        "BSD-3-Clause": "bsd3",
+        "MPL-2.0": "mpl20",
+        "Unlicense": "unlicense",
+        "ISC": "isc",
+        "Zlib": "zlib",
+    }
+    return mapping.get(license_id, "mit")
 
 
 def _gen_devcontainer(ctx: ProjectContext) -> str:
@@ -309,5 +467,9 @@ def generate_all(ctx: ProjectContext, target_dir: Path) -> dict[str, str]:
     # DevContainer
     if is_feature_enabled(ctx, "devcontainer", default=_is_full_profile(ctx)):
         files[".devcontainer/devcontainer.json"] = _gen_devcontainer(ctx)
+
+    # Nix Flake
+    if is_feature_enabled(ctx, "nix", default=False):
+        files["flake.nix"] = _gen_flake_nix(ctx)
 
     return files

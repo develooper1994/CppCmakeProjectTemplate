@@ -1,12 +1,17 @@
 """Profiling subcommands: valgrind, stat, concurrency, vec."""
 from __future__ import annotations
 
+import platform
 import shutil
 import subprocess
 from pathlib import Path
 
 from core.utils.common import CLIResult, Logger, PROJECT_ROOT, run_capture, run_proc
 from ._helpers import LOGS_DIR, _find_active_build_dir
+
+_IS_LINUX = platform.system() == "Linux"
+_IS_MACOS = platform.system() == "Darwin"
+_IS_WINDOWS = platform.system() == "Windows"
 
 
 def _cmd_valgrind(args) -> CLIResult:
@@ -20,9 +25,17 @@ def _cmd_valgrind(args) -> CLIResult:
 
     valgrind = shutil.which("valgrind")
     if not valgrind:
+        # macOS fallback: use `leaks` for memory leak detection
+        if _IS_MACOS and tool_name == "memcheck":
+            return _cmd_leaks(binary, extra_args)
+        hint = (
+            "Install: sudo apt install valgrind" if _IS_LINUX
+            else "Install: brew install valgrind" if _IS_MACOS
+            else "valgrind is not available on Windows — use Dr. Memory or Visual Studio diagnostics"
+        )
         return CLIResult(
             success=False, code=1,
-            message="valgrind not found. Install: sudo apt install valgrind",
+            message=f"valgrind not found. {hint}",
         )
 
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -75,6 +88,46 @@ def _cmd_valgrind(args) -> CLIResult:
 
 
 # ---------------------------------------------------------------------------
+# macOS leaks fallback (for valgrind memcheck alternative)
+# ---------------------------------------------------------------------------
+
+
+def _cmd_leaks(binary: str, extra_args: list[str] | None = None) -> CLIResult:
+    """Run macOS `leaks` tool as a valgrind memcheck alternative."""
+    extra_args = extra_args or []
+    leaks_tool = shutil.which("leaks")
+    if not leaks_tool:
+        return CLIResult(
+            success=False, code=1,
+            message="macOS 'leaks' tool not found. Install Xcode Command Line Tools.",
+        )
+
+    bin_path = Path(binary)
+    if not bin_path.is_absolute():
+        bin_path = PROJECT_ROOT / binary
+
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    report = LOGS_DIR / "leaks_report.txt"
+
+    # Run binary, then check for leaks using MallocStackLogging
+    env_cmd = ["env", "MallocStackLogging=1"]
+    cmd = env_cmd + [str(bin_path)] + extra_args
+    Logger.info(f"Running with MallocStackLogging: {bin_path.name}")
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+
+    # Now run leaks on the just-finished process (atExit mode)
+    leaks_cmd = [leaks_tool, "--atExit", "--", str(bin_path)] + extra_args
+    Logger.info(f"Running leaks analysis → {report}")
+    result = subprocess.run(leaks_cmd, capture_output=True, text=True)
+    output = result.stdout or result.stderr
+    report.write_text(output, encoding="utf-8")
+    Logger.info(output[:2000])
+
+    rc = result.returncode
+    return CLIResult(success=(rc == 0), code=rc, message=f"leaks exit code {rc}")
+
+
+# ---------------------------------------------------------------------------
 # Linux perf stat / time fallback
 # ---------------------------------------------------------------------------
 
@@ -120,6 +173,24 @@ def _cmd_stat(args) -> CLIResult:
             )
 
         rc = result.returncode
+    elif _IS_MACOS:
+        # macOS: use sample or /usr/bin/time
+        time_bin = shutil.which("gtime") or "/usr/bin/time"
+        Logger.warn("'perf' not available on macOS — using 'time' fallback.")
+        Logger.info("  For detailed profiling, use: xcrun xctrace record --template 'Time Profiler' --launch <binary>")
+        cmd = [time_bin, "-l", str(bin_path)] + extra_args if time_bin == "/usr/bin/time" else [time_bin, "-v", str(bin_path)] + extra_args
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        output = result.stderr or result.stdout
+        Logger.info(output)
+        report = LOGS_DIR / "time_stat.txt"
+        report.write_text(output, encoding="utf-8")
+        Logger.info(f"Report saved → {report}")
+        rc = result.returncode
+    elif _IS_WINDOWS:
+        Logger.warn("'perf' is not available on Windows.")
+        Logger.info("  Use Visual Studio Diagnostic Tools or Windows Performance Analyzer (WPA) instead.")
+        Logger.info("  Or install WSL2 for Linux perf support.")
+        return CLIResult(success=False, code=1, message="perf not available on Windows — use VS diagnostics or WPA")
     else:
         # Fallback: GNU time
         time_bin = shutil.which("time") or "/usr/bin/time"
@@ -149,7 +220,12 @@ def _cmd_concurrency(args) -> CLIResult:
 
     valgrind = shutil.which("valgrind")
     if not valgrind:
-        Logger.warn("valgrind not found. Install: sudo apt install valgrind")
+        hint = (
+            "Install: sudo apt install valgrind" if _IS_LINUX
+            else "Install: brew install valgrind" if _IS_MACOS
+            else "valgrind is not available on Windows — use TSan or Dr. Memory"
+        )
+        Logger.warn(f"valgrind not found. {hint}")
         Logger.info("Alternative: build with TSan via 'tool build --sanitizers tsan'")
         return CLIResult(success=False, code=1, message="valgrind not found")
 

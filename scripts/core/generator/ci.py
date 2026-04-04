@@ -12,6 +12,7 @@ from typing import Any
 
 if __name__ != "__main__":
     from core.generator.engine import ProjectContext, is_feature_enabled
+    from core.utils.common import Logger
 
 
 # Workflow files tracked by the generator
@@ -58,6 +59,8 @@ def generate_all(ctx: ProjectContext, target_dir: Path) -> dict[str, str]:
             if wf.suffix in (".yml", ".yaml") and wf.is_file():
                 rel = f".github/workflows/{wf.name}"
                 files[rel] = wf.read_text(encoding="utf-8")
+    else:
+        Logger.warn("ci: .github/workflows/ not found — no workflows to track")
 
     # Issue templates
     tmpl_dir = root / ".github" / "ISSUE_TEMPLATE"

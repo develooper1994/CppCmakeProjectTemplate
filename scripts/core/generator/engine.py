@@ -6,6 +6,8 @@ and writes files through the manifest/merge system.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import subprocess
 import sys
 import time
@@ -35,6 +37,8 @@ class ProjectContext:
     author: str = ""
     contact: str = ""
     license: str = "MIT"
+    pyproject_name: str = ""
+    homepage: str = ""
     cxx_standard: str = "17"
     cmake_minimum: str = "3.25"
     profile: str = "full"
@@ -215,6 +219,8 @@ def build_context(config: dict[str, Any] | None = None) -> ProjectContext:
         author=author,
         contact=contact,
         license=project.get("license", "MIT"),
+        pyproject_name=project.get("pyproject_name", ""),
+        homepage=project.get("homepage", ""),
         cxx_standard=project.get("cxx_standard", "17"),
         cmake_minimum=project.get("cmake_minimum", "3.25"),
         profile=profile,
@@ -260,6 +266,7 @@ COMPONENT_REGISTRY: dict[str, tuple[str, str]] = {
     "configs": ("core.generator.configs", "generate_all"),
     "presets": ("core.generator.presets", "generate_all"),
     "docs": ("core.generator.docs", "generate_all"),
+    "agents": ("core.generator.agents", "generate_all"),
 }
 
 PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
@@ -273,6 +280,7 @@ PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
         "deps",
         "configs",
         "presets",
+        "agents",
     ),
     "library": (
         "cmake-dynamic",
@@ -283,10 +291,58 @@ PROFILE_COMPONENTS: dict[str, tuple[str, ...]] = {
         "deps",
         "configs",
         "presets",
+        "agents",
     ),
     "app": tuple(COMPONENT_REGISTRY.keys()),
     "embedded": tuple(COMPONENT_REGISTRY.keys()),
 }
+
+
+# Component dependency graph — determines generation order.
+# Each component lists the components it depends on (must run first).
+COMPONENT_DEPS: dict[str, tuple[str, ...]] = {
+    "cmake-dynamic": (),
+    "cmake-static": (),
+    "cmake-root": ("cmake-dynamic", "cmake-static", "cmake-targets"),
+    "cmake-targets": ("cmake-dynamic", "cmake-static"),
+    "sources": ("cmake-targets",),
+    "ci": ("cmake-root", "presets"),
+    "deps": (),
+    "configs": (),
+    "presets": (),
+    "docs": ("cmake-root",),
+    "agents": ("cmake-root",),
+}
+
+
+def _topo_sort(components: list[str]) -> list[str]:
+    """Topologically sort components based on COMPONENT_DEPS.
+
+    Components not in COMPONENT_DEPS are placed at the end.
+    Raises ValueError on circular dependencies.
+    """
+    component_set = set(components)
+    visited: set[str] = set()
+    in_stack: set[str] = set()
+    order: list[str] = []
+
+    def _visit(node: str) -> None:
+        if node in in_stack:
+            raise ValueError(f"Circular dependency detected involving: {node}")
+        if node in visited:
+            return
+        in_stack.add(node)
+        for dep in COMPONENT_DEPS.get(node, ()):
+            if dep in component_set:
+                _visit(dep)
+        in_stack.discard(node)
+        visited.add(node)
+        order.append(node)
+
+    for comp in components:
+        _visit(comp)
+
+    return order
 
 
 def get_profile_components(profile: str) -> list[str]:
@@ -303,6 +359,36 @@ def _load_generator(component: str):
     import importlib
     mod = importlib.import_module(mod_path)
     return getattr(mod, func_name)
+
+
+def _compute_component_input_hash(
+    component: str, raw_config: dict[str, Any]
+) -> str:
+    """Compute a deterministic hash of a component's inputs.
+
+    Combines a canonical serialization of the full config with the
+    generator module's source code so that either a config change or
+    a code change triggers regeneration.
+    """
+    import importlib
+
+    parts: list[str] = []
+
+    # 1. Config hash — canonical JSON of the full config
+    parts.append(json.dumps(raw_config, sort_keys=True, ensure_ascii=False))
+
+    # 2. Generator source hash — detect code changes
+    mod_path, _ = COMPONENT_REGISTRY[component]
+    try:
+        mod = importlib.import_module(mod_path)
+        source_file = getattr(mod, "__file__", None)
+        if source_file and Path(source_file).exists():
+            parts.append(Path(source_file).read_text(encoding="utf-8"))
+    except (ImportError, OSError):
+        parts.append(f"__unresolvable__{component}")
+
+    combined = "\0".join(parts)
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -349,6 +435,7 @@ def generate(
     config: dict[str, Any] | None = None,
     debug: bool = False,
     verbose: bool = False,
+    incremental: bool = False,
 ) -> GenerateResult:
     """Run the generation engine.
 
@@ -360,6 +447,7 @@ def generate(
         config: Optional config dict (overrides reading tool.toml).
         debug: If True, print full tracebacks and per-component timing.
         verbose: If True, print extra progress messages.
+        incremental: If True, skip components whose inputs haven't changed.
 
     Returns:
         GenerateResult with summary of actions taken.
@@ -404,13 +492,33 @@ def generate(
     if not is_feature_enabled(ctx, "ci"):
         to_run = [name for name in to_run if name != "ci"]
 
+    # Topologically sort components by declared dependencies
+    to_run = _topo_sort(to_run)
+
     result = GenerateResult()
+
+    # Read from config for incremental mode (can also be set in tool.toml)
+    incremental = incremental or ctx.generate.get("incremental", False)
+    raw_cfg = config if config is not None else ctx.raw
 
     for comp_name in to_run:
         if comp_name not in COMPONENT_REGISTRY:
             Logger.warn(f"Unknown component: {comp_name}")
             result.errors.append(f"unknown:{comp_name}")
             continue
+
+        # Incremental: skip component if inputs (config + source) unchanged
+        if incremental and not dry_run:
+            input_hash = _compute_component_input_hash(comp_name, raw_cfg)
+            if manifest.is_component_unchanged(comp_name, input_hash):
+                tracked = manifest.list_files(comp_name)
+                result.skipped.extend(tracked)
+                if verbose or debug:
+                    Logger.info(
+                        f"  ⏩ {comp_name}: skipped (inputs unchanged, "
+                        f"{len(tracked)} files)"
+                    )
+                continue
 
         if verbose:
             Logger.info(f"  → generating component: {comp_name}")
@@ -463,6 +571,11 @@ def generate(
                 if debug:
                     traceback.print_exc()
                 result.errors.append(f"{rel_path}:{exc}")
+
+        # Record component input hash for incremental mode
+        if not dry_run:
+            comp_hash = _compute_component_input_hash(comp_name, raw_cfg)
+            manifest.set_component_hash(comp_name, comp_hash)
 
     # Cleanup: remove files from disabled components
     if not dry_run:

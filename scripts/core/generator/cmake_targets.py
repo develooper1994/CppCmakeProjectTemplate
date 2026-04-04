@@ -163,6 +163,10 @@ install(TARGETS {name}
     FILE_SET HEADERS)
 """)
 
+    # Static analyzers
+    if not is_header_only:
+        parts.append(f"apply_project_analyzers({name})\n")
+
     # Benchmarks
     if has_benchmarks:
         parts.append(f"""\
