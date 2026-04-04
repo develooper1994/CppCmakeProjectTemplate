@@ -6,6 +6,15 @@ For completed capabilities, see [CAPABILITIES.md](CAPABILITIES.md).
 
 ## 🔜 Backlog
 
+### User Custom Templates
+
+- **Export project as template:** `tool templates export .` — save current project structure as a reusable template in `~/.config/cppcmake-tool/templates/`.
+- **Import template:** `tool templates import <path-or-url>` — register an external template from a directory or Git repository.
+- **User template gallery:** `tool templates list` shows both built-in and user-defined templates.
+- **Template format:** JSON/TOML manifest (`template.json`) describing name, description, variables, and file mappings.
+- **Use project as seed:** `tool new MyProject --from <path>` — clone an existing project structure as a starting point.
+- Estimated effort: ~200 lines across `templates.py` + new `~/.config/` loader.
+
 ### Performance
 
 - **Hot Reloading:** C++ hot-reloading (LLVM JIT / cr.h) requires significant runtime scaffolding and OS-specific shared library reload. ccache + unity builds already minimize rebuild latency.
