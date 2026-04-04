@@ -170,6 +170,17 @@ See also: [PROJECT_ORCHESTRATION.md](PROJECT_ORCHESTRATION.md)
 
 ---
 
+## Auto-Detected Features
+
+The system automatically detects available compilers, build tools, and environment features (e.g., ccache, sanitizers, docker, etc.).
+To view all auto-detected features and environment summary, run:
+
+```bash
+python3 scripts/tool.py sol doctor --show-auto
+```
+
+---
+
 ## Performance
 
 ```bash

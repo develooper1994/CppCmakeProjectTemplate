@@ -1,4 +1,14 @@
+
 # AGENTS.md — AI Agent Integration Guidelines
+
+> **Canonical Documentation:**
+> For full CLI and feature documentation, see [docs/USAGE.md](docs/USAGE.md) (CLI reference) and [docs/CAPABILITIES.md](docs/CAPABILITIES.md) (completed features). This file covers agent integration and automation notes only.
+
+> **Command Naming:**
+> All command examples use the form `python3 scripts/tool.py <command> <subcommand>`, e.g., `python3 scripts/tool.py nix generate`.
+
+> **Auto-Detection:**
+> Agents should use `python3 scripts/tool.py sol doctor --show-auto` for a full environment summary and to view all auto-detected features.
 
 This document outlines how AI agents should interact with the CppCmakeProjectTemplate tooling.
 

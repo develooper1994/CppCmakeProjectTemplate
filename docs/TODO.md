@@ -19,37 +19,6 @@ The project is fundamentally sound:
 
 ---
 
-## ✅ Completed — MEDIUM Priority
-
-### ~~1. `config_schema.py` — False Validation Warnings~~ ✅
-
-Fixed: Added 4 missing `[doc]` keys, `version`/`description` to `_LIB_KEYS`, `description` to `_APP_KEYS`.
-
-### ~~2. Generator Missing WASM Toolchain Tracking~~ ✅
-
-Fixed: Added `"wasm32-emscripten.cmake"` to `STATIC_TOOLCHAIN_FILES`.
-
-### ~~3. USAGE.md — Incomplete Command Table~~ ✅
-
-Fixed: Added 7 missing commands to overview table, updated section count to "20+", added 6 detailed new sections (SBOM, Diagnostics, Migration, Nix, Templates, Plugins).
-
-### ~~4. Missing Tests for New Commands~~ ✅
-
-Added 80 new tests across 5 files:
-- `test_nix.py` — 13 tests (flake content + CLI)
-- `test_sbom.py` — 17 tests (dependency detection, SPDX, CycloneDX, CLI)
-- `test_diagnostics.py` — 17 tests (10 regex patterns, dedup, formatting, CLI)
-- `test_migrate.py` — 17 tests (manifest, drift detection, upgrade, CLI)
-- `test_templates.py` — 16 tests (data structure, list, create, CLI)
-
----
-
-## ✅ Completed — LOW Priority
-
-### ~~5. AGENTS.md Core Commands List Incomplete~~ ✅
-
-Fixed: Updated the list to include all 23 command modules.
-
 ### 6. Missing Tests for Ancillary Features
 
 | Feature | File | Test Effort |
@@ -85,12 +54,9 @@ These were investigated and found to be working correctly:
 
 If you want to make fast progress, do these in order:
 
-1. [x] Fix `config_schema.py` — add missing keys to `_DOC_KEYS`, `_LIB_KEYS`, `_APP_KEYS` (~15 min)
-2. [x] Add `wasm32-emscripten.cmake` to `STATIC_TOOLCHAIN_FILES` (~2 min)
-3. [x] Update AGENTS.md core commands list (~5 min)
-4. [ ] Update USAGE.md command table + section count (~30 min)
-5. [ ] Write tests for `nix.py` (smallest scope) (~30 min)
-6. [ ] Write tests for remaining 4 commands (~2-3 hours total)
+1. [ ] Update USAGE.md command table + section count (~30 min)
+2. [ ] Write tests for `nix.py` (smallest scope) (~30 min)
+3. [ ] Write tests for remaining 4 commands (~2-3 hours total)
 
 ---
 

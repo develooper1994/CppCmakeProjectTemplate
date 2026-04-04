@@ -1,3 +1,33 @@
+# Recent Completions
+
+The following features and improvements were recently completed (moved from TODO.md):
+
+## 1. `config_schema.py` — False Validation Warnings
+
+Added 4 missing `[doc]` keys, `version`/`description` to `_LIB_KEYS`, `description` to `_APP_KEYS`.
+
+## 2. Generator Missing WASM Toolchain Tracking
+
+Added `wasm32-emscripten.cmake` to `STATIC_TOOLCHAIN_FILES`.
+
+## 3. USAGE.md — Incomplete Command Table
+
+Added 7 missing commands to overview table, updated section count to "20+", added 6 detailed new sections (SBOM, Diagnostics, Migration, Nix, Templates, Plugins).
+
+## 4. Missing Tests for New Commands
+
+Added 80 new tests across 5 files:
+
+- `test_nix.py` — 13 tests (flake content + CLI)
+- `test_sbom.py` — 17 tests (dependency detection, SPDX, CycloneDX, CLI)
+- `test_diagnostics.py` — 17 tests (10 regex patterns, dedup, formatting, CLI)
+- `test_migrate.py` — 17 tests (manifest, drift detection, upgrade, CLI)
+- `test_templates.py` — 16 tests (data structure, list, create, CLI)
+
+## 5. AGENTS.md Core Commands List Incomplete
+
+Updated the list to include all 23 command modules.
+
 # CppCmakeProjectTemplate — Capabilities Reference
 
 This document lists all completed and production-ready features.
@@ -30,6 +60,8 @@ This document lists all completed and production-ready features.
 - **DevContainer Generation:** `.devcontainer/devcontainer.json` auto-generated with Ubuntu 24.04, CMake + Python features, C++ VS Code extensions, and `postCreateCommand` running `tool setup --install`. Gated by `devcontainer` feature flag (enabled in `full` profile).
 
 ## Build System
+
+- **Auto-Detection:** Full environment and feature auto-detection (`sol doctor --show-auto`), including compilers, build tools, and platform features.
 
 - **Modern CMake (3.25+):** Target-based structure, no global flags.
 - **Preset Matrix:** 34 ready presets — Linux, Windows, macOS, Embedded (ARM).

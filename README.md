@@ -28,7 +28,7 @@ The full project README has been split into focused topic pages inside the `docs
 
 If you'd like these pages further split (for example `docs/BUILDING.md` → `docs/VS_CODE.md`, `docs/PRESETS.md`), tell me which area to subdivide next.
 
-This repository's full documentation was long; the complete README has been moved to the `docs/README_FULL.md` file. The short quick-start is below — for all details, examples and the full reference, see the full document.
+This repository's full documentation is split into focused topic pages inside the `docs/` directory. The short quick-start is below — for all details, examples and the full reference, see the full document.
 
 ## Quick Start
 
@@ -53,4 +53,4 @@ python3 scripts/tool.py build check
 ./build/gcc-debug-static-x86_64/apps/main_app/main_app
 ```
 
-Full documentation: [docs/README_FULL.md](docs/README_FULL.md) | Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) | Capabilities: [docs/CAPABILITIES.md](docs/CAPABILITIES.md) | Embedded guide: [docs/EMBEDDED.md](docs/EMBEDDED.md)
+Full documentation: [docs/index.md](docs/index.md) | Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) | Capabilities: [docs/CAPABILITIES.md](docs/CAPABILITIES.md) | Embedded guide: [docs/EMBEDDED.md](docs/EMBEDDED.md)
