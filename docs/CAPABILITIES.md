@@ -264,12 +264,14 @@ Every file outside `scripts/` is now fully reproducible from `tool.toml`:
 ## Generator Improvements — Phase 9 _(Completed)_
 
 ### Incremental Generation
+
 - **Component-level input hashing:** Each generator component's inputs (full config + module source code) are hashed and stored in the manifest.
 - **Automatic skip:** When `incremental=True` (or `generate.incremental = true` in tool.toml), components whose inputs haven't changed since the last run are skipped entirely.
 - **Deterministic hashing:** Uses SHA-256 of canonical JSON config + generator source code for reliable change detection.
 - **5 dedicated tests** validating skip behavior, config-change detection, manifest persistence, and config-flag activation.
 
 ### Minimal Seed Mode Proof
+
 - **End-to-end proof:** A minimal `tool.toml` config can bootstrap a complete, self-consistent project with libraries, apps, tests, and CMake presets.
 - **Dependency wiring verified:** Generated CMakeLists.txt files correctly reflect inter-library and app-to-lib dependencies.
 - **Idempotent + incremental:** Seed mode projects can be regenerated idempotently, and incremental mode skips all components when unchanged.
@@ -277,14 +279,17 @@ Every file outside `scripts/` is now fully reproducible from `tool.toml`:
 - **5 dedicated E2E tests** covering complete project structure, dependency wiring, idempotency, incremental skip, and profile comparison.
 
 ### Cross-Reference Validation (`tool validate`)
+
 - **Lib-to-lib dependency validation:** `_cross_validate()` now checks that library deps reference declared libraries (previously only app deps were checked).
 - **Template name validation:** Validates `template` field against known set: `{default, exported, fuzzable, hasher, normal}`.
 - **Circular dependency detection:** New `_detect_circular_deps()` function using DFS graph coloring (WHITE/GRAY/BLACK) with cycle path reporting.
 
 ### Edge Case Test Suite
+
 - **27 new edge case tests** in `test_generator_edge_cases.py` covering: corrupted/missing/wrong-version manifest recovery, hash consistency, file modification detection, invalid/valid template names, undeclared lib deps, circular deps (self-loop, 2-lib, 3-lib), valid DAGs, app dep validation, duplicate lib names, benchmarks without fuzz, underscore names, interface libraries, with+without same feature, invalid profiles, scale test (20 libraries), chained dependency wiring, SKIP/OVERWRITE conflict policies, partial conflicts.
 
 ### Quick Fixes
+
 - **Parameterized preset:** `sources.py` now uses `ctx.presets.get("default_preset", ...)` instead of hardcoded `gcc-debug-static-x86_64`.
 - **Specific exception types:** Replaced 5 bare `except Exception` with targeted types across `release.py`, `deps.py`, `security.py`.
 - **CI observability:** `ci.py` now logs a warning when `.github/workflows/` directory is not found.
@@ -292,6 +297,7 @@ Every file outside `scripts/` is now fully reproducible from `tool.toml`:
 ## Cross-Platform & ROADMAP Phase _(Completed)_
 
 ### Cross-Platform Support
+
 - **macOS / AppleClang presets:** `macos-base` and `macos-appleclang-base` hidden presets. AppleClang compiler support restricted to x86_64/arm64/aarch64.
 - **MSVC presets:** Full MSVC compiler support with Windows-native arch mapping and `/MT`/`/MD` selection.
 - **Multi-platform code coverage:** `CodeCoverage.cmake` now supports MSVC (OpenCppCoverage), LLVM (llvm-profdata + llvm-cov), and GCC (lcov + genhtml).
@@ -299,25 +305,31 @@ Every file outside `scripts/` is now fully reproducible from `tool.toml`:
 - **Setup plugin:** `winget` and `choco` package manager detection on Windows with full install-command mapping.
 
 ### AI Agent Integration
+
 - **AGENTS.md generator component:** New `agents` component in COMPONENT_REGISTRY generates `AGENTS.md`, `.github/copilot-instructions.md`, `.cursorrules`, and `.clinerules` from `tool.toml` metadata.
 - **Profile-aware:** Included in all 5 profiles (full, minimal, library, app, embedded).
 
 ### Build Automation
+
 - **Watch Mode (`tool build watch`):** Polling-based auto-rebuild on source changes in `libs/`, `apps/`, `cmake/`. Configurable interval, detects modified/deleted files.
 - **Error Diagnostics (`tool build diagnose`):** Parses compiler/CMake error output and provides human-friendly suggestions (Rust-style). Supports stdin or log file input.
 - **Error Diagnostics CLI (`tool diagnostics`):** Standalone command with `--log`, `--check` for quick build + diagnose.
 
 ### Dependency Management
+
 - **SBOM Generation (`tool sbom`):** Software Bill of Materials in SPDX 2.3 and CycloneDX 1.5 JSON formats. Auto-detects dependencies from vcpkg.json, conanfile.py, requirements-dev.txt.
 - **Dependency Update Check (`tool deps update`):** Checks for newer pip packages, lists vcpkg/Conan version pins with upgrade tips. Per-manager filtering via `--managers`.
 
 ### WebAssembly
+
 - **Emscripten toolchain:** `cmake/toolchains/wasm32-emscripten.cmake` for WASM builds. Delegates to Emscripten's own CMake toolchain with project defaults. Skip rules for WASM arches in preset generator.
 
 ### Generator Architecture
+
 - **Component Dependency Graph:** Components declare dependencies via `COMPONENT_DEPS` dict. Generation order is topologically sorted, with circular dependency detection.
 - **Nix Flake Generation:** `flake.nix` generated via configs component when `nix` feature is enabled. Also available as standalone `tool nix generate`.
 
 ### Project Management
+
 - **Migration Wizard (`tool migrate`):** Detects current project state via manifest, identifies drift, offers incremental upgrades with dry-run support.
 - **Templates Gallery (`tool templates`):** Curated starter templates (minimal, library, networking, game-engine, embedded-firmware) selectable via `tool templates list` / `create`.
