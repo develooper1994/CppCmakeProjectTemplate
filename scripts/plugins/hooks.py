@@ -19,7 +19,7 @@ PLUGIN_META = {
 
 
 def find_hook_sources(root: Path) -> list[Path]:
-    candidates = [root / "hooks", root / ".githooks", root / "scripts" / "hooks"]
+    candidates = [root / "hooks", root / ".githooks", root / "scripts" / "hooks", root / "scripts" / "plugins" / "hooks"]
     out = []
     for c in candidates:
         if c.exists() and c.is_dir():
@@ -36,7 +36,7 @@ def main(argv: list[str]) -> None:
 
     sources = find_hook_sources(PROJECT_ROOT)
     if not sources:
-        Logger.info("No hook templates found in hooks/, .githooks/ or scripts/hooks/")
+        Logger.info("No hook templates found in hooks/, .githooks/, scripts/hooks/ or scripts/plugins/hooks/")
         return
 
     if not args.install:
