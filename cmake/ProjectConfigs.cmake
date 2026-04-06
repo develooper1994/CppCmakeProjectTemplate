@@ -18,6 +18,7 @@ option(ENABLE_CLANG_TIDY    "Enable Clang-Tidy static analysis"  OFF)
 option(ENABLE_CPPCHECK      "Enable Cppcheck static analysis"    OFF)
 option(ENABLE_GCC_ANALYZER "Enable GCC -fanalyzer static analysis" OFF)
 option(ENABLE_MSVC_ANALYZE "Enable MSVC /analyze static analysis" OFF)
+option(ENABLE_CLANG_ANALYZER "Enable Clang Static Analyzer (scan-build)" OFF)
 option(ENABLE_FUZZING      "Enable fuzz testing targets"        OFF)
 # NOTE: Valgrind support is planned (ENABLE_VALGRIND). Currently not implemented.
 # When enabled it would wrap ctest runs with valgrind --leak-check=full.
@@ -63,7 +64,7 @@ set(PROJECT_ALL_OPTIONS
     # Sanitizers
     ASAN UBSAN TSAN
     # Analysis / coverage
-    CLANG_TIDY CPPCHECK GCC_ANALYZER MSVC_ANALYZE COVERAGE
+    CLANG_TIDY CPPCHECK CLANG_ANALYZER GCC_ANALYZER MSVC_ANALYZE COVERAGE
     # Performance
     LTO BENCHMARKS VEC_REPORT
     # Parallelization

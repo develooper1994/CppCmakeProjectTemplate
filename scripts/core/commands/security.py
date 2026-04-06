@@ -160,6 +160,47 @@ def _impl_cmd_scan(args) -> None:
                 if not args.force:
                     raise
 
+        # 3. Clang Static Analyzer (scan-build)
+        if getattr(args, 'clang_analyzer', False):
+            # Prefer scan-build wrapper if available
+            if _check_tool("scan-build", "sudo apt install clang-tools", auto_install=args.install):
+                Logger.info("Running Clang Static Analyzer (scan-build)...")
+                try:
+                    # Attempt to auto-detect the most recent build directory
+                    from core.commands.perf._helpers import _find_active_build_dir
+                    build_dir = _find_active_build_dir()
+                except Exception:
+                    build_dir = PROJECT_ROOT / "build"
+
+                out_dir = PROJECT_ROOT / "build" / "build_logs" / "clang_analyzer"
+                out_dir.mkdir(parents=True, exist_ok=True)
+
+                scan_cmd = [
+                    "scan-build",
+                    "-o", str(out_dir),
+                    "--status-bugs",
+                    "--use-cc", "clang",
+                    "--use-c++", "clang++",
+                    "--",
+                    "cmake", "--build", str(build_dir),
+                ]
+
+                try:
+                    rc = run_proc(scan_cmd, check=False)
+                    if rc == 0:
+                        Logger.success("Clang Static Analyzer: Completed (no blocking reports).")
+                    else:
+                        Logger.warn(f"Clang Static Analyzer: Completed with issues. See {out_dir}")
+                        if not args.force:
+                            # continue and let policy enforcement handle failures
+                            pass
+                except SystemExit:
+                    Logger.error("Clang Static Analyzer encountered an error.")
+                    if not args.force:
+                        raise
+            else:
+                Logger.warn("scan-build not found. Install 'scan-build' to run Clang Static Analyzer (or enable clang analyzer via package manager). Skipping.")
+
     # After running scanners, consolidate logs and optionally enforce policy
     try:
         combined = []
@@ -212,6 +253,8 @@ def security_parser() -> argparse.ArgumentParser:
                    help="Output format for scan results (default: text)")
     p.add_argument("--suppressions", default=None, metavar="FILE",
                    help="Path to a suppressions file for cppcheck")
+    p.add_argument("--clang-analyzer", action="store_true",
+                   help="Run Clang Static Analyzer (scan-build) as part of the scan")
     p.add_argument("--cppcheck-jobs", type=int, default=0, metavar="N",
                    help="Cppcheck parallel jobs (0=auto)")
     p.add_argument("--cppcheck-checks", choices=["full", "minimal"], default="full",
