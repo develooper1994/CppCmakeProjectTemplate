@@ -77,8 +77,11 @@ def _parse_ninja_log(ninja_log: Path) -> list[dict]:
 
 def _detect_available_tools() -> dict:
     """Probe for optional analysis tools. Returns {name: path|None}."""
-    tools = ["nm", "size", "objdump", "bloaty", "perf", "valgrind",
-             "hyperfine", "gprof"]
+    tools = [
+        "nm", "size", "objdump", "bloaty", "perf", "valgrind",
+        "hyperfine", "gprof", "uftrace", "stackcollapse-perf.pl", "flamegraph.pl",
+        "bpftrace",
+    ]
     return {t: shutil.which(t) for t in tools}
 
 

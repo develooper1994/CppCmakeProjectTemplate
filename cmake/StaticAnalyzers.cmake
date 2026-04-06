@@ -39,6 +39,33 @@ function(enable_static_analysis)
         endif()
     endif()
 
+        # GCC -fanalyzer support
+        if(ENABLE_GCC_ANALYZER)
+            if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+                # Minimal GCC analyzer flags; keep as a per-target option.
+                set(_gcc_analyzer_flags -fanalyzer)
+                if(WARNING_LEVEL STREQUAL "ERROR" OR ENABLE_WERROR)
+                    list(APPEND _gcc_analyzer_flags -Werror)
+                endif()
+                set(PROJECT_GCC_ANALYZER_FLAGS "${_gcc_analyzer_flags}" PARENT_SCOPE)
+                message(STATUS "[StaticAnalyzers] GCC -fanalyzer enabled")
+            else()
+                message(AUTHOR_WARNING "ENABLE_GCC_ANALYZER set but compiler is not GNU.")
+            endif()
+        endif()
+
+        # MSVC /analyze support
+        if(ENABLE_MSVC_ANALYZE)
+            if(MSVC)
+                # Use /analyze as a per-target compile option
+                set(_msvc_analyze_flags /analyze)
+                set(PROJECT_MSVC_ANALYZE_FLAGS "${_msvc_analyze_flags}" PARENT_SCOPE)
+                message(STATUS "[StaticAnalyzers] MSVC /analyze enabled")
+            else()
+                message(AUTHOR_WARNING "ENABLE_MSVC_ANALYZE set but MSVC is not the active compiler.")
+            endif()
+        endif()
+
     if(ENABLE_CPPCHECK)
         find_program(CPPCHECK_PATH cppcheck)
         if(CPPCHECK_PATH)
@@ -81,6 +108,13 @@ function(apply_project_analyzers tgt)
     endif()
     if(DEFINED PROJECT_CPPCHECK)
         set_target_properties(${tgt} PROPERTIES CXX_CPPCHECK "${PROJECT_CPPCHECK}")
+    endif()
+    # Apply optional compiler-integrated analyzers
+    if(DEFINED PROJECT_GCC_ANALYZER_FLAGS)
+        target_compile_options(${tgt} PRIVATE ${PROJECT_GCC_ANALYZER_FLAGS})
+    endif()
+    if(DEFINED PROJECT_MSVC_ANALYZE_FLAGS)
+        target_compile_options(${tgt} PRIVATE ${PROJECT_MSVC_ANALYZE_FLAGS})
     endif()
 endfunction()
 

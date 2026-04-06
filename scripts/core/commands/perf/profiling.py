@@ -337,3 +337,44 @@ def _cmd_vec(args) -> CLIResult:
         message="Vectorization flags shown above. Rebuild to see report.",
         data={},
     )
+
+
+def _cmd_uftrace(args) -> CLIResult:
+    """Run a binary under uftrace and produce a text report in build_logs."""
+    binary: str | None = getattr(args, "binary", None)
+    extra_args: list[str] = getattr(args, "extra_args", []) or []
+
+    if not binary:
+        return CLIResult(success=False, code=1, message="Specify binary with --binary <path>")
+
+    uftrace = shutil.which("uftrace")
+    if not uftrace:
+        hint = "Install: sudo apt install uftrace (Linux)"
+        return CLIResult(success=False, code=1, message=f"uftrace not found. {hint}")
+
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    bin_path = Path(binary)
+    if not bin_path.is_absolute():
+        bin_path = PROJECT_ROOT / binary
+
+    if not bin_path.exists():
+        return CLIResult(success=False, code=1, message=f"Binary not found: {bin_path}")
+
+    trace_file = LOGS_DIR / "uftrace.uftrace"
+    # Record
+    rec_cmd = [uftrace, "record", "-o", str(trace_file), "--", str(bin_path)] + extra_args
+    Logger.info(f"Recording uftrace → {trace_file}")
+    rc = run_proc(rec_cmd, check=False)
+    if rc != 0:
+        return CLIResult(success=False, code=rc, message=f"uftrace record failed (rc={rc})")
+
+    # Report
+    report_cmd = [uftrace, "report", str(trace_file)]
+    Logger.info("Generating uftrace report...")
+    result = subprocess.run(report_cmd, capture_output=True, text=True)
+    report_path = LOGS_DIR / "uftrace_report.txt"
+    out_text = result.stdout or result.stderr
+    report_path.write_text(out_text, encoding="utf-8")
+    Logger.info(f"uftrace report saved → {report_path}")
+
+    return CLIResult(success=(result.returncode == 0), code=result.returncode, message=f"uftrace exit code {result.returncode}")
