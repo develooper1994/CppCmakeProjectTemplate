@@ -133,6 +133,13 @@ def _impl_cmd_build(args) -> None:
             Logger.warn(f"CAUTION: Sanitizers are enabled for a RELEASE build ({preset}). This is usually not recommended.")
 
     Logger.info(f"Configuring with preset '{preset}'")
+    # Analyzer flags (opt-in via CLI)
+    if getattr(args, "enable_gcc_analyzer", False):
+        extra_args.append("-DENABLE_GCC_ANALYZER=ON")
+        Logger.info("GCC -fanalyzer enabled for this build (opt-in)")
+    if getattr(args, "enable_msvc_analyze", False):
+        extra_args.append("-DENABLE_MSVC_ANALYZE=ON")
+        Logger.info("MSVC /analyze enabled for this build (opt-in)")
     # Write a build configuration summary to disk so CI and humans can inspect
     try:
         def _write_build_summary(profile, preset, sanitizers, extra_args):

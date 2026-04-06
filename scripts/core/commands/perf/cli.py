@@ -6,7 +6,7 @@ import argparse
 from .analysis import _cmd_build_time, _cmd_size, _cmd_size_diff
 from .baseline import _cmd_bench, _cmd_check_budget, _cmd_track
 from .external import _cmd_godbolt, _cmd_graph
-from .profiling import _cmd_concurrency, _cmd_stat, _cmd_valgrind, _cmd_vec
+from .profiling import _cmd_concurrency, _cmd_stat, _cmd_valgrind, _cmd_vec, _cmd_uftrace
 from .tuning import _cmd_hw_recommend, _cmd_promote, _impl_cmd_autotune
 
 
@@ -90,6 +90,12 @@ def perf_parser() -> argparse.ArgumentParser:
     p.add_argument("--record", action="store_true", help="Also run 'perf record' for flame graph data")
     p.add_argument("extra_args", nargs=argparse.REMAINDER, help="Extra args passed to the binary")
     p.set_defaults(func=_cmd_stat)
+
+    # uftrace
+    p = sub.add_parser("uftrace", help="Record and report a uftrace function-level trace")
+    p.add_argument("--binary", required=True, help="Path to binary (relative or absolute)")
+    p.add_argument("extra_args", nargs=argparse.REMAINDER, help="Extra args passed to the binary")
+    p.set_defaults(func=_cmd_uftrace)
 
     # concurrency  (helgrind / DRD thread-safety analysis)
     p = sub.add_parser(

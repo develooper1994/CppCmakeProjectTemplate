@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-from typing import Sequence
 
 from core.utils.common import Logger
 
@@ -68,6 +67,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--allocator", choices=["default", "mimalloc", "jemalloc", "tcmalloc"],
                    default="default",
                    help="Optional allocator backend (default keeps system allocator)")
+    p.add_argument("--enable-gcc-analyzer", action="store_true",
+                   help="Enable GCC -fanalyzer at configure time (-DENABLE_GCC_ANALYZER=ON)")
+    p.add_argument("--enable-msvc-analyze", action="store_true",
+                   help="Enable MSVC /analyze at configure time (-DENABLE_MSVC_ANALYZE=ON)")
     p.set_defaults(func=cmd_build)
 
     # check
@@ -105,6 +108,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--allocator", choices=["default", "mimalloc", "jemalloc", "tcmalloc"],
                    default="default",
                    help="Optional allocator backend (default keeps system allocator)")
+    p.add_argument("--enable-gcc-analyzer", action="store_true",
+                   help="Enable GCC -fanalyzer at configure time (-DENABLE_GCC_ANALYZER=ON)")
+    p.add_argument("--enable-msvc-analyze", action="store_true",
+                   help="Enable MSVC /analyze at configure time (-DENABLE_MSVC_ANALYZE=ON)")
     p.add_argument("--no-sync", action="store_true")
     p.set_defaults(func=cmd_check)
 
