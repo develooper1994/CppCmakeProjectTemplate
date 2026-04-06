@@ -23,13 +23,12 @@ _SCRIPTS = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-import core.init_impl as _impl  # scripts/core/init_impl.py
+import plugins.rename as _mod  # delegate to new rename plugin
 
 
 def main(argv: list[str]) -> None:
     old_argv = sys.argv
-    sys.argv = ["tool init"] + argv
     try:
-        _impl.main()
+        _mod.main(argv)
     finally:
         sys.argv = old_argv
