@@ -14,10 +14,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from core.utils.common import Logger, PROJECT_ROOT, run_proc, CLIResult, run_capture
+from core.utils.common import Logger, PROJECT_ROOT, run_proc, run_capture
 from core.utils.tool_installer import ensure_tool_available
 import tempfile
-import filecmp
 
 
 def _impl_tidy_fix(args) -> None:
@@ -241,7 +240,7 @@ def main(argv: list[str]) -> None:
     if hasattr(args, "func"):
         try:
             args.func(args)
-        except SystemExit as e:
+        except SystemExit:
             raise
     else:
         parser.print_help()
