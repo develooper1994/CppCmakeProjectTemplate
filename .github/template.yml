@@ -7,7 +7,7 @@ post_generate_message: |
    Your new project is ready. To get started:
 
    1. Rename the project:
-      `python3 scripts/tool.py init --name MyNewApp`
+      `python3 scripts/tool.py rename --name MyNewApp`
 
    2. Setup quality guards:
       `python3 scripts/tool.py hooks`

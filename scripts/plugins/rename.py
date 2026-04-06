@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-plugins/init.py — Project rename plugin.
+plugins/rename.py — Project rename plugin.
 
-Usage: tool init --name MyProject [--old-name CppCmakeProjectTemplate]
-Delegates to scripts/init_project.py — no subprocess.
+Usage: tool rename --name MyProject [--old-name CppCmakeProjectTemplate]
+Delegates to scripts/core/init_impl.py — no subprocess.
 """
 from __future__ import annotations
 
 PLUGIN_META = {
-    "name": "init",
+    "name": "rename",
     "description": "Rename the project after cloning (adjusts files and metadata).",
     "args": [
         {"name": "name", "help": "New project name", "type": "string", "required": True},
@@ -23,12 +23,13 @@ _SCRIPTS = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-import plugins.rename as _mod  # delegate to new rename plugin
+import core.init_impl as _impl  # scripts/core/init_impl.py
 
 
 def main(argv: list[str]) -> None:
     old_argv = sys.argv
+    sys.argv = ["tool rename"] + argv
     try:
-        _mod.main(argv)
+        _impl.main()
     finally:
         sys.argv = old_argv

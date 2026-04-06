@@ -59,7 +59,7 @@ python3 scripts/tool.py generate --profile library --explain
 ```bash
 git clone https://github.com/develooper1994/CppCmakeProjectTemplate.git MyProject
 cd MyProject
-python3 scripts/tool.py init --name MyProject
+python3 scripts/tool.py rename --name MyProject
 ```
 
 ## License Selection

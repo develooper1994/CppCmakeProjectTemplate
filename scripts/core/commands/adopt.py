@@ -109,7 +109,7 @@ def _build_config(
         "project": {
             "name": name,
             "version": "0.1.0",
-            "description": f"{name} — initialized with tool init",
+            "description": f"{name} — initialized with tool rename",
         },
         "generate": {
             "profile": "full" if (libs and apps) else ("library" if libs else "app"),
