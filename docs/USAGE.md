@@ -359,7 +359,7 @@ Available templates: `minimal`, `library`, `application`, `embedded`,
 ```bash
 python3 scripts/tool.py hello                       # example plugin
 python3 scripts/tool.py hooks install               # install git hooks
-python3 scripts/tool.py init                        # initialize project
+python3 scripts/tool.py rename                      # initialize project (renamed from init)
 python3 scripts/tool.py publish                     # publish VS Code extension
 python3 scripts/tool.py setup --install             # install dependencies
 python3 scripts/tool.py verify                      # full verification

@@ -2,7 +2,7 @@
 core/generator/wizard.py — Interactive project creation wizard.
 
 Provides a step-by-step prompt-driven flow for ``tool generate --interactive``
-and ``tool init``.  Also usable non-interactively with sensible defaults so
+and ``tool rename``.  Also usable non-interactively with sensible defaults so
 that scripts and CI can call ``Wizard(interactive=False).run()``.
 """
 from __future__ import annotations
