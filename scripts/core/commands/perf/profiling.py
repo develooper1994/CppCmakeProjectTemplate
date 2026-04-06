@@ -6,7 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from core.utils.common import CLIResult, Logger, PROJECT_ROOT, run_capture, run_proc
+from core.utils.common import CLIResult, Logger, PROJECT_ROOT, run_proc
 from ._helpers import LOGS_DIR, _find_active_build_dir
 
 _IS_LINUX = platform.system() == "Linux"
@@ -252,7 +252,7 @@ def _cmd_concurrency(args) -> CLIResult:
     rc = run_proc(cmd, check=False)
 
     msg = f"{tool_name}: {'no issues detected' if rc == 0 else 'issues found — check ' + str(xml_out)}"
-    Logger.info(f"\nNote: TSan (build-time) is often faster. Use 'tool build --sanitizers tsan' for CI.")
+    Logger.info("\nNote: TSan (build-time) is often faster. Use 'tool build --sanitizers tsan' for CI.")
     return CLIResult(success=(rc == 0), code=rc, message=msg)
 
 
@@ -296,9 +296,9 @@ def _cmd_vec(args) -> CLIResult:
         vec_flag = "-fopt-info-vec-missed -fopt-info-vec-optimized"
         Logger.info("Using GCC-style vectorization flags (fallback)")
 
-    Logger.info(f"\nFlags to add to your CMake target:")
+    Logger.info("\nFlags to add to your CMake target:")
     Logger.info(f"  target_compile_options(<target> PRIVATE {vec_flag})")
-    Logger.info(f"\nOr rebuild with environment variable:")
+    Logger.info("\nOr rebuild with environment variable:")
     Logger.info(f"  CXXFLAGS='{vec_flag}' cmake --build {build_dir}")
 
     # Try a direct quick-compile to get vec report

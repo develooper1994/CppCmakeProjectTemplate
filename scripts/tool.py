@@ -9,7 +9,7 @@ import argparse
 import importlib
 import pkgutil
 from pathlib import Path
-from typing import Any, Dict
+from typing import Dict
 
 # Setup paths to ensure internal modules are discoverable
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -17,7 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core.utils.common import Logger, GlobalConfig, load_session
-from core.utils.config_loader import load_tool_config, apply_to_global_config
+from core.utils.config_loader import apply_to_global_config
 
 # Core command mapping
 CORE_COMMANDS = {
@@ -32,6 +32,7 @@ CORE_COMMANDS = {
     "perf":     "core.commands.perf",
     "presets":  "core.commands.presets",
     "release":  "core.commands.release",
+    "analyze":  "core.commands.analyze",
     "security": "core.commands.security",
     "session":  "core.commands.session",
     "sol":      "core.commands.sol",
