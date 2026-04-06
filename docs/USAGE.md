@@ -215,6 +215,22 @@ python3 scripts/tool.py deps lock                  # generate lock files
 python3 scripts/tool.py deps verify                # check staleness
 ```
 
+Additional formatting and analysis helpers:
+
+```bash
+# Run clang-format check across project (list files needing formatting)
+python3 scripts/tool.py format clang-format --check
+
+# Apply clang-format in-place
+python3 scripts/tool.py format clang-format --apply --paths libs apps
+
+# Run cpplint across project (install via --install if missing)
+python3 scripts/tool.py format cpplint --install
+
+# Run analyzers (clazy, clang-tidy, cppcheck). --install attempts to install missing tools
+python3 scripts/tool.py analyze --analyzers clazy,cppcheck --install
+``` 
+
 See also: [CI.md](CI.md)
 
 ---

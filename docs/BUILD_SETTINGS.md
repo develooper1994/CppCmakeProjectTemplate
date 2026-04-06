@@ -97,6 +97,10 @@ cmake --preset gcc-release-static-x86_64 -DENABLE_CUDA=ON \
 |---|---|---|
 | `ENABLE_CLANG_TIDY` | `OFF` | clang-tidy |
 | `ENABLE_CPPCHECK` | `OFF` | cppcheck |
+| `ENABLE_AUTO_ANALYZERS` | `OFF` | Auto-enable analyzers based on active compiler (GCC → -fanalyzer, Clang → clang-tidy/scan-build, MSVC → /analyze). Use `-DENABLE_AUTO_ANALYZERS=ON` to enable. |
+| `ENABLE_GCC_ANALYZER` | `OFF` | GCC analyzer (`-fanalyzer`) per-target flag |
+| `ENABLE_MSVC_ANALYZE` | `OFF` | MSVC `/analyze` per-target flag |
+| `ENABLE_CLANG_ANALYZER` | `OFF` | Clang Static Analyzer (scan-build) wrapper |
 | `ENABLE_COVERAGE` | `OFF` | LCOV/GCOV HTML report |
 
 ```bash
